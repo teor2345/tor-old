@@ -353,25 +353,34 @@ GENERAL OPTIONS
 [[DataDirectory]] **DataDirectory** __DIR__::
     Store working data in DIR (Default: @LOCALSTATEDIR@/lib/tor)
 
-[[FallbackDir]] **FallbackDir** __address__:__port__ orport=__port__ id=__fingerprint__ [weight=__num__]::
+[[FallbackDir]] **FallbackDir** __address__:__port__ orport=__port__ id=__fingerprint__ [weight=__num__] [ipv6=__address__:__orport__]::
     When we're unable to connect to any directory cache for directory info
     (usually because we don't know about any yet) we try a FallbackDir.
     By default, the directory authorities are also FallbackDirs.
+    (See the **DirAuthority** entry for an explanation of each flag.)
 
-[[DirAuthority]] **DirAuthority** [__nickname__] [**flags**] __address__:__port__ __fingerprint__::
+[[DirAuthority]] **DirAuthority** [__nickname__] [**flags**] __address__:__port__ __fingerprint__ [weight=__num__] [orport=__port__] [ipv6=__address__:__orport__]::
     Use a nonstandard authoritative directory server at the provided address
     and port, with the specified key fingerprint. This option can be repeated
     many times, for multiple authoritative directory servers. Flags are
     separated by spaces, and determine what kind of an authority this directory
     is. By default, an authority is not authoritative for any directory style
     or version unless an appropriate flag is given.
-    Tor will use this authority as a bridge authoritative directory if the
-    "bridge" flag is set. If a flag "orport=**port**" is given, Tor will use the
+    Tor will contact the authority at __address__:__port__ (the DirPort) to
+    download directory documents. If the "bridge" flag is set, the authority
+    will be used as a bridge authoritative directory.
+    If a flag "orport=**port**" is given, Tor will use the
     given port when opening encrypted tunnels to the dirserver. If a flag
     "weight=**num**" is given, then the directory server is chosen randomly
-    with probability proportional to that weight (default 1.0). Lastly, if a
+    with probability proportional to that weight (default 1.0). If a
     flag "v3ident=**fp**" is given, the dirserver is a v3 directory authority
-    whose v3 long-term signing key has the fingerprint **fp**. +
+    whose v3 long-term signing key has the fingerprint **fp**. Lastly,
+    if an "ipv6=__address__:__orport__" flag is present, then the directory
+    authority is listening for IPv6 connections on the indicated IPv6 address
+    and OR Port. (If an IPv6 address is supplied, Tor will contact the
+    authority to download directory documents on the IPv6 __address__ and
+    the DirPort, that is, the __port__ given after the authority's
+    __address__.) +
  +
     If no **DirAuthority** line is given, Tor will use the default directory
     authorities. NOTE: this option is intended for setting up a private Tor
