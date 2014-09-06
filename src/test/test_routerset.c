@@ -845,7 +845,8 @@ NS(test_main)(void *arg)
 NS_DECL(addr_policy_result_t, compare_tor_addr_to_addr_policy,
     (const tor_addr_t *addr, uint16_t port, const smartlist_t *policy));
 
-#define MOCK_TOR_ADDR_PTR (tor_addr_t *)0xdeafbead
+static tor_addr_t MOCK_TOR_ADDR;
+#define MOCK_TOR_ADDR_PTR (&MOCK_TOR_ADDR)
 
 static void
 NS(test_main)(void *arg)
@@ -891,8 +892,6 @@ NS(compare_tor_addr_to_addr_policy)(const tor_addr_t *addr, uint16_t port,
 
 NS_DECL(addr_policy_result_t, compare_tor_addr_to_addr_policy,
     (const tor_addr_t *addr, uint16_t port, const smartlist_t *policy));
-
-#define MOCK_TOR_ADDR_PTR (tor_addr_t *)0xdeafbead
 
 static void
 NS(test_main)(void *arg)
@@ -940,8 +939,6 @@ NS(compare_tor_addr_to_addr_policy)(const tor_addr_t *addr, uint16_t port,
 NS_DECL(addr_policy_result_t, compare_tor_addr_to_addr_policy,
     (const tor_addr_t *addr, uint16_t port, const smartlist_t *policy));
 
-#define MOCK_TOR_ADDR_PTR (tor_addr_t *)0xdeafbead
-
 static void
 NS(test_main)(void *arg)
 {
@@ -986,8 +983,6 @@ NS(compare_tor_addr_to_addr_policy)(const tor_addr_t *addr, uint16_t port,
 NS_DECL(addr_policy_result_t, compare_tor_addr_to_addr_policy,
     (const tor_addr_t *addr, uint16_t port, const smartlist_t *policy));
 NS_DECL(int, geoip_get_country_by_addr, (const tor_addr_t *addr));
-
-#define MOCK_TOR_ADDR_PTR (tor_addr_t *)0xdeafbead
 
 static void
 NS(test_main)(void *arg)
@@ -1046,8 +1041,6 @@ NS(geoip_get_country_by_addr)(const tor_addr_t *addr)
 NS_DECL(addr_policy_result_t, compare_tor_addr_to_addr_policy,
     (const tor_addr_t *addr, uint16_t port, const smartlist_t *policy));
 NS_DECL(int, geoip_get_country_by_addr, (const tor_addr_t *addr));
-
-#define MOCK_TOR_ADDR_PTR (tor_addr_t *)0xdeafbead
 
 static void
 NS(test_main)(void *arg)
@@ -1494,8 +1487,9 @@ NS(test_main)(void *arg)
   /* Just recreate list, so we can simply use routerset_free. */
   set->list = smartlist_new();
 
-  done:
-     routerset_free(set);
+ done:
+  routerset_free(set);
+  smartlist_free(out);
 }
 
 #undef NS_SUBMODULE
@@ -1817,8 +1811,8 @@ NS(test_main)(void *arg)
 static void
 NS(test_main)(void *arg)
 {
-  const routerset_t *set;
-  char *s;
+  routerset_t *set = NULL;
+  char *s = NULL;
   (void)arg;
 
   set = NULL;
@@ -1830,12 +1824,14 @@ NS(test_main)(void *arg)
   s = routerset_to_string(set);
   tt_str_op(s, ==, "");
   tor_free(s);
+  routerset_free(set); set = NULL;
 
   set = routerset_new();
   smartlist_add(set->list, tor_strndup("a", 1));
   s = routerset_to_string(set);
   tt_str_op(s, ==, "a");
   tor_free(s);
+  routerset_free(set); set = NULL;
 
   set = routerset_new();
   smartlist_add(set->list, tor_strndup("a", 1));
@@ -1843,12 +1839,11 @@ NS(test_main)(void *arg)
   s = routerset_to_string(set);
   tt_str_op(s, ==, "a,b");
   tor_free(s);
+  routerset_free(set); set = NULL;
 
-  done:
-    if (s)
-      tor_free(s);
-    if (set)
-      routerset_free((routerset_t *)set);
+ done:
+  tor_free(s);
+  routerset_free((routerset_t *)set);
 }
 
 #undef NS_SUBMODULE
@@ -2043,24 +2038,22 @@ NS(test_main)(void *arg)
 void
 NS(smartlist_free)(smartlist_t *s)
 {
-  (void)s;
   CALLED(smartlist_free)++;
+  smartlist_free__real(s);
 }
 
 void
 NS(strmap_free)(strmap_t *map, void (*free_val)(void*))
 {
-  (void)map;
-  (void)free_val;
   CALLED(strmap_free)++;
+  strmap_free__real(map, free_val);
 }
 
 void
 NS(digestmap_free)(digestmap_t *map, void (*free_val)(void*))
 {
-  (void)map;
-  (void)free_val;
   CALLED(digestmap_free)++;
+  digestmap_free__real(map, free_val);
 }
 
 #undef NS_SUBMODULE

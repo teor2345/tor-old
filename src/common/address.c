@@ -324,7 +324,7 @@ tor_addr_is_internal_(const tor_addr_t *addr, int for_listening,
   uint32_t iph4 = 0;
   uint32_t iph6[4];
   sa_family_t v_family;
-  
+
   tor_assert(addr);
   v_family = tor_addr_family(addr);
 

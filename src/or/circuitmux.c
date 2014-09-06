@@ -363,9 +363,9 @@ HT_HEAD(chanid_circid_muxinfo_map, chanid_circid_muxinfo_t);
 /* Emit a bunch of hash table stuff */
 HT_PROTOTYPE(chanid_circid_muxinfo_map, chanid_circid_muxinfo_t, node,
              chanid_circid_entry_hash, chanid_circid_entries_eq);
-HT_GENERATE(chanid_circid_muxinfo_map, chanid_circid_muxinfo_t, node,
-            chanid_circid_entry_hash, chanid_circid_entries_eq, 0.6,
-            malloc, realloc, free);
+HT_GENERATE2(chanid_circid_muxinfo_map, chanid_circid_muxinfo_t, node,
+             chanid_circid_entry_hash, chanid_circid_entries_eq, 0.6,
+             tor_reallocarray_, tor_free_)
 
 /*
  * Circuitmux alloc/free functions
@@ -1126,6 +1126,9 @@ circuitmux_detach_circuit,(circuitmux_t *cmux, circuit_t *circ))
     }
   }
   
+  tor_assert(last_searched_direction == CELL_DIRECTION_OUT
+             || last_searched_direction == CELL_DIRECTION_IN);
+
   tor_assert(last_searched_direction == CELL_DIRECTION_OUT
              || last_searched_direction == CELL_DIRECTION_IN);
 

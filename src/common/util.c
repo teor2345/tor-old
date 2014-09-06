@@ -96,6 +96,10 @@
 #include <sys/wait.h>
 #endif
 
+#ifdef __clang_analyzer__
+#undef MALLOC_ZERO_WORKS
+#endif
+
 /* =====
  * Assertion helper.
  * ===== */
@@ -230,6 +234,13 @@ tor_realloc_(void *ptr, size_t size DMALLOC_PARAMS)
   void *result;
 
   tor_assert(size < SIZE_T_CEILING);
+
+#ifndef MALLOC_ZERO_WORKS
+  /* Some libc mallocs don't work when size==0. Override them. */
+  if (size==0) {
+    size=1;
+  }
+#endif
 
 #ifdef USE_DMALLOC
   result = dmalloc_realloc(file, line, ptr, size, DMALLOC_FUNC_REALLOC, 0);
@@ -1197,9 +1208,14 @@ esc_for_log(const char *s)
     }
   }
 
+  tor_assert(len <= SSIZE_MAX);
+
   result = outp = tor_malloc(len);
   *outp++ = '\"';
   for (cp = s; *cp; ++cp) {
+    /* This assertion should always succeed, since we will write at least
+     * one char here, and two chars for closing quote and nul later */
+    tor_assert((outp-result) < (ssize_t)len-2);
     switch (*cp) {
       case '\\':
       case '\"':
@@ -1223,6 +1239,7 @@ esc_for_log(const char *s)
         if (TOR_ISPRINT(*cp) && ((uint8_t)*cp)<127) {
           *outp++ = *cp;
         } else {
+          tor_assert((outp-result) < (ssize_t)len-4);
           tor_snprintf(outp, 5, "\\%03o", (int)(uint8_t) *cp);
           outp += 4;
         }
@@ -1230,6 +1247,7 @@ esc_for_log(const char *s)
     }
   }
 
+  tor_assert((outp-result) <= (ssize_t)len-2);
   *outp++ = '\"';
   *outp++ = 0;
 
@@ -2346,6 +2364,7 @@ read_file_to_str_until_eof(int fd, size_t max_bytes_to_read, size_t *sz_out)
     pos += r;
   } while (r > 0 && pos < max_bytes_to_read);
 
+  tor_assert(pos < string_max);
   *sz_out = pos;
   string[pos] = '\0';
   return string;

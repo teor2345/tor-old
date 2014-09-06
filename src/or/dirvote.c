@@ -336,7 +336,7 @@ compare_vote_rs(const vote_routerstatus_t *a, const vote_routerstatus_t *b)
   int r;
   tor_assert(a);
   tor_assert(b);
-  
+
   if ((r = fast_memcmp(a->status.identity_digest, b->status.identity_digest,
                   DIGEST_LEN)))
     return r;
