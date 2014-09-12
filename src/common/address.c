@@ -333,6 +333,9 @@ tor_addr_is_internal_(const tor_addr_t *addr, int for_listening,
   } else if (v_family == AF_INET6) {
     if (tor_addr_is_v4(addr)) { /* v4-mapped */
       v_family = AF_INET;
+      // Although clang --analyze shows a null pointer dereference here,
+      // it gets it wrong, due to the analysis stack depth being too low.
+      // For example, a direct call like: *tor_addr_to_in6(addr) works fine.
       iph4 = ntohl(tor_addr_to_in6_addr32(addr)[3]);
     }
   }
@@ -1001,6 +1004,9 @@ tor_addr_compare_masked(const tor_addr_t *addr1, const tor_addr_t *addr2,
     /* One or both addresses are a mapped ipv4 address. */
     uint32_t a1, a2;
     if (family1 == AF_INET6) {
+      // Although clang --analyze shows a null pointer dereference here,
+      // it gets it wrong, due to the analysis stack depth being too low.
+      // For example, a direct call like: *tor_addr_to_in6(addr1) works fine.
       a1 = tor_addr_to_mapped_ipv4h(addr1);
       if (mbits <= 96)
         return 0;
@@ -1009,6 +1015,9 @@ tor_addr_compare_masked(const tor_addr_t *addr1, const tor_addr_t *addr2,
       a1 = tor_addr_to_ipv4h(addr1);
     }
     if (family2 == AF_INET6) {
+      // Although clang --analyze sometimes shows a null pointer dereference here,
+      // it gets it wrong, due to the analysis stack depth being too low.
+      // For example, a direct call like: *tor_addr_to_in6(addr2) works fine.
       a2 = tor_addr_to_mapped_ipv4h(addr2);
     } else {
       a2 = tor_addr_to_ipv4h(addr2);

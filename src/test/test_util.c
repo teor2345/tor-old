@@ -2625,6 +2625,9 @@ test_util_exit_status(void *ptr)
   int n;
 
   (void)ptr;
+  
+  clear_hex_errno(hex_errno);
+  test_streq("", hex_errno);
 
   clear_hex_errno(hex_errno);
   test_streq("", hex_errno);
@@ -2646,6 +2649,21 @@ test_util_exit_status(void *ptr)
   test_streq("FF/-80000000\n", hex_errno);
   test_eq(n, strlen(hex_errno));
   test_eq(n, HEX_ERRNO_SIZE);
+  
+#elif SIZEOF_INT == 8
+  
+  clear_hex_errno(hex_errno);
+  n = format_helper_exit_status(0, 0x7FFFFFFFFFFFFFFF, hex_errno);
+  test_streq("0/7FFFFFFFFFFFFFFF\n", hex_errno);
+  test_eq(n, strlen(hex_errno));
+  
+  clear_hex_errno(hex_errno);
+  n = format_helper_exit_status(0xFF, -0x8000000000000000, hex_errno);
+  test_streq("FF/-8000000000000000\n", hex_errno);
+  test_eq(n, strlen(hex_errno));
+  test_eq(n, HEX_ERRNO_SIZE);
+  
+#endif
 
 #elif SIZEOF_INT == 8
 
@@ -2671,6 +2689,9 @@ test_util_exit_status(void *ptr)
   n = format_helper_exit_status(0x08, -0x242, hex_errno);
   test_streq("8/-242\n", hex_errno);
   test_eq(n, strlen(hex_errno));
+  
+  clear_hex_errno(hex_errno);
+  test_streq("", hex_errno);
 
   clear_hex_errno(hex_errno);
   test_streq("", hex_errno);
@@ -3361,6 +3382,7 @@ test_util_di_ops(void)
 
   /* exhaustively white-box test tor_memeq
    * against each possible (single-byte) bit difference
+<<<<<<< Updated upstream
    * some arithmetic bugs only appear with certain bit patterns */
   {
   uint8_t zz = 0;
@@ -3369,10 +3391,19 @@ test_util_di_ops(void)
   for (i = 0; i < 256; i++) {
     ii = (uint8_t)i;
     test_eq(tor_memeq(&zz, &ii, 1), zz == ii);
+=======
+   * some overflow bugs only appear with certain bit patterns */
+  const uint8_t z = 0;
+  uint8_t ii = 0;
+  for (i = 0; i < 256; i++) {
+    ii = (uint8_t)i;
+    test_eq(tor_memeq(&z, &ii, 1), z == ii);
+>>>>>>> Stashed changes
   }
 
   /* exhaustively white-box test tor_memcmp
    * against each possible single-byte numeric difference
+<<<<<<< Updated upstream
    * some arithmetic bugs only appear with certain bit patterns */
   for (z = 0; z < 256; z++) {
     for (i = 0; i < 256; i++) {
@@ -3382,6 +3413,13 @@ test_util_di_ops(void)
       test_eq(tor_memcmp(&ii, &zz, 1) < 0 ? LT : EQ, ii < zz ? LT : EQ);
     }
   }
+=======
+   * some overflow bugs only appear with certain bit patterns */
+  for (i = 0; i < 256; i++) {
+    ii = (uint8_t)i;
+    test_eq(tor_memcmp(&z, &ii, 1) > 0 ? GT : EQ, z > ii ? GT : EQ);
+    test_eq(tor_memcmp(&ii, &z, 1) < 0 ? LT : EQ, ii < z ? LT : EQ);
+>>>>>>> Stashed changes
   }
 
   tt_int_op(1, ==, safe_mem_is_zero("", 0));
