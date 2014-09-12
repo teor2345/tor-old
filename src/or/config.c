@@ -99,8 +99,6 @@ static config_abbrev_t option_abbrevs_[] = {
   { "PreferTunnelledDirConns", "PreferTunneledDirConns", 0, 0},
   { "BridgeAuthoritativeDirectory", "BridgeAuthoritativeDir", 0, 0},
   { "HashedControlPassword", "__HashedControlSessionPassword", 1, 0},
-  { "StrictEntryNodes", "StrictNodes", 0, 1},
-  { "StrictExitNodes", "StrictNodes", 0, 1},
   { "VirtualAddrNetwork", "VirtualAddrNetworkIPv4", 0, 0},
   { "_UseFilteringSSLBufferevents", "UseFilteringSSLBufferevents", 0, 1},
   { NULL, NULL, 0, 0},
@@ -140,8 +138,8 @@ static config_var_t option_vars_[] = {
   V(AlternateDirAuthority,       LINELIST, NULL),
   OBSOLETE("AlternateHSAuthority"),
   V(AssumeReachable,             BOOL,     "0"),
-  V(AuthDirBadDir,               LINELIST, NULL),
-  V(AuthDirBadDirCCs,            CSV,      ""),
+  OBSOLETE("AuthDirBadDir"),
+  OBSOLETE("AuthDirBadDirCCs"),
   V(AuthDirBadExit,              LINELIST, NULL),
   V(AuthDirBadExitCCs,           CSV,      ""),
   V(AuthDirInvalid,              LINELIST, NULL),
@@ -150,8 +148,8 @@ static config_var_t option_vars_[] = {
   V(AuthDirGuardBWGuarantee,     MEMUNIT,  "2 MB"),
   V(AuthDirReject,               LINELIST, NULL),
   V(AuthDirRejectCCs,            CSV,      ""),
-  V(AuthDirRejectUnlisted,       BOOL,     "0"),
-  V(AuthDirListBadDirs,          BOOL,     "0"),
+  OBSOLETE("AuthDirRejectUnlisted"),
+  OBSOLETE("AuthDirListBadDirs"),
   V(AuthDirListBadExits,         BOOL,     "0"),
   V(AuthDirMaxServersPerAddr,    UINT,     "2"),
   V(AuthDirMaxServersPerAuthAddr,UINT,     "5"),
@@ -317,7 +315,7 @@ static config_var_t option_vars_[] = {
   OBSOLETE("MonthlyAccountingStart"),
   V(MyFamily,                    STRING,   NULL),
   V(NewCircuitPeriod,            INTERVAL, "30 seconds"),
-  VAR("NamingAuthoritativeDirectory",BOOL, NamingAuthoritativeDir, "0"),
+  OBSOLETE("NamingAuthoritativeDirectory"),
   V(NATDListenAddress,           LINELIST, NULL),
   VPORT(NATDPort,                    LINELIST, NULL),
   V(Nickname,                    STRING,   NULL),
@@ -400,6 +398,8 @@ static config_var_t option_vars_[] = {
   V(SocksTimeout,                INTERVAL, "2 minutes"),
   V(SSLKeyLifetime,              INTERVAL, "0"),
   OBSOLETE("StatusFetchPeriod"),
+  OBSOLETE("StrictEntryNodes"),
+  OBSOLETE("StrictExitNodes"),
   V(StrictNodes,                 BOOL,     "0"),
   V(Support022HiddenServices,    AUTOBOOL, "auto"),
   OBSOLETE("SysLog"),
@@ -3187,11 +3187,11 @@ options_validate(or_options_t *old_options, or_options_t *options,
     }
   }
 
-  /* Check if more than one proxy type has been enabled. */
+  /* Check if more than one exclusive proxy type has been enabled. */
   if (!!options->Socks4Proxy + !!options->Socks5Proxy +
-      !!options->HTTPSProxy + !!options->ClientTransportPlugin > 1)
+      !!options->HTTPSProxy > 1)
     REJECT("You have configured more than one proxy type. "
-           "(Socks4Proxy|Socks5Proxy|HTTPSProxy|ClientTransportPlugin)");
+           "(Socks4Proxy|Socks5Proxy|HTTPSProxy)");
 
   /* Check if the proxies will give surprising behavior. */
   if (options->HTTPProxy && !(options->Socks4Proxy ||
@@ -4846,8 +4846,8 @@ parse_client_transport_line(const or_options_t *options,
 
   if (is_managed) { /* managed */
     if (!validate_only && is_useless_proxy) {
-      log_notice(LD_GENERAL, "Pluggable transport proxy (%s) does not provide "
-                 "any needed transports and will not be launched.", line);
+      log_info(LD_GENERAL, "Pluggable transport proxy (%s) does not provide "
+               "any needed transports and will not be launched.", line);
     }
 
     /* If we are not just validating, use the rest of the line as the
@@ -4868,6 +4868,13 @@ parse_client_transport_line(const or_options_t *options,
       pt_kickstart_client_proxy(transport_list, proxy_argv);
     }
   } else { /* external */
+    /* ClientTransportPlugins connecting through a proxy is managed only. */
+    if (options->Socks4Proxy || options->Socks5Proxy || options->HTTPSProxy) {
+      log_warn(LD_CONFIG, "You have configured an external proxy with another "
+                          "proxy type. (Socks4Proxy|Socks5Proxy|HTTPSProxy)");
+      goto err;
+    }
+
     if (smartlist_len(transport_list) != 1) {
       log_warn(LD_CONFIG, "You can't have an external proxy with "
                "more than one transports.");

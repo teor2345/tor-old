@@ -1786,7 +1786,7 @@ write_all(tor_socket_t fd, const char *buf, size_t count, int isSocket)
 {
   size_t written = 0;
   ssize_t result;
-  tor_assert(count < SSIZE_T_MAX);
+  tor_assert(count < SSIZE_MAX);
 
   while (written != count) {
     if (isSocket)
@@ -1811,7 +1811,7 @@ read_all(tor_socket_t fd, char *buf, size_t count, int isSocket)
   size_t numread = 0;
   ssize_t result;
 
-  if (count > SIZE_T_CEILING || count > SSIZE_T_MAX)
+  if (count > SIZE_T_CEILING || count > SSIZE_MAX)
     return -1;
 
   while (numread != count) {
@@ -2837,10 +2837,14 @@ scan_unsigned(const char **bufp, unsigned long *out, int width, int base)
   while (**bufp && (hex?TOR_ISXDIGIT(**bufp):TOR_ISDIGIT(**bufp))
          && scanned_so_far < width) {
     int digit = hex?hex_decode_digit(*(*bufp)++):digit_to_num(*(*bufp)++);
-    unsigned long new_result = result * base + digit;
-    if (new_result < result)
-      return -1; /* over/underflow. */
-    result = new_result;
+    // Check for overflow beforehand, without actually causing any overflow
+    // This preserves functionality on compilers that don't wrap overflow
+    // (i.e. that trap or optimise away overflow)
+    // result * base + digit > ULONG_MAX
+    // result * base > ULONG_MAX - digit
+    if (result > (ULONG_MAX - digit)/base)
+      return -1; /* Processing this digit would overflow */
+    result = result * base + digit;
     ++scanned_so_far;
   }
 
@@ -2875,10 +2879,17 @@ scan_signed(const char **bufp, long *out, int width)
   if (scan_unsigned(bufp, &result, width, 10) < 0)
     return -1;
 
-  if (neg) {
+  if (neg && result > 0) {
     if (result > ((unsigned long)LONG_MAX) + 1)
       return -1; /* Underflow */
-    *out = -(long)result;
+    // Avoid overflow on the cast to signed long when result is LONG_MIN
+    // by subtracting 1 from the unsigned long positive value,
+    // then, after it has been cast to signed and negated,
+    // subtracting the original 1 (the double-subtraction is intentional).
+    // Otherwise, the cast to signed could cause a temporary long
+    // to equal LONG_MAX + 1, which is undefined.
+    // We avoid underflow on the subtraction by treating -0 as positive.
+    *out = (-(long)(result - 1)) - 1;
   } else {
     if (result > LONG_MAX)
       return -1; /* Overflow */
@@ -3577,7 +3588,13 @@ format_helper_exit_status(unsigned char child_state, int saved_errno,
 
   /* Convert errno to be unsigned for hex conversion */
   if (saved_errno < 0) {
-    unsigned_errno = (unsigned int) -saved_errno;
+    // Avoid overflow on the cast to unsigned int when result is INT_MIN
+    // by adding 1 to the signed int negative value,
+    // then, after it has been negated and cast to unsigned,
+    // adding the original 1 back (the double-addition is intentional).
+    // Otherwise, the cast to signed could cause a temporary int
+    // to equal INT_MAX + 1, which is undefined.
+    unsigned_errno = ((unsigned int) -(saved_errno + 1)) + 1;
   } else {
     unsigned_errno = (unsigned int) saved_errno;
   }
@@ -4409,7 +4426,7 @@ tor_read_all_handle(HANDLE h, char *buf, size_t count,
   DWORD byte_count;
   BOOL process_exited = FALSE;
 
-  if (count > SIZE_T_CEILING || count > SSIZE_T_MAX)
+  if (count > SIZE_T_CEILING || count > SSIZE_MAX)
     return -1;
 
   while (numread != count) {
@@ -4475,7 +4492,7 @@ tor_read_all_handle(FILE *h, char *buf, size_t count,
   if (eof)
     *eof = 0;
 
-  if (count > SIZE_T_CEILING || count > SSIZE_T_MAX)
+  if (count > SIZE_T_CEILING || count > SSIZE_MAX)
     return -1;
 
   while (numread != count) {

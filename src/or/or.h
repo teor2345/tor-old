@@ -1737,8 +1737,9 @@ typedef struct dir_connection_t {
 typedef struct control_connection_t {
   connection_t base_;
 
-  uint32_t event_mask; /**< Bitfield: which events does this controller
-                        * care about? */
+  uint64_t event_mask; /**< Bitfield: which events does this controller
+                        * care about?
+                        * EVENT_MAX_ is >31, so we need a 64 bit mask */
 
   /** True if we have sent a protocolinfo reply on this connection. */
   unsigned int have_sent_protocolinfo:1;
@@ -2138,8 +2139,6 @@ typedef struct routerstatus_t {
                                      * choice as an entry guard. */
   unsigned int is_bad_exit:1; /**< True iff this node is a bad choice for
                                * an exit node. */
-  unsigned int is_bad_directory:1; /**< Do we think this directory is junky,
-                                    * underpowered, or otherwise useless? */
   unsigned int is_hs_dir:1; /**< True iff this router is a v2-or-later hidden
                              * service directory. */
   /** True iff we know version info for this router. (i.e., a "v" entry was
@@ -2299,8 +2298,6 @@ typedef struct node_t {
   unsigned int is_exit:1; /**< Do we think this is an OK exit? */
   unsigned int is_bad_exit:1; /**< Do we think this exit is censored, borked,
                                * or otherwise nasty? */
-  unsigned int is_bad_directory:1; /**< Do we think this directory is junky,
-                                    * underpowered, or otherwise useless? */
   unsigned int is_hs_dir:1; /**< True iff this router is a hidden service
                              * directory according to the authorities. */
 
@@ -3532,8 +3529,6 @@ typedef struct {
   int AuthoritativeDir; /**< Boolean: is this an authoritative directory? */
   int V3AuthoritativeDir; /**< Boolean: is this an authoritative directory
                            * for version 3 directories? */
-  int NamingAuthoritativeDir; /**< Boolean: is this an authoritative directory
-                               * that's willing to bind names? */
   int VersioningAuthoritativeDir; /**< Boolean: is this an authoritative
                                    * directory that's willing to recommend
                                    * versions? */
@@ -3743,8 +3738,6 @@ typedef struct {
   config_line_t *NodeFamilies; /**< List of config lines for
                                 * node families */
   smartlist_t *NodeFamilySets; /**< List of parsed NodeFamilies values. */
-  config_line_t *AuthDirBadDir; /**< Address policy for descriptors to
-                                 * mark as bad dir mirrors. */
   config_line_t *AuthDirBadExit; /**< Address policy for descriptors to
                                   * mark as bad exits. */
   config_line_t *AuthDirReject; /**< Address policy for descriptors to
@@ -3753,23 +3746,18 @@ typedef struct {
                                   * never mark as valid. */
   /** @name AuthDir...CC
    *
-   * Lists of country codes to mark as BadDir, BadExit, or Invalid, or to
+   * Lists of country codes to mark as BadExit, or Invalid, or to
    * reject entirely.
    *
    * @{
    */
-  smartlist_t *AuthDirBadDirCCs;
   smartlist_t *AuthDirBadExitCCs;
   smartlist_t *AuthDirInvalidCCs;
   smartlist_t *AuthDirRejectCCs;
   /**@}*/
 
-  int AuthDirListBadDirs; /**< True iff we should list bad dirs,
-                           * and vote for all other dir mirrors as good. */
   int AuthDirListBadExits; /**< True iff we should list bad exits,
                             * and vote for all other exits as good. */
-  int AuthDirRejectUnlisted; /**< Boolean: do we reject all routers that
-                              * aren't named in our fingerprint file? */
   int AuthDirMaxServersPerAddr; /**< Do not permit more than this
                                  * number of servers per IP address. */
   int AuthDirMaxServersPerAuthAddr; /**< Do not permit more than this
