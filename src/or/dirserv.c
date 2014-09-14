@@ -664,7 +664,7 @@ directory_remove_invalid(void)
   smartlist_add_all(nodes, nodelist_get_list());
 
   SMARTLIST_FOREACH_BEGIN(nodes, node_t *, node) {
-    const char *msg;
+    const char *msg = NULL;
     routerinfo_t *ent = node->ri;
     char description[NODE_DESC_BUF_LEN];
     uint32_t r;
@@ -2167,12 +2167,19 @@ set_routerstatus_from_routerinfo(routerstatus_t *rs,
     rs->ipv6_orport = ri->ipv6_orport;
   }
 
-  /* Iff we are in a testing network, use TestingDirAuthVoteGuard to
+  /* Iff we are in a testing network, use TestingDirAuthVoteExit to
+     give out Exit flags, and TestingDirAuthVoteGuard to
      give out Guard flags. */
-  if (options->TestingTorNetwork &&
-      routerset_contains_routerstatus(options->TestingDirAuthVoteGuard,
+  if (options->TestingTorNetwork) {
+    if (routerset_contains_routerstatus(options->TestingDirAuthVoteExit,
+                                        rs, 0)) {
+      rs->is_exit = 1;
+    }
+
+    if (routerset_contains_routerstatus(options->TestingDirAuthVoteGuard,
                                       rs, 0)) {
-    rs->is_possible_guard = 1;
+      rs->is_possible_guard = 1;
+    }
   }
 }
 
