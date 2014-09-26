@@ -153,6 +153,9 @@ AC_ARG_ENABLE(tool-name-check,
 AC_ARG_ENABLE(seccomp,
      AS_HELP_STRING(--disable-seccomp, do not attempt to use libseccomp))
 
+AC_ARG_ENABLE(libscrypt,
+     AS_HELP_STRING(--disable-libscrypt, do not attempt to use libscrypt))
+
 dnl check for the correct "ar" when cross-compiling
 AN_MAKEVAR([AR], [AC_PROG_AR])
 AN_PROGRAM([ar], [AC_PROG_AR])
@@ -604,11 +607,12 @@ if test x$enable_gcc_hardening != xno; then
     TOR_CHECK_CFLAGS(-fstack-protector-all, also_link)
     AS_VAR_PUSHDEF([can_compile], [tor_cv_cflags_-fstack-protector-all])
     AS_VAR_PUSHDEF([can_link], [tor_can_link_-fstack-protector-all])
+m4_ifdef([AS_VAR_IF],[
     AS_VAR_IF(can_compile, [yes],
         AS_VAR_IF(can_link, [yes],
                   [],
                   AC_MSG_ERROR([We tried to build with stack protection; it looks like your compiler supports it but your libc does not provide it. Are you missing libssp? (You can --disable-gcc-hardening to ignore this error.)]))
-        )
+        )])
     AS_VAR_POPDEF([can_link])
     AS_VAR_POPDEF([can_compile])
     TOR_CHECK_CFLAGS(-Wstack-protector)
@@ -719,6 +723,14 @@ dnl Check for libseccomp
 if test "x$enable_seccomp" != "xno"; then
   AC_CHECK_HEADERS([seccomp.h])
   AC_SEARCH_LIBS(seccomp_init, [seccomp])
+fi
+
+dnl ============================================================
+dnl Check for libscrypt
+
+if test "x$enable_libscrypt" != "xno"; then
+  AC_CHECK_HEADERS([libscrypt.h])
+  AC_SEARCH_LIBS(libscrypt_scrypt, [scrypt])
 fi
 
 dnl ============================================================

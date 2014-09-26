@@ -14,7 +14,7 @@
 
 #include "orconfig.h"
 
-#ifdef __COVERITY__
+#if defined(__clang_analyzer__) || defined(__COVERITY__)
 /* If we're building for a static analysis, turn on all the off-by-default
  * features. */
 #ifndef INSTRUMENT_DOWNLOADS
@@ -2149,9 +2149,6 @@ typedef struct routerstatus_t {
   /** True iff this router is a version that, if it caches directory info,
    * we can get microdescriptors from. */
   unsigned int version_supports_microdesc_cache:1;
-  /** True iff this router is a version that allows DATA cells to arrive on
-   * a stream before it has sent a CONNECTED cell. */
-  unsigned int version_supports_optimistic_data:1;
   /** True iff this router has a version that allows it to accept EXTEND2
    * cells */
   unsigned int version_supports_extend2_cells:1;
@@ -3910,8 +3907,11 @@ typedef struct {
    * instead of a hostname. */
   int WarnUnsafeSocks;
 
-  /** If true, the user wants us to collect statistics on clients
+  /** If true, we're configured to collect statistics on clients
    * requesting network statuses from us as directory. */
+  int DirReqStatistics_option;
+  /** Internal variable to remember whether we're actually acting on
+   * DirReqStatistics_option -- yes if it's set and we're a server, else no. */
   int DirReqStatistics;
 
   /** If true, the user wants us to collect statistics on port usage. */

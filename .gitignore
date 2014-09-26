@@ -138,6 +138,10 @@ cscope.*
 /src/config/torrc.sample
 /src/config/torrc.minimal
 
+# /src/ext/
+/src/ext/ed25519/ref10/libed25519_ref10.a
+/src/ext/ed25519/ref10/libed25519_ref10.lib
+
 # /src/or/
 /src/or/Makefile
 /src/or/Makefile.in
@@ -173,6 +177,10 @@ cscope.*
 /src/tools/tor-gencert.exe
 /src/tools/Makefile
 /src/tools/Makefile.in
+
+# /src/trunnel/
+/src/trunnel/libor-trunnel-testing.a
+/src/trunnel/libor-trunnel.a
 
 # /src/tools/tor-fw-helper/
 /src/tools/tor-fw-helper/tor-fw-helper

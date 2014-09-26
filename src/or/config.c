@@ -125,7 +125,6 @@ static config_abbrev_t option_abbrevs_[] = {
  * be chosen first.
  */
 static config_var_t option_vars_[] = {
-  OBSOLETE("AccountingMaxKB"),
   V(AccountingMax,               MEMUNIT,  "0 bytes"),
   V(AccountingStart,             STRING,   NULL),
   V(Address,                     STRING,   NULL),
@@ -194,21 +193,14 @@ static config_var_t option_vars_[] = {
   V(CookieAuthFile,              STRING,   NULL),
   V(CountPrivateBandwidth,       BOOL,     "0"),
   V(DataDirectory,               FILENAME, NULL),
-  OBSOLETE("DebugLogFile"),
   V(DisableNetwork,              BOOL,     "0"),
   V(DirAllowPrivateAddresses,    BOOL,     "0"),
   V(TestingAuthDirTimeToLearnReachability, INTERVAL, "30 minutes"),
   V(DirListenAddress,            LINELIST, NULL),
-  OBSOLETE("DirFetchPeriod"),
   V(DirPolicy,                   LINELIST, NULL),
   VPORT(DirPort,                     LINELIST, NULL),
   V(DirPortFrontPage,            FILENAME, NULL),
-  OBSOLETE("DirPostPeriod"),
-  OBSOLETE("DirRecordUsageByCountry"),
-  OBSOLETE("DirRecordUsageGranularity"),
-  OBSOLETE("DirRecordUsageRetainIPs"),
-  OBSOLETE("DirRecordUsageSaveInterval"),
-  V(DirReqStatistics,            BOOL,     "1"),
+  VAR("DirReqStatistics",        BOOL,     DirReqStatistics_option, "1"),
   VAR("DirAuthority",            LINELIST, DirAuthorities, NULL),
   V(DirAuthorityFallbackRate,    DOUBLE,   "1.0"),
   V(DisableAllSwap,              BOOL,     "0"),
@@ -260,7 +252,6 @@ static config_var_t option_vars_[] = {
   V(GeoIPv6File,                 FILENAME,
     SHARE_DATADIR PATH_SEPARATOR "tor" PATH_SEPARATOR "geoip6"),
 #endif
-  OBSOLETE("GiveGuardFlagTo_CVE_2011_2768_VulnerableRelays"),
   OBSOLETE("Group"),
   V(GuardLifetime,               INTERVAL, "0 minutes"),
   V(HardwareAccel,               BOOL,     "0"),
@@ -270,15 +261,11 @@ static config_var_t option_vars_[] = {
   V(HashedControlPassword,       LINELIST, NULL),
   V(HidServDirectoryV2,          BOOL,     "1"),
   VAR("HiddenServiceDir",    LINELIST_S, RendConfigLines,    NULL),
-  OBSOLETE("HiddenServiceExcludeNodes"),
-  OBSOLETE("HiddenServiceNodes"),
   VAR("HiddenServiceOptions",LINELIST_V, RendConfigLines,    NULL),
   VAR("HiddenServicePort",   LINELIST_S, RendConfigLines,    NULL),
   VAR("HiddenServiceVersion",LINELIST_S, RendConfigLines,    NULL),
   VAR("HiddenServiceAuthorizeClient",LINELIST_S,RendConfigLines, NULL),
   V(HidServAuth,                 LINELIST, NULL),
-  OBSOLETE("HSAuthoritativeDir"),
-  OBSOLETE("HSAuthorityRecordStats"),
   V(CloseHSClientCircuitsImmediatelyOnTimeout, BOOL, "0"),
   V(CloseHSServiceRendCircuitsImmediatelyOnTimeout, BOOL, "0"),
   V(HTTPProxy,                   STRING,   NULL),
@@ -293,13 +280,9 @@ static config_var_t option_vars_[] = {
   V(Socks5Proxy,                 STRING,   NULL),
   V(Socks5ProxyUsername,         STRING,   NULL),
   V(Socks5ProxyPassword,         STRING,   NULL),
-  OBSOLETE("IgnoreVersion"),
   V(KeepalivePeriod,             INTERVAL, "5 minutes"),
   VAR("Log",                     LINELIST, Logs,             NULL),
   V(LogMessageDomains,           BOOL,     "0"),
-  OBSOLETE("LinkPadding"),
-  OBSOLETE("LogLevel"),
-  OBSOLETE("LogFile"),
   V(LogTimeGranularity,          MSEC_INTERVAL, "1 second"),
   V(TruncateLogFile,             BOOL,     "0"),
   V(LongLivedPorts,              CSV,
@@ -312,7 +295,6 @@ static config_var_t option_vars_[] = {
   OBSOLETE("MaxOnionsPending"),
   V(MaxOnionQueueDelay,          MSEC_INTERVAL, "1750 msec"),
   V(MinMeasuredBWsForAuthToIgnoreAdvertised, INT, "500"),
-  OBSOLETE("MonthlyAccountingStart"),
   V(MyFamily,                    STRING,   NULL),
   V(NewCircuitPeriod,            INTERVAL, "30 seconds"),
   OBSOLETE("NamingAuthoritativeDirectory"),
@@ -321,7 +303,6 @@ static config_var_t option_vars_[] = {
   V(Nickname,                    STRING,   NULL),
   V(PredictedPortsRelevanceTime,  INTERVAL, "1 hour"),
   V(WarnUnsafeSocks,              BOOL,     "1"),
-  OBSOLETE("NoPublish"),
   VAR("NodeFamily",              LINELIST, NodeFamilies,         NULL),
   V(NumCPUs,                     UINT,     "0"),
   V(NumDirectoryGuards,          UINT,     "0"),
@@ -347,7 +328,6 @@ static config_var_t option_vars_[] = {
   V(PathBiasScaleUseThreshold,      INT,      "-1"),
 
   V(PathsNeededToBuildCircuits,  DOUBLE,   "-1"),
-  OBSOLETE("PathlenCoinWeight"),
   V(PerConnBWBurst,              MEMUNIT,  "0"),
   V(PerConnBWRate,               MEMUNIT,  "0"),
   V(PidFile,                     STRING,   NULL),
@@ -367,18 +347,13 @@ static config_var_t option_vars_[] = {
   V(RecommendedVersions,         LINELIST, NULL),
   V(RecommendedClientVersions,   LINELIST, NULL),
   V(RecommendedServerVersions,   LINELIST, NULL),
-  OBSOLETE("RedirectExit"),
   V(RefuseUnknownExits,          AUTOBOOL, "auto"),
   V(RejectPlaintextPorts,        CSV,      ""),
   V(RelayBandwidthBurst,         MEMUNIT,  "0"),
   V(RelayBandwidthRate,          MEMUNIT,  "0"),
-  OBSOLETE("RendExcludeNodes"),
-  OBSOLETE("RendNodes"),
   V(RendPostPeriod,              INTERVAL, "1 hour"),
   V(RephistTrackTime,            INTERVAL, "24 hours"),
-  OBSOLETE("RouterFile"),
   V(RunAsDaemon,                 BOOL,     "0"),
-//  V(RunTesting,                  BOOL,     "0"),
   OBSOLETE("RunTesting"), // currently unused
   V(Sandbox,                     BOOL,     "0"),
   V(SafeLogging,                 STRING,   "1"),
@@ -397,20 +372,16 @@ static config_var_t option_vars_[] = {
   VPORT(SocksPort,                   LINELIST, NULL),
   V(SocksTimeout,                INTERVAL, "2 minutes"),
   V(SSLKeyLifetime,              INTERVAL, "0"),
-  OBSOLETE("StatusFetchPeriod"),
   OBSOLETE("StrictEntryNodes"),
   OBSOLETE("StrictExitNodes"),
   V(StrictNodes,                 BOOL,     "0"),
   V(Support022HiddenServices,    AUTOBOOL, "auto"),
-  OBSOLETE("SysLog"),
   V(TestSocks,                   BOOL,     "0"),
-  OBSOLETE("TestVia"),
   V(TokenBucketRefillInterval,   MSEC_INTERVAL, "100 msec"),
   V(Tor2webMode,                 BOOL,     "0"),
   V(TLSECGroup,                  STRING,   NULL),
   V(TrackHostExits,              CSV,      NULL),
   V(TrackHostExitsExpire,        INTERVAL, "30 minutes"),
-  OBSOLETE("TrafficShaping"),
   V(TransListenAddress,          LINELIST, NULL),
   VPORT(TransPort,                   LINELIST, NULL),
   V(TransProxyType,              STRING,   "default"),
@@ -865,7 +836,7 @@ add_default_trusted_dir_authorities(dirinfo_type_t type)
       "76.73.17.194:9030 F397 038A DC51 3361 35E7 B80B D99C A384 4360 292B",
     "gabelmoo orport=443 "
       "v3ident=ED03BB616EB2F60BEC80151114BB25CEF515B226 "
-      "212.112.245.170:80 F204 4413 DAC2 E02E 3D6B CF47 35A1 9BCA 1DE9 7281",
+      "131.188.40.189:80 F204 4413 DAC2 E02E 3D6B CF47 35A1 9BCA 1DE9 7281",
     "dannenberg orport=443 "
       "v3ident=585769C78764D58426B8B52B6651A5A71137189A "
       "193.23.244.244:80 7BE6 83E6 5D48 1413 21C5 ED92 F075 C553 64AC 7123",
@@ -1705,17 +1676,17 @@ options_act(const or_options_t *old_options)
       connection_or_update_token_buckets(get_connection_array(), options);
   }
 
+
+  /* Only collect directory-request statistics on relays and bridges. */
+  options->DirReqStatistics = options->DirReqStatistics_option &&
+    server_mode(options);
+
   if (options->CellStatistics || options->DirReqStatistics ||
       options->EntryStatistics || options->ExitPortStatistics ||
       options->ConnDirectionStatistics ||
       options->BridgeAuthoritativeDir) {
     time_t now = time(NULL);
     int print_notice = 0;
-
-    /* Only collect directory-request statistics on relays and bridges. */
-    if (!server_mode(options)) {
-      options->DirReqStatistics = 0;
-    }
 
     /* Only collect other relay-only statistics on relays. */
     if (!public_server_mode(options)) {
@@ -1735,8 +1706,8 @@ options_act(const or_options_t *old_options)
         geoip_dirreq_stats_init(now);
         print_notice = 1;
       } else {
+        /* disable statistics collection since we have no geoip file */
         options->DirReqStatistics = 0;
-        /* Don't warn Tor clients, they don't use statistics */
         if (options->ORPort_set)
           log_notice(LD_CONFIG, "Configured to measure directory request "
                                 "statistics, but no GeoIP database found. "
