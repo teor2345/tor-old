@@ -1125,9 +1125,6 @@ circuitmux_detach_circuit,(circuitmux_t *cmux, circuit_t *circ))
       }
     }
   }
-  
-  tor_assert(last_searched_direction == CELL_DIRECTION_OUT
-             || last_searched_direction == CELL_DIRECTION_IN);
 
   tor_assert(last_searched_direction == CELL_DIRECTION_OUT
              || last_searched_direction == CELL_DIRECTION_IN);
