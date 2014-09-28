@@ -2897,14 +2897,14 @@ run_util_spawn_background(const char *argv[], const char *expected_out,
 
   /* the race condition doesn't affect status, 
    * because status isn't updated by the SIGCHLD handler */
-  test_assert(MATCH_PROCESS_STATUS(expected_status, status));
+  tt_assert(MATCH_PROCESS_STATUS(expected_status, status));
 
   if (status == PROCESS_STATUS_ERROR) {
     tt_ptr_op(process_handle, ==, NULL);
     return;
   }
 
-  test_assert(process_handle != NULL);
+  tt_assert(process_handle != NULL);
 
   /* When a spawned process forks, fails, then exits very quickly,
    * (this typically occurs when exec fails)
@@ -2916,14 +2916,14 @@ run_util_spawn_background(const char *argv[], const char *expected_out,
 
   /* the race condition affects the change in
    * process_handle->status from RUNNING to NOTRUNNING */
-  test_assert(MATCH_PROCESS_STATUS(expected_status, process_handle->status));
+  tt_assert(MATCH_PROCESS_STATUS(expected_status, process_handle->status));
 
 #ifndef _WIN32
   notify_pending_waitpid_callbacks();
   /* the race condition affects the change in
    * process_handle->waitpid_cb to NULL, 
    * so we skip the check if expected_status is RUNNING_OR_NOTRUNNING */
-  test_assert(process_handle->waitpid_cb != NULL
+  tt_assert(process_handle->waitpid_cb != NULL
               || expected_status == PROCESS_STATUS_RUNNING_OR_NOTRUNNING);
 #endif
 
