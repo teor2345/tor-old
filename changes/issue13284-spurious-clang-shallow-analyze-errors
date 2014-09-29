@@ -1,0 +1,4 @@
+  o Minor code refactoring:
+    - Avoid 4 null pointer errors under clang shallow analysis by using
+      tor_assert() to prove that the pointers aren't null. Resolves 
+      issue 13284.
