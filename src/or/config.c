@@ -126,6 +126,7 @@ static config_abbrev_t option_abbrevs_[] = {
  */
 static config_var_t option_vars_[] = {
   V(AccountingMax,               MEMUNIT,  "0 bytes"),
+  VAR("AccountingRule",          STRING,   AccountingRule_option,  "max"),
   V(AccountingStart,             STRING,   NULL),
   V(Address,                     STRING,   NULL),
   V(AllowDotExit,                BOOL,     "0"),
@@ -1399,24 +1400,26 @@ options_act(const or_options_t *old_options)
 
   mark_transport_list();
   pt_prepare_proxy_list_for_config_read();
-  if (options->ClientTransportPlugin) {
-    for (cl = options->ClientTransportPlugin; cl; cl = cl->next) {
-      if (parse_client_transport_line(options, cl->value, 0)<0) {
-        log_warn(LD_BUG,
-                 "Previously validated ClientTransportPlugin line "
-                 "could not be added!");
-        return -1;
+  if (!options->DisableNetwork) {
+    if (options->ClientTransportPlugin) {
+      for (cl = options->ClientTransportPlugin; cl; cl = cl->next) {
+        if (parse_client_transport_line(options, cl->value, 0)<0) {
+          log_warn(LD_BUG,
+                   "Previously validated ClientTransportPlugin line "
+                   "could not be added!");
+          return -1;
+        }
       }
     }
-  }
 
-  if (options->ServerTransportPlugin && server_mode(options)) {
-    for (cl = options->ServerTransportPlugin; cl; cl = cl->next) {
-      if (parse_server_transport_line(options, cl->value, 0)<0) {
-        log_warn(LD_BUG,
-                 "Previously validated ServerTransportPlugin line "
-                 "could not be added!");
-        return -1;
+    if (options->ServerTransportPlugin && server_mode(options)) {
+      for (cl = options->ServerTransportPlugin; cl; cl = cl->next) {
+        if (parse_server_transport_line(options, cl->value, 0)<0) {
+          log_warn(LD_BUG,
+                   "Previously validated ServerTransportPlugin line "
+                   "could not be added!");
+          return -1;
+        }
       }
     }
   }
@@ -1675,7 +1678,6 @@ options_act(const or_options_t *old_options)
         options->PerConnBWBurst != old_options->PerConnBWBurst)
       connection_or_update_token_buckets(get_connection_array(), options);
   }
-
 
   /* Only collect directory-request statistics on relays and bridges. */
   options->DirReqStatistics = options->DirReqStatistics_option &&
@@ -2033,6 +2035,13 @@ uint32_t
 get_last_resolved_addr(void)
 {
   return last_resolved_addr;
+}
+
+/** Reset last_resolved_addr from outside this file. */
+void
+reset_last_resolved_addr(void)
+{
+  last_resolved_addr = 0;
 }
 
 /**
@@ -3108,6 +3117,16 @@ options_validate(or_options_t *old_options, or_options_t *options,
                "risky: they will all turn off at the same time, which may "
                "alert observers that they are being run by the same party.");
     }
+  }
+
+  options->AccountingRule = ACCT_MAX;
+  if (options->AccountingRule_option) {
+    if (!strcmp(options->AccountingRule_option, "sum"))
+      options->AccountingRule = ACCT_SUM;
+    else if (!strcmp(options->AccountingRule_option, "max"))
+      options->AccountingRule = ACCT_MAX;
+    else
+      REJECT("AccountingRule must be 'sum' or 'max'");
   }
 
   if (options->HTTPProxy) { /* parse it now */
