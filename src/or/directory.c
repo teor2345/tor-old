@@ -452,7 +452,7 @@ directory_get_from_dirserver(uint8_t dir_purpose, uint8_t router_purpose,
     return;
 
   if (!get_via_tor) {
-    if (options->UseBridges && (type & BRIDGE_DIRINFO)) {
+    if (options->UseBridges && !(type & BRIDGE_DIRINFO)) {
       /* We want to ask a running bridge for which we have a descriptor.
        *
        * When we ask choose_random_entry() for a bridge, we specify what
