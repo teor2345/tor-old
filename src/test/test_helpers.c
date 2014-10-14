@@ -9,6 +9,8 @@
 #include "orconfig.h"
 #include "or.h"
 
+#include "test_helpers.h"
+
 /* Return a statically allocated string representing yesterday's date
  * in ISO format. We use it so that state file items are not found to
  * be outdated. */
