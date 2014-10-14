@@ -595,10 +595,10 @@ networkstatus_vote_find_entry_idx(networkstatus_t *ns,
 
 /** As router_get_consensus_status_by_descriptor_digest, but does not return
  * a const pointer. */
-routerstatus_t *
-router_get_mutable_consensus_status_by_descriptor_digest(
+MOCK_IMPL(routerstatus_t *,
+router_get_mutable_consensus_status_by_descriptor_digest,(
                                                  networkstatus_t *consensus,
-                                                 const char *digest)
+                                                 const char *digest))
 {
   if (!consensus)
     consensus = current_consensus;
@@ -628,8 +628,8 @@ router_get_consensus_status_by_descriptor_digest(networkstatus_t *consensus,
 
 /** Given the digest of a router descriptor, return its current download
  * status, or NULL if the digest is unrecognized. */
-download_status_t *
-router_get_dl_status_by_descriptor_digest(const char *d)
+MOCK_IMPL(download_status_t *,
+router_get_dl_status_by_descriptor_digest,(const char *d))
 {
   routerstatus_t *rs;
   if (!current_ns_consensus)
@@ -995,8 +995,8 @@ networkstatus_get_latest_consensus(void)
 
 /** Return the latest consensus we have whose flavor matches <b>f</b>, or NULL
  * if we don't have one. */
-networkstatus_t *
-networkstatus_get_latest_consensus_by_flavor(consensus_flavor_t f)
+MOCK_IMPL(networkstatus_t *,
+networkstatus_get_latest_consensus_by_flavor,(consensus_flavor_t f))
 {
   if (f == FLAV_NS)
     return current_ns_consensus;
@@ -1123,7 +1123,7 @@ networkstatus_copy_old_consensus_info(networkstatus_t *new_c,
     rs_new->last_dir_503_at = rs_old->last_dir_503_at;
 
     if (tor_memeq(rs_old->descriptor_digest, rs_new->descriptor_digest,
-                DIGEST_LEN)) {
+                  DIGEST_LEN)) { /* XXXX Change this to digest256_len */
       /* And the same descriptor too! */
       memcpy(&rs_new->dl_status, &rs_old->dl_status,sizeof(download_status_t));
     }
@@ -1678,17 +1678,22 @@ networkstatus_dump_bridge_status_to_file(time_t now)
   char *status = networkstatus_getinfo_by_purpose("bridge", now);
   const or_options_t *options = get_options();
   char *fname = NULL;
-  char *thresholds = NULL, *thresholds_and_status = NULL;
+  char *thresholds = NULL;
+  char *published_thresholds_and_status = NULL;
   routerlist_t *rl = router_get_routerlist();
+  char published[ISO_TIME_LEN+1];
+
+  format_iso_time(published, now);
   dirserv_compute_bridge_flag_thresholds(rl);
   thresholds = dirserv_get_flag_thresholds_line();
-  tor_asprintf(&thresholds_and_status, "flag-thresholds %s\n%s",
-               thresholds, status);
+  tor_asprintf(&published_thresholds_and_status,
+               "published %s\nflag-thresholds %s\n%s",
+               published, thresholds, status);
   tor_asprintf(&fname, "%s"PATH_SEPARATOR"networkstatus-bridges",
                options->DataDirectory);
-  write_str_to_file(fname,thresholds_and_status,0);
+  write_str_to_file(fname,published_thresholds_and_status,0);
   tor_free(thresholds);
-  tor_free(thresholds_and_status);
+  tor_free(published_thresholds_and_status);
   tor_free(fname);
   tor_free(status);
 }
