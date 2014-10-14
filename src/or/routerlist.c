@@ -2213,9 +2213,6 @@ smartlist_choose_node_by_bandwidth(const smartlist_t *sl,
   bitarray_t *exit_bits;
   bitarray_t *guard_bits;
 
-  /* XXX This function was not changed, but it should not be used in
-     the Tor network anyway. Will be deprecated by #13126. */
-
   // This function does not support WEIGHT_FOR_DIR
   // or WEIGHT_FOR_MID
   if (rule == WEIGHT_FOR_DIR || rule == WEIGHT_FOR_MID) {
