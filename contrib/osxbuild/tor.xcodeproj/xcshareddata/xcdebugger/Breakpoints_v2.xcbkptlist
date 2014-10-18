@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Bucket
+  type = "1"
+  version = "2.0">
+  <Breakpoints>
+    <BreakpointProxy
+      BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+      <BreakpointContent
+        shouldBeEnabled = "Yes"
+        ignoreCount = "0"
+        continueAfterRunningActions = "Yes"
+        filePath = "../../src/or/main.c"
+        timestampString = "432155084.969287"
+        startingColumnNumber = "9223372036854775807"
+        endingColumnNumber = "9223372036854775807"
+        startingLineNumber = "2937"
+        endingLineNumber = "2937"
+        landmarkName = "tor_main()"
+        landmarkType = "7">
+        <Actions>
+          <BreakpointActionProxy
+            ActionExtensionID = "Xcode.BreakpointAction.DebuggerCommand">
+            <ActionContent
+              consoleCommand = "process handle SIGPIPE -s false">
+            </ActionContent>
+          </BreakpointActionProxy>
+          <BreakpointActionProxy
+            ActionExtensionID = "Xcode.BreakpointAction.DebuggerCommand">
+            <ActionContent
+              consoleCommand = "process handle SIGHUP -s false">
+            </ActionContent>
+          </BreakpointActionProxy>
+          <BreakpointActionProxy
+            ActionExtensionID = "Xcode.BreakpointAction.DebuggerCommand">
+            <ActionContent
+              consoleCommand = "process handle SIGCHLD -s false">
+            </ActionContent>
+          </BreakpointActionProxy>
+        </Actions>
+      </BreakpointContent>
+    </BreakpointProxy>
+  </Breakpoints>
+</Bucket>
