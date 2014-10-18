@@ -1,0 +1,3 @@
+  o Build:
+    - Add an OS X Xcode build project in contrib/osxbuild.
+      Resolves issue 13461.

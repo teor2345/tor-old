@@ -65,6 +65,8 @@ cscope.*
 /contrib/dist/tor.service
 /contrib/operator-tools/tor.logrotate
 /contrib/dist/suse/tor.sh
+/contrib/osxbuild/tor.xcodeproj/xcuserdata
+/contrib/osxbuild/tor.xcodeproj/project.xcworkspace/xcuserdata
 
 # /debian/
 /debian/files
