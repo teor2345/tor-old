@@ -2578,8 +2578,9 @@ router_has_orport(const routerinfo_t *router, const tor_addr_port_t *orport)
  * <b>end_line</b>, ensure that its timestamp is not more than 25 hours in
  * the past or more than 1 hour in the future with respect to <b>now</b>,
  * and write the file contents starting with that line to *<b>out</b>.
- * Return 1 for success, 0 if the file does not exist, or -1 if the file
- * does not contain a line matching these criteria or other failure. */
+ * Return 1 for success, 0 if the file does not exist or is empty, or -1
+ * if the file does not contain a line matching these criteria or other
+ * failure. */
 static int
 load_stats_file(const char *filename, const char *end_line, time_t now,
                 char **out)
@@ -2588,7 +2589,12 @@ load_stats_file(const char *filename, const char *end_line, time_t now,
   char *fname = get_datadir_fname(filename);
   char *contents, *start = NULL, *tmp, timestr[ISO_TIME_LEN+1];
   time_t written;
-  switch (file_status(fname)) {
+  file_status_t fs = file_status(fname);
+  /* treat empty stats files as if the file doesn't exist */
+  if (fs == FN_FILE && file_size(fname) == 0) {
+    fs = FN_NOENT;
+  }
+  switch (fs) {
     case FN_FILE:
       /* X022 Find an alternative to reading the whole file to memory. */
       if ((contents = read_file_to_str(fname, 0, NULL))) {
