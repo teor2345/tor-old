@@ -396,7 +396,13 @@ init_key_from_file(const char *fname, int generate, int severity)
     goto error;
   }
 
-  switch (file_status(fname)) {
+  file_status_t fs = file_status(fname);
+  /* treat empty key files as if the file doesn't exist, and, if generate,
+   * replace the empty file in crypto_pk_write_private_key_to_filename() */
+  if (fs == FN_FILE && file_size(fname) == 0) {
+    fs = FN_NOENT;
+  }
+  switch (fs) {
     case FN_DIR:
     case FN_ERROR:
       tor_log(severity, LD_FS,"Can't read key from \"%s\"", fname);
@@ -463,7 +469,13 @@ init_curve25519_keypair_from_file(curve25519_keypair_t *keys_out,
                                   int severity,
                                   const char *tag)
 {
-  switch (file_status(fname)) {
+  file_status_t fs = file_status(fname);
+  /* treat empty key files as if the file doesn't exist, and, if generate,
+   * replace the empty file in curve25519_keypair_write_to_file() */
+  if (fs == FN_FILE && file_size(fname) == 0) {
+    fs = FN_NOENT;
+  }
+  switch (fs) {
     case FN_DIR:
     case FN_ERROR:
       tor_log(severity, LD_FS,"Can't read key from \"%s\"", fname);
@@ -869,7 +881,12 @@ init_keys(void)
 
   keydir = get_datadir_fname2("keys", "secret_onion_key.old");
   if (!lastonionkey && file_status(keydir) == FN_FILE) {
-    prkey = init_key_from_file(keydir, 1, LOG_ERR); /* XXXX Why 1? */
+    /* We set generate to 0, because if secret_onion_key.old is an empty file,
+     * and generate is non-zero, init_key_from_file() creates a new key,
+     * overwriting secret_onion_key.old. This is a waste of time if there's no
+     * data in secret_onion_key.old for the old key. It would also be
+     * inconsistent with the curve25519 code below. */
+    prkey = init_key_from_file(keydir, 0, LOG_ERR);
     if (prkey)
       lastonionkey = prkey;
   }
