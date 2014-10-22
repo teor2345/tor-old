@@ -52,7 +52,19 @@
 
 typedef uint8_t u8;
 typedef int32_t s32;
+typedef uint32_t u32;
 typedef int64_t limb;
+typedef uint64_t ulimb;
+
+/*
+ Stop signed left shifts overflowing
+ by using unsigned types for 32-bit & 64-bit bitwise operations
+ */
+
+#define SHL32(s, lshift) \
+  OVERFLOW_SAFE_SIGNED_LSHIFT(s, lshift, u32, s32)
+#define SHL64(s, lshift) \
+  OVERFLOW_SAFE_SIGNED_LSHIFT(s, lshift, ulimb, limb)
 
 /* Field element representation:
  *
