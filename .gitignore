@@ -65,6 +65,9 @@ cscope.*
 /contrib/dist/tor.service
 /contrib/operator-tools/tor.logrotate
 /contrib/dist/suse/tor.sh
+/contrib/osxbuild/orconfig-i386.h
+/contrib/osxbuild/orconfig-x86_64.h
+/contrib/osxbuild/orconfig-arch.h.tmp
 /contrib/osxbuild/tor.xcodeproj/xcuserdata
 /contrib/osxbuild/tor.xcodeproj/project.xcworkspace/xcuserdata
 
