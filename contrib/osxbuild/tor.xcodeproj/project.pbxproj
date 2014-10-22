@@ -6,6 +6,46 @@
 	objectVersion = 46;
 	objects = {
 
+/* Begin PBXAggregateTarget section */
+		02B4DC8219F6AD4200DACF3B /* orconfig-configure */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 02B4DC8319F6AD4200DACF3B /* Build configuration list for PBXAggregateTarget "orconfig-configure" */;
+			buildPhases = (
+				02B4DC8619F6AD5500DACF3B /* ShellScript */,
+				02B4DCE319F6C94E00DACF3B /* ShellScript */,
+				02B4DCEB19F7497D00DACF3B /* Run Script */,
+			);
+			dependencies = (
+			);
+			name = "orconfig-configure";
+			productName = "osxbuild-orconfig-arch.h";
+		};
+		02B780E719F67FD500B58842 /* generated-hash-files */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 02B780E819F67FD500B58842 /* Build configuration list for PBXAggregateTarget "generated-hash-files" */;
+			buildPhases = (
+			);
+			dependencies = (
+				02B4DC6C19F6A28C00DACF3B /* PBXTargetDependency */,
+				02B4DC7219F6A2F100DACF3B /* PBXTargetDependency */,
+				02B4DC7819F6A30F00DACF3B /* PBXTargetDependency */,
+			);
+			name = "generated-hash-files";
+			productName = "generated-i-files";
+		};
+		02B780FD19F680E800B58842 /* orconfig */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 02B780FE19F680E800B58842 /* Build configuration list for PBXAggregateTarget "orconfig" */;
+			buildPhases = (
+			);
+			dependencies = (
+				02B4DCE519F6C9B000DACF3B /* PBXTargetDependency */,
+			);
+			name = orconfig;
+			productName = "orconfig-h-all-archs";
+		};
+/* End PBXAggregateTarget section */
+
 /* Begin PBXBuildFile section */
 		0253563819ACB377006D569F /* addressmap.c in Sources */ = {isa = PBXBuildFile; fileRef = 025355C519ACB377006D569F /* addressmap.c */; };
 		0253563919ACB377006D569F /* buffers.c in Sources */ = {isa = PBXBuildFile; fileRef = 025355C719ACB377006D569F /* buffers.c */; };
@@ -83,7 +123,6 @@
 		025356DF19ACB38D006D569F /* util_codedigest.c in Sources */ = {isa = PBXBuildFile; fileRef = 025356C719ACB38D006D569F /* util_codedigest.c */; };
 		025356E019ACB38D006D569F /* util_process.c in Sources */ = {isa = PBXBuildFile; fileRef = 025356C819ACB38D006D569F /* util_process.c */; };
 		0253570519ACB3C0006D569F /* csiphash.c in Sources */ = {isa = PBXBuildFile; fileRef = 025356EC19ACB3C0006D569F /* csiphash.c */; };
-		0253570619ACB3C0006D569F /* curve25519-donna-c64.c in Sources */ = {isa = PBXBuildFile; fileRef = 025356F319ACB3C0006D569F /* curve25519-donna-c64.c */; };
 		0253570819ACB3C0006D569F /* eventdns.c in Sources */ = {isa = PBXBuildFile; fileRef = 025356F619ACB3C0006D569F /* eventdns.c */; settings = {COMPILER_FLAGS = "-include \"event2/event_struct.h\" -include \"event2/event_compat.h\""; }; };
 		0253572A19ACB8FF006D569F /* libminiupnpc.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0253572919ACB8FF006D569F /* libminiupnpc.a */; };
 		0253572C19ACB978006D569F /* libssl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0253572B19ACB978006D569F /* libssl.a */; };
@@ -253,7 +292,6 @@
 		028FE32A19D7DFC700EAE502 /* buffers.c in Sources */ = {isa = PBXBuildFile; fileRef = 025355C719ACB377006D569F /* buffers.c */; };
 		028FE32B19D7DFC700EAE502 /* geoip.c in Sources */ = {isa = PBXBuildFile; fileRef = 025355FD19ACB377006D569F /* geoip.c */; };
 		028FE32C19D7DFC700EAE502 /* util_process.c in Sources */ = {isa = PBXBuildFile; fileRef = 025356C819ACB38D006D569F /* util_process.c */; };
-		028FE32D19D7DFC700EAE502 /* curve25519-donna-c64.c in Sources */ = {isa = PBXBuildFile; fileRef = 025356F319ACB3C0006D569F /* curve25519-donna-c64.c */; };
 		028FE32E19D7DFC700EAE502 /* ge_msub.c in Sources */ = {isa = PBXBuildFile; fileRef = 028FE1F619D6216B00EAE502 /* ge_msub.c */; };
 		028FE32F19D7DFC700EAE502 /* connection_edge.c in Sources */ = {isa = PBXBuildFile; fileRef = 025355E419ACB377006D569F /* connection_edge.c */; };
 		028FE33019D7DFC700EAE502 /* dirserv.c in Sources */ = {isa = PBXBuildFile; fileRef = 025355EE19ACB377006D569F /* dirserv.c */; };
@@ -321,7 +359,6 @@
 		028FE50919D7E5D600EAE502 /* compat.c in Sources */ = {isa = PBXBuildFile; fileRef = 025356A519ACB38D006D569F /* compat.c */; };
 		028FE50D19D7E5D600EAE502 /* util.c in Sources */ = {isa = PBXBuildFile; fileRef = 025356C519ACB38D006D569F /* util.c */; };
 		028FE51C19D7E5D600EAE502 /* test_ntor_cl.c in Sources */ = {isa = PBXBuildFile; fileRef = 0282FC0F19BC7572008675BC /* test_ntor_cl.c */; };
-		028FE53819D7E5D600EAE502 /* curve25519-donna-c64.c in Sources */ = {isa = PBXBuildFile; fileRef = 025356F319ACB3C0006D569F /* curve25519-donna-c64.c */; };
 		028FE54019D7E5D600EAE502 /* libevent.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0253573619ADEBE0006D569F /* libevent.a */; };
 		028FE54119D7E5D600EAE502 /* libcrypto.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0253573419ADEA9D006D569F /* libcrypto.a */; };
 		028FE54219D7E5D600EAE502 /* libz.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0253573219ADEA62006D569F /* libz.a */; };
@@ -445,7 +482,6 @@
 		028FE5E219D7E5E000EAE502 /* buffers.c in Sources */ = {isa = PBXBuildFile; fileRef = 025355C719ACB377006D569F /* buffers.c */; };
 		028FE5E319D7E5E000EAE502 /* geoip.c in Sources */ = {isa = PBXBuildFile; fileRef = 025355FD19ACB377006D569F /* geoip.c */; };
 		028FE5E419D7E5E000EAE502 /* util_process.c in Sources */ = {isa = PBXBuildFile; fileRef = 025356C819ACB38D006D569F /* util_process.c */; };
-		028FE5E519D7E5E000EAE502 /* curve25519-donna-c64.c in Sources */ = {isa = PBXBuildFile; fileRef = 025356F319ACB3C0006D569F /* curve25519-donna-c64.c */; };
 		028FE5E719D7E5E000EAE502 /* ge_msub.c in Sources */ = {isa = PBXBuildFile; fileRef = 028FE1F619D6216B00EAE502 /* ge_msub.c */; };
 		028FE5E819D7E5E000EAE502 /* connection_edge.c in Sources */ = {isa = PBXBuildFile; fileRef = 025355E419ACB377006D569F /* connection_edge.c */; };
 		028FE5E919D7E5E000EAE502 /* dirserv.c in Sources */ = {isa = PBXBuildFile; fileRef = 025355EE19ACB377006D569F /* dirserv.c */; };
@@ -458,6 +494,10 @@
 		028FE5F119D7E5E000EAE502 /* libminiupnpc.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0253572919ACB8FF006D569F /* libminiupnpc.a */; };
 		028FE5F719D7E64B00EAE502 /* bench.c in Sources */ = {isa = PBXBuildFile; fileRef = 0282FBC919BC7572008675BC /* bench.c */; };
 		02AC6D2919E3FD64006EEB3C /* test_accounting.c in Sources */ = {isa = PBXBuildFile; fileRef = 02AC6D2819E3FD64006EEB3C /* test_accounting.c */; };
+		02B4DCE719F6CD3300DACF3B /* curve25519-donna-arch.c in Sources */ = {isa = PBXBuildFile; fileRef = 02B4DCE619F6CD3300DACF3B /* curve25519-donna-arch.c */; };
+		02B4DCE819F6CD3300DACF3B /* curve25519-donna-arch.c in Sources */ = {isa = PBXBuildFile; fileRef = 02B4DCE619F6CD3300DACF3B /* curve25519-donna-arch.c */; };
+		02B4DCE919F6CD3300DACF3B /* curve25519-donna-arch.c in Sources */ = {isa = PBXBuildFile; fileRef = 02B4DCE619F6CD3300DACF3B /* curve25519-donna-arch.c */; };
+		02B4DCEA19F6CD3300DACF3B /* curve25519-donna-arch.c in Sources */ = {isa = PBXBuildFile; fileRef = 02B4DCE619F6CD3300DACF3B /* curve25519-donna-arch.c */; };
 		02B7802519F1F5C300B58842 /* aes.c in Sources */ = {isa = PBXBuildFile; fileRef = 0253569F19ACB38D006D569F /* aes.c */; };
 		02B7802619F1F5EF00B58842 /* util_codedigest.c in Sources */ = {isa = PBXBuildFile; fileRef = 025356C719ACB38D006D569F /* util_codedigest.c */; };
 		02B7802719F1F5EF00B58842 /* util_process.c in Sources */ = {isa = PBXBuildFile; fileRef = 025356C819ACB38D006D569F /* util_process.c */; };
@@ -481,26 +521,152 @@
 			remoteGlobalIDString = 028FE33F19D7E02900EAE502;
 			remoteInfo = "test-child";
 		};
-		028FE3F219D7E5CD00EAE502 /* PBXContainerItemProxy */ = {
+		02B4DC6B19F6A28C00DACF3B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 025354B919AB6515006D569F /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 028FE33F19D7E02900EAE502;
-			remoteInfo = "test-child";
+			remoteGlobalIDString = 02B4DC6719F6A23E00DACF3B;
+			remoteInfo = "micro-revision.i";
 		};
-		028FE49F19D7E5D600EAE502 /* PBXContainerItemProxy */ = {
+		02B4DC7119F6A2F100DACF3B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 025354B919AB6515006D569F /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 028FE33F19D7E02900EAE502;
-			remoteInfo = "test-child";
+			remoteGlobalIDString = 02B4DC6D19F6A2BB00DACF3B;
+			remoteInfo = "common-sha1.i";
 		};
-		028FE54C19D7E5E000EAE502 /* PBXContainerItemProxy */ = {
+		02B4DC7719F6A30F00DACF3B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 025354B919AB6515006D569F /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 028FE33F19D7E02900EAE502;
-			remoteInfo = "test-child";
+			remoteGlobalIDString = 02B4DC7319F6A30600DACF3B;
+			remoteInfo = or_sha1.i;
+		};
+		02B4DCAE19F6B32D00DACF3B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 025354B919AB6515006D569F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 02B780FD19F680E800B58842;
+			remoteInfo = "orconfig-selector";
+		};
+		02B4DCB019F6B33400DACF3B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 025354B919AB6515006D569F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 02B780FD19F680E800B58842;
+			remoteInfo = "orconfig-selector";
+		};
+		02B4DCB219F6B33B00DACF3B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 025354B919AB6515006D569F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 02B780FD19F680E800B58842;
+			remoteInfo = "orconfig-selector";
+		};
+		02B4DCB419F6B34000DACF3B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 025354B919AB6515006D569F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 02B780FD19F680E800B58842;
+			remoteInfo = "orconfig-selector";
+		};
+		02B4DCB619F6B34600DACF3B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 025354B919AB6515006D569F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 02B780FD19F680E800B58842;
+			remoteInfo = "orconfig-selector";
+		};
+		02B4DCB819F6B34C00DACF3B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 025354B919AB6515006D569F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 02B780FD19F680E800B58842;
+			remoteInfo = "orconfig-selector";
+		};
+		02B4DCBA19F6B45800DACF3B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 025354B919AB6515006D569F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 02B780FD19F680E800B58842;
+			remoteInfo = "orconfig-method-selector";
+		};
+		02B4DCC719F6C30E00DACF3B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 025354B919AB6515006D569F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 02B4DCC119F6C2F200DACF3B;
+			remoteInfo = "Makefile-clean";
+		};
+		02B4DCD619F6C5EB00DACF3B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 025354B919AB6515006D569F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 028FE2B419D7DFC700EAE502;
+			remoteInfo = test;
+		};
+		02B4DCE419F6C9B000DACF3B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 025354B919AB6515006D569F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 02B4DC8219F6AD4200DACF3B;
+			remoteInfo = "orconfig-configure";
+		};
+		02B780D719F67E6700B58842 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 025354B919AB6515006D569F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 028FE3F019D7E5CD00EAE502;
+			remoteInfo = "test-bt-cl";
+		};
+		02B780D919F67E6900B58842 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 025354B919AB6515006D569F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 028FE49D19D7E5D600EAE502;
+			remoteInfo = "test-ntor-cl";
+		};
+		02B780F119F6800200B58842 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 025354B919AB6515006D569F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 02B780E719F67FD500B58842;
+			remoteInfo = "generated-i-files";
+		};
+		02B780F319F6800900B58842 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 025354B919AB6515006D569F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 02B780E719F67FD500B58842;
+			remoteInfo = "generated-i-files";
+		};
+		02B780F519F6800D00B58842 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 025354B919AB6515006D569F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 02B780E719F67FD500B58842;
+			remoteInfo = "generated-i-files";
+		};
+		02B780F719F6801200B58842 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 025354B919AB6515006D569F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 02B780E719F67FD500B58842;
+			remoteInfo = "generated-i-files";
+		};
+		02B780F919F6801600B58842 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 025354B919AB6515006D569F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 02B780E719F67FD500B58842;
+			remoteInfo = "generated-i-files";
+		};
+		02B780FB19F6801C00B58842 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 025354B919AB6515006D569F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 02B780E719F67FD500B58842;
+			remoteInfo = "generated-i-files";
 		};
 /* End PBXContainerItemProxy section */
 
@@ -903,6 +1069,9 @@
 		028FE54919D7E5D600EAE502 /* test-ntor-cl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-ntor-cl"; sourceTree = BUILT_PRODUCTS_DIR; };
 		028FE5F619D7E5E000EAE502 /* bench */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = bench; sourceTree = BUILT_PRODUCTS_DIR; };
 		02AC6D2819E3FD64006EEB3C /* test_accounting.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_accounting.c; sourceTree = "<group>"; };
+		02B4DCBF19F6B9D000DACF3B /* orconfig-i386.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "orconfig-i386.h"; sourceTree = "<group>"; };
+		02B4DCC019F6B9D000DACF3B /* orconfig-x86_64.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "orconfig-x86_64.h"; sourceTree = "<group>"; };
+		02B4DCE619F6CD3300DACF3B /* curve25519-donna-arch.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "curve25519-donna-arch.c"; sourceTree = "<group>"; };
 		02CBDF6819C40A270088AD76 /* asciidoc-helper.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "asciidoc-helper.sh"; sourceTree = "<group>"; };
 		02CBDF6919C40A270088AD76 /* building-tor-msvc.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "building-tor-msvc.txt"; sourceTree = "<group>"; };
 		02CBDF6B19C40A270088AD76 /* tor-rpm-creation.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "tor-rpm-creation.txt"; sourceTree = "<group>"; };
@@ -1006,11 +1175,13 @@
 			isa = PBXGroup;
 			children = (
 				025354DE19ACB16D006D569F /* orconfig.h */,
+				02B4DCBF19F6B9D000DACF3B /* orconfig-i386.h */,
+				02B4DCC019F6B9D000DACF3B /* orconfig-x86_64.h */,
 				0253572E19ACBAD3006D569F /* micro-revision.i */,
+				02B4DCE619F6CD3300DACF3B /* curve25519-donna-arch.c */,
 				025354E019ACB323006D569F /* src */,
 				02CBDF6719C40A270088AD76 /* doc */,
-				0253572819ACB72B006D569F /* opt-local-include */,
-				0253572D19ACBA22006D569F /* opt-local-lib */,
+				02B4DCBC19F6B4C200DACF3B /* MacPorts */,
 				025354DB19ACAFE3006D569F /* Products */,
 				028FE5F619D7E5E000EAE502 /* bench */,
 				028FE33D19D7DFC700EAE502 /* test */,
@@ -1468,6 +1639,15 @@
 			path = trunnel;
 			sourceTree = "<group>";
 		};
+		02B4DCBC19F6B4C200DACF3B /* MacPorts */ = {
+			isa = PBXGroup;
+			children = (
+				0253572819ACB72B006D569F /* opt-local-include */,
+				0253572D19ACBA22006D569F /* opt-local-lib */,
+			);
+			name = MacPorts;
+			sourceTree = "<group>";
+		};
 		02CBDF6719C40A270088AD76 /* doc */ = {
 			isa = PBXGroup;
 			children = (
@@ -1507,12 +1687,101 @@
 		};
 /* End PBXGroup section */
 
+/* Begin PBXLegacyTarget section */
+		02B4DC6719F6A23E00DACF3B /* micro-revision.i */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "micro-revision.i";
+			buildConfigurationList = 02B4DC6819F6A23E00DACF3B /* Build configuration list for PBXLegacyTarget "micro-revision.i" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/make;
+			buildWorkingDirectory = $SRCROOT/../..;
+			dependencies = (
+			);
+			name = "micro-revision.i";
+			passBuildSettingsInEnvironment = 1;
+			productName = "micro-revision.i";
+		};
+		02B4DC6D19F6A2BB00DACF3B /* common_sha1.i */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = src/common/common_sha1.i;
+			buildConfigurationList = 02B4DC6E19F6A2BB00DACF3B /* Build configuration list for PBXLegacyTarget "common_sha1.i" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/make;
+			buildWorkingDirectory = $SRCROOT/../..;
+			dependencies = (
+			);
+			name = common_sha1.i;
+			passBuildSettingsInEnvironment = 1;
+			productName = "common-sha1.i";
+		};
+		02B4DC7319F6A30600DACF3B /* or_sha1.i */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = src/or/or_sha1.i;
+			buildConfigurationList = 02B4DC7419F6A30600DACF3B /* Build configuration list for PBXLegacyTarget "or_sha1.i" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/make;
+			buildWorkingDirectory = $SRCROOT/../..;
+			dependencies = (
+			);
+			name = or_sha1.i;
+			passBuildSettingsInEnvironment = 1;
+			productName = or_sha1.i;
+		};
+		02B4DCA219F6AFA300DACF3B /* Makefile-ext-configure */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "$(ACTION)";
+			buildConfigurationList = 02B4DCA319F6AFA300DACF3B /* Build configuration list for PBXLegacyTarget "Makefile-ext-configure" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/make;
+			buildWorkingDirectory = $SRCROOT/../..;
+			dependencies = (
+				02B4DCD719F6C5EB00DACF3B /* PBXTargetDependency */,
+			);
+			name = "Makefile-ext-configure";
+			passBuildSettingsInEnvironment = 1;
+			productName = Makefile;
+		};
+		02B4DCA619F6B01100DACF3B /* Makefile-xcode-configure */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "$(ACTION)";
+			buildConfigurationList = 02B4DCA719F6B01100DACF3B /* Build configuration list for PBXLegacyTarget "Makefile-xcode-configure" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/make;
+			buildWorkingDirectory = $SRCROOT/../..;
+			dependencies = (
+				02B4DCC819F6C30E00DACF3B /* PBXTargetDependency */,
+				02B4DCBB19F6B45800DACF3B /* PBXTargetDependency */,
+			);
+			name = "Makefile-xcode-configure";
+			passBuildSettingsInEnvironment = 1;
+			productName = Makefile;
+		};
+		02B4DCC119F6C2F200DACF3B /* Makefile-clean */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = clean;
+			buildConfigurationList = 02B4DCC419F6C2F200DACF3B /* Build configuration list for PBXLegacyTarget "Makefile-clean" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/make;
+			buildWorkingDirectory = $SRCROOT/../..;
+			dependencies = (
+			);
+			name = "Makefile-clean";
+			passBuildSettingsInEnvironment = 1;
+			productName = Makefile;
+		};
+/* End PBXLegacyTarget section */
+
 /* Begin PBXNativeTarget section */
 		025354C019AB6515006D569F /* tor */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 025354C819AB6515006D569F /* Build configuration list for PBXNativeTarget "tor" */;
 			buildPhases = (
-				02A429AE19B26A5E0048963B /* ShellScript */,
 				025354BD19AB6515006D569F /* Sources */,
 				025354BE19AB6515006D569F /* Frameworks */,
 				025354BF19AB6515006D569F /* CopyFiles */,
@@ -1520,6 +1789,8 @@
 			buildRules = (
 			);
 			dependencies = (
+				02B4DCAF19F6B32D00DACF3B /* PBXTargetDependency */,
+				02B780F219F6800200B58842 /* PBXTargetDependency */,
 			);
 			name = tor;
 			productName = tor;
@@ -1530,7 +1801,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 028FE33A19D7DFC700EAE502 /* Build configuration list for PBXNativeTarget "test" */;
 			buildPhases = (
-				028FE2B519D7DFC700EAE502 /* ShellScript */,
 				028FE2B619D7DFC700EAE502 /* Sources */,
 				028FE33319D7DFC700EAE502 /* Frameworks */,
 				028FE33919D7DFC700EAE502 /* CopyFiles */,
@@ -1538,7 +1808,11 @@
 			buildRules = (
 			);
 			dependencies = (
+				02B4DCB319F6B33B00DACF3B /* PBXTargetDependency */,
+				02B780F419F6800900B58842 /* PBXTargetDependency */,
 				028FE3CB19D7E06E00EAE502 /* PBXTargetDependency */,
+				02B780D819F67E6700B58842 /* PBXTargetDependency */,
+				02B780DA19F67E6900B58842 /* PBXTargetDependency */,
 			);
 			name = test;
 			productName = tor;
@@ -1549,7 +1823,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 028FE3C519D7E02900EAE502 /* Build configuration list for PBXNativeTarget "test-child" */;
 			buildPhases = (
-				028FE34019D7E02900EAE502 /* ShellScript */,
 				028FE34119D7E02900EAE502 /* Sources */,
 				028FE3BE19D7E02900EAE502 /* Frameworks */,
 				028FE3C419D7E02900EAE502 /* CopyFiles */,
@@ -1557,6 +1830,8 @@
 			buildRules = (
 			);
 			dependencies = (
+				02B4DCB919F6B34C00DACF3B /* PBXTargetDependency */,
+				02B780F619F6800D00B58842 /* PBXTargetDependency */,
 			);
 			name = "test-child";
 			productName = tor;
@@ -1567,7 +1842,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 028FE49919D7E5CD00EAE502 /* Build configuration list for PBXNativeTarget "test-bt-cl" */;
 			buildPhases = (
-				028FE3F319D7E5CD00EAE502 /* ShellScript */,
 				028FE3F419D7E5CD00EAE502 /* Sources */,
 				028FE49219D7E5CD00EAE502 /* Frameworks */,
 				028FE49819D7E5CD00EAE502 /* CopyFiles */,
@@ -1575,7 +1849,8 @@
 			buildRules = (
 			);
 			dependencies = (
-				028FE3F119D7E5CD00EAE502 /* PBXTargetDependency */,
+				02B4DCB519F6B34000DACF3B /* PBXTargetDependency */,
+				02B780F819F6801200B58842 /* PBXTargetDependency */,
 			);
 			name = "test-bt-cl";
 			productName = tor;
@@ -1586,7 +1861,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 028FE54619D7E5D600EAE502 /* Build configuration list for PBXNativeTarget "test-ntor-cl" */;
 			buildPhases = (
-				028FE4A019D7E5D600EAE502 /* ShellScript */,
 				028FE4A119D7E5D600EAE502 /* Sources */,
 				028FE53F19D7E5D600EAE502 /* Frameworks */,
 				028FE54519D7E5D600EAE502 /* CopyFiles */,
@@ -1594,7 +1868,8 @@
 			buildRules = (
 			);
 			dependencies = (
-				028FE49E19D7E5D600EAE502 /* PBXTargetDependency */,
+				02B4DCB719F6B34600DACF3B /* PBXTargetDependency */,
+				02B780FA19F6801600B58842 /* PBXTargetDependency */,
 			);
 			name = "test-ntor-cl";
 			productName = tor;
@@ -1605,7 +1880,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 028FE5F319D7E5E000EAE502 /* Build configuration list for PBXNativeTarget "bench" */;
 			buildPhases = (
-				028FE54D19D7E5E000EAE502 /* ShellScript */,
 				028FE54E19D7E5E000EAE502 /* Sources */,
 				028FE5EC19D7E5E000EAE502 /* Frameworks */,
 				028FE5F219D7E5E000EAE502 /* CopyFiles */,
@@ -1613,7 +1887,8 @@
 			buildRules = (
 			);
 			dependencies = (
-				028FE54B19D7E5E000EAE502 /* PBXTargetDependency */,
+				02B4DCB119F6B33400DACF3B /* PBXTargetDependency */,
+				02B780FC19F6801C00B58842 /* PBXTargetDependency */,
 			);
 			name = bench;
 			productName = tor;
@@ -1632,6 +1907,27 @@
 					025354C019AB6515006D569F = {
 						CreatedOnToolsVersion = 6.0;
 					};
+					02B4DC6719F6A23E00DACF3B = {
+						CreatedOnToolsVersion = 6.1;
+					};
+					02B4DC6D19F6A2BB00DACF3B = {
+						CreatedOnToolsVersion = 6.1;
+					};
+					02B4DC7319F6A30600DACF3B = {
+						CreatedOnToolsVersion = 6.1;
+					};
+					02B4DC8219F6AD4200DACF3B = {
+						CreatedOnToolsVersion = 6.1;
+					};
+					02B4DCA219F6AFA300DACF3B = {
+						CreatedOnToolsVersion = 6.1;
+					};
+					02B780E719F67FD500B58842 = {
+						CreatedOnToolsVersion = 6.1;
+					};
+					02B780FD19F680E800B58842 = {
+						CreatedOnToolsVersion = 6.1;
+					};
 				};
 			};
 			buildConfigurationList = 025354BC19AB6515006D569F /* Build configuration list for PBXProject "tor" */;
@@ -1647,141 +1943,82 @@
 			projectRoot = "";
 			targets = (
 				025354C019AB6515006D569F /* tor */,
+				028FE54A19D7E5E000EAE502 /* bench */,
 				028FE2B419D7DFC700EAE502 /* test */,
-				028FE33F19D7E02900EAE502 /* test-child */,
 				028FE3F019D7E5CD00EAE502 /* test-bt-cl */,
 				028FE49D19D7E5D600EAE502 /* test-ntor-cl */,
-				028FE54A19D7E5E000EAE502 /* bench */,
+				028FE33F19D7E02900EAE502 /* test-child */,
+				02B780E719F67FD500B58842 /* generated-hash-files */,
+				02B4DC6719F6A23E00DACF3B /* micro-revision.i */,
+				02B4DC6D19F6A2BB00DACF3B /* common_sha1.i */,
+				02B4DC7319F6A30600DACF3B /* or_sha1.i */,
+				02B780FD19F680E800B58842 /* orconfig */,
+				02B4DC8219F6AD4200DACF3B /* orconfig-configure */,
+				02B4DCA619F6B01100DACF3B /* Makefile-xcode-configure */,
+				02B4DCC119F6C2F200DACF3B /* Makefile-clean */,
+				02B4DCA219F6AFA300DACF3B /* Makefile-ext-configure */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		028FE2B519D7DFC700EAE502 /* ShellScript */ = {
+		02B4DC8619F6AD5500DACF3B /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/../../.git",
-				"$(SRCROOT)/../../.git/HEAD",
-				"$(SRCROOT)/../../.git/config",
-				"$(SRCROOT)/../../.git/packed-refs",
-				"$(SRCROOT)/../../.git/logs/HEAD",
-				"$(SRCROOT)/../../.git/refs/heads",
-				"$(SRCROOT)/../../.git/refs/heads/master",
+				"$(SRCROOT)/../../orconfig.h.in",
+				"$(SRCROOT)/../../*.m4",
+				"$(SRCROOT)/../../m4/*",
+				"$(SRCROOT)/../../autogen.sh",
+				"$(SRCROOT)/../../config.*",
+				"$(SRCROOT)/../../configure",
+				"$(SRCROOT)/../../configure.ac",
+				"$(SRCROOT)/tor.xcodeproj/project.pbxproj",
 			);
 			outputPaths = (
-				"$(SRCROOT)/../../micro-revision.i",
+				"$(SRCROOT)/../../orconfig.h",
+				"$(SRCROOT)/orconfig-i386.h",
+				"$(SRCROOT)/orconfig-x86_64.h",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "cd $SRCROOT/../..\nmake micro-revision.i";
+			shellPath = "/bin/bash --login";
+			shellScript = "# Use ./configure to generate orconfig.h for the current architecture,\n# then keep a copy under an architecture-specific name\n\ncd $SRCROOT/../..\n\n# Make sure we have the configure scripts etc. up to date\n# autogen.sh requires aclocal etc. in your $PATH\n# We attempt to source the path by using a bash login shell,\n# as it is OS X's default shell\n# If this doesn't work, add the path here:\n#export PATH=/opt/local/bin:$PATH\n./autogen.sh || exit 11\n\n# MacPorts\nexport EXT_DIR=\"/opt/local\"\nexport EXT_LIBEVENT_DIR=\"$EXT_DIR\"\nexport EXT_OPENSSL_DIR=\"$EXT_DIR\"\n\n# HomeBrew\n#export EXT_DIR=\"/usr/local/Cellar\"\n#export EXT_LIBEVENT_INCDIR=\"$EXT_DIR/libevent/2.0.21/include\"\n#export EXT_OPENSSL_INCDIR=\"$EXT_DIR/openssl/vvvvvv/include\"\n\n#export EXT_LIBEVENT_LIBDIR=\"$EXT_DIR/libevent/2.0.21\"\n#export EXT_OPENSSL_LIBDIR=\"$EXT_DIR/openssl/vvvvvv\"\n\n# MacPorts doesn't need these\n#export CPPFLAGS=\"-I$EXT_LIBEVENT_INCDIR -I$EXT_OPENSSL_INCDIR\"\n#export LDFLAGS=\"-L$EXT_LIBEVENT_LIBDIR -L$EXT_OPENSSL_LIBDIR\"\n#./configure CC=\"$CC\" CPPFLAGS=\"$CPPFLAGS\" LDFLAGS=\"$LDFLAGS\" --with-libevent-dir=$EXT_LIBEVENT_LIBDIR --with-openssl-dir=$EXT_OPENSSL_LIBDIR\n\nfor AN_ARCH in $ARCHS; do\n\n  export CC=\"clang -arch $AN_ARCH\"\n  # TODO: create a tor-cov binary target like tor but with\n  # -fprofile-arcs -ftest-coverage\n  # At least I think that's what ./configure --enable-coverage does\n\n  ./configure CC=\"$CC\" --with-libevent-dir=$EXT_LIBEVENT_DIR --with-openssl-dir=$EXT_OPENSSL_DIR --disable-asciidoc || exit 12\n\n  # copy if different\n  if ! diff -N \"$SRCROOT\"/../../orconfig.h \"$SRCROOT\"/orconfig-\"$AN_ARCH\".h > /dev/null; then\n    # backup if target exists\n    if [ -f \"$SRCROOT\"/orconfig-\"$AN_ARCH\".h ]; then\n      mv -f \"$SRCROOT\"/orconfig-\"$AN_ARCH\".h \"$SRCROOT\"/orconfig-\"$AN_ARCH\".h.bak\n    fi\n    cp \"$SRCROOT\"/../../orconfig.h \"$SRCROOT\"/orconfig-\"$AN_ARCH\".h\n  fi\ndone";
 		};
-		028FE34019D7E02900EAE502 /* ShellScript */ = {
+		02B4DCE319F6C94E00DACF3B /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/../../.git",
-				"$(SRCROOT)/../../.git/HEAD",
-				"$(SRCROOT)/../../.git/config",
-				"$(SRCROOT)/../../.git/packed-refs",
-				"$(SRCROOT)/../../.git/logs/HEAD",
-				"$(SRCROOT)/../../.git/refs/heads",
-				"$(SRCROOT)/../../.git/refs/heads/master",
+				"$(SRCROOT)/tor.xcodeproj/project.pbxproj",
 			);
 			outputPaths = (
-				"$(SRCROOT)/../../micro-revision.i",
+				"$(SRCROOT)/orconfig-arch.h",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd $SRCROOT/../..\nmake micro-revision.i";
+			shellScript = "# Disable by changing the shell to /bin/cat\n# (Generated file for x86_64 & i386 has been checked in to git)\n\n# Create an orconfig-arch.h file that conditionally includes architecture-specific orconfig-*.h files\n\n# rm \"$SRCROOT\"/orconfig-arch.h.\nif [ -f \"$SRCROOT\"/orconfig-arch.h.tmp ]; then\n  mv -f \"$SRCROOT\"/orconfig-arch.h.tmp \"$SRCROOT\"/orconfig-arch.h.tmp.bak\nfi\n\nfor AN_ARCH in $ARCHS; do\n  echo \"\" >> \"$SRCROOT\"/orconfig-arch.h.tmp\n  echo \"#ifdef __${AN_ARCH}__\" >> \"$SRCROOT\"/orconfig-arch.h.tmp\n  echo \"#include \\\"contrib/osxbuild/orconfig-${AN_ARCH}.h\\\"\" >> \"$SRCROOT\"/orconfig-arch.h.tmp\n  echo \"#endif // __${AN_ARCH}__\" >> \"$SRCROOT\"/orconfig-arch.h.tmp\ndone\n\n# replace if different\nif ! diff -N \"$SRCROOT\"/orconfig-arch.h.tmp \"$SRCROOT\"/orconfig-arch.h > /dev/null; then\n  # backup if target exists\n  if [ -f \"$SRCROOT\"/orconfig-arch.h ]; then\n    mv -f \"$SRCROOT\"/orconfig-arch.h \"$SRCROOT\"/orconfig-arch.h.bak\n  fi\n  mv \"$SRCROOT\"/orconfig-arch.h.tmp \"$SRCROOT\"/orconfig-arch.h\nfi";
 		};
-		028FE3F319D7E5CD00EAE502 /* ShellScript */ = {
+		02B4DCEB19F7497D00DACF3B /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/../../.git",
-				"$(SRCROOT)/../../.git/HEAD",
-				"$(SRCROOT)/../../.git/config",
-				"$(SRCROOT)/../../.git/packed-refs",
-				"$(SRCROOT)/../../.git/logs/HEAD",
-				"$(SRCROOT)/../../.git/refs/heads",
-				"$(SRCROOT)/../../.git/refs/heads/master",
+				"$(SRCROOT)/orconfig-arch.h",
+				"$(SRCROOT)/tor.xcodeproj/project.pbxproj",
+				"$(SRCROOT)/../../config.*",
+				"$(SRCROOT)/../../stamp-h1",
 			);
+			name = "Run Script";
 			outputPaths = (
-				"$(SRCROOT)/../../micro-revision.i",
+				"$(SRCROOT)/../../orconfig.h",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd $SRCROOT/../..\nmake micro-revision.i";
-		};
-		028FE4A019D7E5D600EAE502 /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/../../.git",
-				"$(SRCROOT)/../../.git/HEAD",
-				"$(SRCROOT)/../../.git/config",
-				"$(SRCROOT)/../../.git/packed-refs",
-				"$(SRCROOT)/../../.git/logs/HEAD",
-				"$(SRCROOT)/../../.git/refs/heads",
-				"$(SRCROOT)/../../.git/refs/heads/master",
-			);
-			outputPaths = (
-				"$(SRCROOT)/../../micro-revision.i",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "cd $SRCROOT/../..\nmake micro-revision.i";
-		};
-		028FE54D19D7E5E000EAE502 /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/../../.git",
-				"$(SRCROOT)/../../.git/HEAD",
-				"$(SRCROOT)/../../.git/config",
-				"$(SRCROOT)/../../.git/packed-refs",
-				"$(SRCROOT)/../../.git/logs/HEAD",
-				"$(SRCROOT)/../../.git/refs/heads",
-				"$(SRCROOT)/../../.git/refs/heads/master",
-			);
-			outputPaths = (
-				"$(SRCROOT)/../../micro-revision.i",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "cd $SRCROOT/../..\nmake micro-revision.i";
-		};
-		02A429AE19B26A5E0048963B /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/../../.git",
-				"$(SRCROOT)/../../.git/HEAD",
-				"$(SRCROOT)/../../.git/config",
-				"$(SRCROOT)/../../.git/packed-refs",
-				"$(SRCROOT)/../../.git/logs/HEAD",
-				"$(SRCROOT)/../../.git/refs/heads",
-				"$(SRCROOT)/../../.git/refs/heads/master",
-			);
-			outputPaths = (
-				"$(SRCROOT)/../../micro-revision.i",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "cd $SRCROOT/../..\nmake micro-revision.i";
+			shellScript = "# Copy an existing orconfig-arch.h file that conditionally includes architecture-specific orconfig-*.h files to tor/orconfig.h\n\n# copy if different\nif ! diff -N \"$SRCROOT\"/orconfig-arch.h \"$SRCROOT\"/../../orconfig.h > /dev/null; then\n  # backup if target exists\n  if [ -f \"$SRCROOT\"/../../orconfig.h ]; then\n    mv -f \"$SRCROOT\"/../../orconfig.h \"$SRCROOT\"/../../orconfig.h.bak\n  fi\n  cp \"$SRCROOT\"/orconfig-arch.h \"$SRCROOT\"/../../orconfig.h\nfi";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1848,6 +2085,7 @@
 				028FE25819D6216B00EAE502 /* ge_frombytes.c in Sources */,
 				025356D119ACB38D006D569F /* container.c in Sources */,
 				025356CC19ACB38D006D569F /* backtrace.c in Sources */,
+				02B4DCE719F6CD3300DACF3B /* curve25519-donna-arch.c in Sources */,
 				0253566919ACB377006D569F /* router.c in Sources */,
 				025356D319ACB38D006D569F /* crypto_curve25519.c in Sources */,
 				028FE24919D6216B00EAE502 /* fe_cmov.c in Sources */,
@@ -1908,7 +2146,6 @@
 				0253563919ACB377006D569F /* buffers.c in Sources */,
 				0253565419ACB377006D569F /* geoip.c in Sources */,
 				025356E019ACB38D006D569F /* util_process.c in Sources */,
-				0253570619ACB3C0006D569F /* curve25519-donna-c64.c in Sources */,
 				028FE25A19D6216B00EAE502 /* ge_msub.c in Sources */,
 				0253564819ACB377006D569F /* connection_edge.c in Sources */,
 				0253564D19ACB377006D569F /* dirserv.c in Sources */,
@@ -1989,6 +2226,7 @@
 				028FE2F719D7DFC700EAE502 /* entrynodes.c in Sources */,
 				028FE2F819D7DFC700EAE502 /* compat_libevent.c in Sources */,
 				028FE2F919D7DFC700EAE502 /* keypair.c in Sources */,
+				02B4DCE919F6CD3300DACF3B /* curve25519-donna-arch.c in Sources */,
 				028FE2FA19D7DFC700EAE502 /* fe_mul.c in Sources */,
 				028FE2FB19D7DFC700EAE502 /* di_ops.c in Sources */,
 				028FE2FC19D7DFC700EAE502 /* procmon.c in Sources */,
@@ -2069,7 +2307,6 @@
 				028FE32A19D7DFC700EAE502 /* buffers.c in Sources */,
 				028FE32B19D7DFC700EAE502 /* geoip.c in Sources */,
 				028FE32C19D7DFC700EAE502 /* util_process.c in Sources */,
-				028FE32D19D7DFC700EAE502 /* curve25519-donna-c64.c in Sources */,
 				028FE3CC19D7E32500EAE502 /* test_addr.c in Sources */,
 				028FE32E19D7DFC700EAE502 /* ge_msub.c in Sources */,
 				028FE32F19D7DFC700EAE502 /* connection_edge.c in Sources */,
@@ -2113,6 +2350,7 @@
 				02B7802C19F1F6D000B58842 /* address.c in Sources */,
 				02B7802B19F1F6B300B58842 /* container.c in Sources */,
 				02B7802A19F1F66F00B58842 /* csiphash.c in Sources */,
+				02B4DCEA19F6CD3300DACF3B /* curve25519-donna-arch.c in Sources */,
 				02B7802919F1F63800B58842 /* log.c in Sources */,
 				02B7802819F1F62200B58842 /* di_ops.c in Sources */,
 				02B7802619F1F5EF00B58842 /* util_codedigest.c in Sources */,
@@ -2126,7 +2364,6 @@
 				028FE50919D7E5D600EAE502 /* compat.c in Sources */,
 				028FE50D19D7E5D600EAE502 /* util.c in Sources */,
 				028FE51C19D7E5D600EAE502 /* test_ntor_cl.c in Sources */,
-				028FE53819D7E5D600EAE502 /* curve25519-donna-c64.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2209,6 +2446,7 @@
 				028FE59819D7E5E000EAE502 /* torgzip.c in Sources */,
 				028FE59919D7E5E000EAE502 /* ge_p3_to_p2.c in Sources */,
 				028FE59A19D7E5E000EAE502 /* ge_double_scalarmult.c in Sources */,
+				02B4DCE819F6CD3300DACF3B /* curve25519-donna-arch.c in Sources */,
 				028FE59B19D7E5E000EAE502 /* circuitstats.c in Sources */,
 				028FE59C19D7E5E000EAE502 /* onion_ntor.c in Sources */,
 				028FE59D19D7E5E000EAE502 /* fe_isnegative.c in Sources */,
@@ -2253,7 +2491,6 @@
 				028FE5E219D7E5E000EAE502 /* buffers.c in Sources */,
 				028FE5E319D7E5E000EAE502 /* geoip.c in Sources */,
 				028FE5E419D7E5E000EAE502 /* util_process.c in Sources */,
-				028FE5E519D7E5E000EAE502 /* curve25519-donna-c64.c in Sources */,
 				028FE5E719D7E5E000EAE502 /* ge_msub.c in Sources */,
 				028FE5E819D7E5E000EAE502 /* connection_edge.c in Sources */,
 				028FE5E919D7E5E000EAE502 /* dirserv.c in Sources */,
@@ -2270,20 +2507,110 @@
 			target = 028FE33F19D7E02900EAE502 /* test-child */;
 			targetProxy = 028FE3CA19D7E06E00EAE502 /* PBXContainerItemProxy */;
 		};
-		028FE3F119D7E5CD00EAE502 /* PBXTargetDependency */ = {
+		02B4DC6C19F6A28C00DACF3B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 028FE33F19D7E02900EAE502 /* test-child */;
-			targetProxy = 028FE3F219D7E5CD00EAE502 /* PBXContainerItemProxy */;
+			target = 02B4DC6719F6A23E00DACF3B /* micro-revision.i */;
+			targetProxy = 02B4DC6B19F6A28C00DACF3B /* PBXContainerItemProxy */;
 		};
-		028FE49E19D7E5D600EAE502 /* PBXTargetDependency */ = {
+		02B4DC7219F6A2F100DACF3B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 028FE33F19D7E02900EAE502 /* test-child */;
-			targetProxy = 028FE49F19D7E5D600EAE502 /* PBXContainerItemProxy */;
+			target = 02B4DC6D19F6A2BB00DACF3B /* common_sha1.i */;
+			targetProxy = 02B4DC7119F6A2F100DACF3B /* PBXContainerItemProxy */;
 		};
-		028FE54B19D7E5E000EAE502 /* PBXTargetDependency */ = {
+		02B4DC7819F6A30F00DACF3B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 028FE33F19D7E02900EAE502 /* test-child */;
-			targetProxy = 028FE54C19D7E5E000EAE502 /* PBXContainerItemProxy */;
+			target = 02B4DC7319F6A30600DACF3B /* or_sha1.i */;
+			targetProxy = 02B4DC7719F6A30F00DACF3B /* PBXContainerItemProxy */;
+		};
+		02B4DCAF19F6B32D00DACF3B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 02B780FD19F680E800B58842 /* orconfig */;
+			targetProxy = 02B4DCAE19F6B32D00DACF3B /* PBXContainerItemProxy */;
+		};
+		02B4DCB119F6B33400DACF3B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 02B780FD19F680E800B58842 /* orconfig */;
+			targetProxy = 02B4DCB019F6B33400DACF3B /* PBXContainerItemProxy */;
+		};
+		02B4DCB319F6B33B00DACF3B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 02B780FD19F680E800B58842 /* orconfig */;
+			targetProxy = 02B4DCB219F6B33B00DACF3B /* PBXContainerItemProxy */;
+		};
+		02B4DCB519F6B34000DACF3B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 02B780FD19F680E800B58842 /* orconfig */;
+			targetProxy = 02B4DCB419F6B34000DACF3B /* PBXContainerItemProxy */;
+		};
+		02B4DCB719F6B34600DACF3B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 02B780FD19F680E800B58842 /* orconfig */;
+			targetProxy = 02B4DCB619F6B34600DACF3B /* PBXContainerItemProxy */;
+		};
+		02B4DCB919F6B34C00DACF3B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 02B780FD19F680E800B58842 /* orconfig */;
+			targetProxy = 02B4DCB819F6B34C00DACF3B /* PBXContainerItemProxy */;
+		};
+		02B4DCBB19F6B45800DACF3B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 02B780FD19F680E800B58842 /* orconfig */;
+			targetProxy = 02B4DCBA19F6B45800DACF3B /* PBXContainerItemProxy */;
+		};
+		02B4DCC819F6C30E00DACF3B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 02B4DCC119F6C2F200DACF3B /* Makefile-clean */;
+			targetProxy = 02B4DCC719F6C30E00DACF3B /* PBXContainerItemProxy */;
+		};
+		02B4DCD719F6C5EB00DACF3B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 028FE2B419D7DFC700EAE502 /* test */;
+			targetProxy = 02B4DCD619F6C5EB00DACF3B /* PBXContainerItemProxy */;
+		};
+		02B4DCE519F6C9B000DACF3B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 02B4DC8219F6AD4200DACF3B /* orconfig-configure */;
+			targetProxy = 02B4DCE419F6C9B000DACF3B /* PBXContainerItemProxy */;
+		};
+		02B780D819F67E6700B58842 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 028FE3F019D7E5CD00EAE502 /* test-bt-cl */;
+			targetProxy = 02B780D719F67E6700B58842 /* PBXContainerItemProxy */;
+		};
+		02B780DA19F67E6900B58842 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 028FE49D19D7E5D600EAE502 /* test-ntor-cl */;
+			targetProxy = 02B780D919F67E6900B58842 /* PBXContainerItemProxy */;
+		};
+		02B780F219F6800200B58842 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 02B780E719F67FD500B58842 /* generated-hash-files */;
+			targetProxy = 02B780F119F6800200B58842 /* PBXContainerItemProxy */;
+		};
+		02B780F419F6800900B58842 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 02B780E719F67FD500B58842 /* generated-hash-files */;
+			targetProxy = 02B780F319F6800900B58842 /* PBXContainerItemProxy */;
+		};
+		02B780F619F6800D00B58842 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 02B780E719F67FD500B58842 /* generated-hash-files */;
+			targetProxy = 02B780F519F6800D00B58842 /* PBXContainerItemProxy */;
+		};
+		02B780F819F6801200B58842 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 02B780E719F67FD500B58842 /* generated-hash-files */;
+			targetProxy = 02B780F719F6801200B58842 /* PBXContainerItemProxy */;
+		};
+		02B780FA19F6801600B58842 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 02B780E719F67FD500B58842 /* generated-hash-files */;
+			targetProxy = 02B780F919F6801600B58842 /* PBXContainerItemProxy */;
+		};
+		02B780FC19F6801C00B58842 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 02B780E719F67FD500B58842 /* generated-hash-files */;
+			targetProxy = 02B780FB19F6801C00B58842 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -2291,7 +2618,7 @@
 		025354C619AB6515006D569F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD)";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
@@ -2372,7 +2699,7 @@
 		025354C719AB6515006D569F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD)";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
@@ -3219,6 +3546,296 @@
 			};
 			name = Release;
 		};
+		02B4DC6919F6A23E00DACF3B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUGGING_SYMBOLS = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		02B4DC6A19F6A23E00DACF3B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		02B4DC6F19F6A2BB00DACF3B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUGGING_SYMBOLS = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		02B4DC7019F6A2BB00DACF3B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		02B4DC7519F6A30600DACF3B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUGGING_SYMBOLS = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		02B4DC7619F6A30600DACF3B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		02B4DC8419F6AD4200DACF3B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		02B4DC8519F6AD4200DACF3B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		02B4DCA419F6AFA300DACF3B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUGGING_SYMBOLS = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = src/or/tor;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		02B4DCA519F6AFA300DACF3B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = src/or/tor;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		02B4DCA819F6B01100DACF3B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUGGING_SYMBOLS = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = src/or/tor;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		02B4DCA919F6B01100DACF3B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = src/or/tor;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		02B4DCC519F6C2F200DACF3B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUGGING_SYMBOLS = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "Makefile-xcode-configure copy";
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		02B4DCC619F6C2F200DACF3B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "Makefile-xcode-configure copy";
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		02B780E919F67FD500B58842 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		02B780EA19F67FD500B58842 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		02B780FF19F680E800B58842 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		02B7810019F680E800B58842 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -3281,6 +3898,87 @@
 			buildConfigurations = (
 				028FE5F419D7E5E000EAE502 /* Debug */,
 				028FE5F519D7E5E000EAE502 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		02B4DC6819F6A23E00DACF3B /* Build configuration list for PBXLegacyTarget "micro-revision.i" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				02B4DC6919F6A23E00DACF3B /* Debug */,
+				02B4DC6A19F6A23E00DACF3B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		02B4DC6E19F6A2BB00DACF3B /* Build configuration list for PBXLegacyTarget "common_sha1.i" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				02B4DC6F19F6A2BB00DACF3B /* Debug */,
+				02B4DC7019F6A2BB00DACF3B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		02B4DC7419F6A30600DACF3B /* Build configuration list for PBXLegacyTarget "or_sha1.i" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				02B4DC7519F6A30600DACF3B /* Debug */,
+				02B4DC7619F6A30600DACF3B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		02B4DC8319F6AD4200DACF3B /* Build configuration list for PBXAggregateTarget "orconfig-configure" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				02B4DC8419F6AD4200DACF3B /* Debug */,
+				02B4DC8519F6AD4200DACF3B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		02B4DCA319F6AFA300DACF3B /* Build configuration list for PBXLegacyTarget "Makefile-ext-configure" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				02B4DCA419F6AFA300DACF3B /* Debug */,
+				02B4DCA519F6AFA300DACF3B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		02B4DCA719F6B01100DACF3B /* Build configuration list for PBXLegacyTarget "Makefile-xcode-configure" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				02B4DCA819F6B01100DACF3B /* Debug */,
+				02B4DCA919F6B01100DACF3B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		02B4DCC419F6C2F200DACF3B /* Build configuration list for PBXLegacyTarget "Makefile-clean" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				02B4DCC519F6C2F200DACF3B /* Debug */,
+				02B4DCC619F6C2F200DACF3B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		02B780E819F67FD500B58842 /* Build configuration list for PBXAggregateTarget "generated-hash-files" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				02B780E919F67FD500B58842 /* Debug */,
+				02B780EA19F67FD500B58842 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		02B780FE19F680E800B58842 /* Build configuration list for PBXAggregateTarget "orconfig" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				02B780FF19F680E800B58842 /* Debug */,
+				02B7810019F680E800B58842 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
