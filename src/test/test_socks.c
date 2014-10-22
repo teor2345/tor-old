@@ -392,7 +392,7 @@ test_socks_5_malformed_commands(void *ptr)
 
   /* XXX: Stringified address length > MAX_SOCKS_ADDR_LEN will never happen */
 
-  /* SOCKS 5 Send CONNECT [01] to IP address 2.2.2.2:4369, with SafeSocks set
+  /** SOCKS 5 Send CONNECT [01] to IP address 2.2.2.2:4369, with SafeSocks set
    */
   ADD_DATA(buf, "\x05\x01\x00");
   ADD_DATA(buf, "\x05\x01\x00\x01\x02\x02\x02\x02\x11\x11");
