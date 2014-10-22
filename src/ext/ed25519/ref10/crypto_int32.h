@@ -9,17 +9,12 @@
 
 /*
  Stop signed left shifts overflowing
- by using unsigned types for bitwise operations
+ by using unsigned types for 8-bit & 32-bit bitwise operations
  */
 
-#ifndef OVERFLOW_SAFE_SIGNED_LSHIFT
-#define OVERFLOW_SAFE_SIGNED_LSHIFT(s, lshift, utype, stype) \
-  ((stype)((utype)(s) << (utype)(lshift)))
-#endif
-
-#define SHL32(s, lshift) \
-  OVERFLOW_SAFE_SIGNED_LSHIFT(s, lshift, crypto_uint32, crypto_int32)
 #define SHL8(s, lshift) \
   OVERFLOW_SAFE_SIGNED_LSHIFT(s, lshift, unsigned char, signed char)
+#define SHL32(s, lshift) \
+  OVERFLOW_SAFE_SIGNED_LSHIFT(s, lshift, crypto_uint32, crypto_int32)
 
 #endif /* CRYPTO_INT32_H */
