@@ -357,5 +357,15 @@ typedef uint32_t uintptr_t;
 /** Any size_t larger than this amount is likely to be an underflow. */
 #define SIZE_T_CEILING  ((size_t)(SSIZE_MAX-16))
 
+/*
+ Stop signed left shifts overflowing
+ by using unsigned types for bitwise operations
+ */
+
+#ifndef OVERFLOW_SAFE_SIGNED_LSHIFT
+#define OVERFLOW_SAFE_SIGNED_LSHIFT(s, lshift, utype, stype) \
+((stype)((utype)(s) << (utype)(lshift)))
+#endif
+
 #endif /* __TORINT_H */
 
