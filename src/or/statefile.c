@@ -314,9 +314,16 @@ or_state_load(void)
   char *contents = NULL, *fname;
   char *errmsg = NULL;
   int r = -1, badstate = 0;
+  file_status_t fs;
 
   fname = get_datadir_fname("state");
-  switch (file_status(fname)) {
+  fs = file_status(fname);
+  /* treat empty state files as if the file doesn't exist, and generate a new
+   * state file, overwriting the empty file in or_state_save() */
+  if (fs == FN_FILE && file_size(fname) == 0) {
+    fs = FN_NOENT;
+  }
+  switch (fs) {
     case FN_FILE:
       if (!(contents = read_file_to_str(fname, 0, NULL))) {
         log_warn(LD_FS, "Unable to read state file \"%s\"", fname);

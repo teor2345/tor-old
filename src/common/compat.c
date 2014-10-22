@@ -3486,10 +3486,10 @@ get_total_system_memory_impl(void)
   int fd = -1;
   char *s = NULL;
   const char *cp;
-  size_t file_size=0;
+  size_t file_sz=0;
   if (-1 == (fd = tor_open_cloexec("/proc/meminfo",O_RDONLY,0)))
     return 0;
-  s = read_file_to_str_until_eof(fd, 65536, &file_size);
+  s = read_file_to_str_until_eof(fd, 65536, &file_sz);
   if (!s)
     goto err;
   cp = strstr(s, "MemTotal:");

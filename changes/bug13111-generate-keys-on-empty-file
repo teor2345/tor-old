@@ -1,0 +1,9 @@
+  o Minor bugfixes:
+    - Stop failing when key files are zero-length. Instead, generate new
+      keys, and overwrite the empty key files.
+      Fixes bug 13111.
+
+  o Minor enhancements:
+    - Skip loading zero-length extra info store, router store, stats, and
+      state files.
+      Implemented with bug 13111.

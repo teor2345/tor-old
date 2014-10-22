@@ -1858,7 +1858,9 @@ clean_name_for_stat(char *name)
 
 /** Return FN_ERROR if filename can't be read, FN_NOENT if it doesn't
  * exist, FN_FILE if it is a regular file, or FN_DIR if it's a
- * directory.  On FN_ERROR, sets errno. */
+ * directory, and FN_ERROR for any other file type.  On FN_ERROR and
+ * FN_NOENT, sets errno.  (errno is not set when FN_ERROR is returned
+ * due to an unhandled file type.) */
 file_status_t
 file_status(const char *fname)
 {
@@ -1886,6 +1888,41 @@ file_status(const char *fname)
 #endif
   else
     return FN_ERROR;
+}
+
+/** Returns the size of filename in bytes, if it is a regular file,
+ * or the remaining bytes to be read, if it is a FIFO. Returns -1
+ * if filename can't be read, if it doesn't exist, or if it's a
+ * directory, or any other file type. On failure, sets errno.
+ * (errno is not set when FN_ERROR is returned due to an unhandled
+ * file type.) */
+int64_t
+file_size(const char *fname)
+{
+  /* Note: many platforms now use a signed 64-bit value for file sizes.
+   * TODO: Do any use unsigned 64-bit? */
+  struct stat st;
+  char *f;
+  int r;
+  f = tor_strdup(fname);
+  clean_name_for_stat(f);
+  log_debug(LD_FS, "stat()ing %s", f);
+  r = stat(sandbox_intern_string(f), &st);
+  tor_free(f);
+  if (r)
+    return -1;
+  /* we could return the size of a directory on some platforms,
+   * but why bother to expose this complex platform-dependence? */
+  if (st.st_mode & S_IFDIR)
+    return -1;
+  else if (st.st_mode & S_IFREG)
+    return st.st_size;
+#ifndef _WIN32
+  else if (st.st_mode & S_IFIFO)
+    return st.st_size;
+#endif
+  else
+    return -1;
 }
 
 /** Check whether <b>dirname</b> exists and is private.  If yes return 0.  If
