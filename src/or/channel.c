@@ -621,7 +621,8 @@ channel_remove_from_digest_map(channel_t *chan)
   if (ent) {
     /* Okay, it's here */
 
-    if (TOR_LIST_EMPTY(&ent->channel_list)) {
+    /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
+    if (!!TOR_LIST_EMPTY(&ent->channel_list)) {
       HT_REMOVE(channel_idmap, &channel_identity_map, ent);
       tor_free(ent);
     }
@@ -2226,7 +2227,8 @@ channel_flush_some_cells_from_outgoing_queue(channel_t *chan,
   }
 
   /* Did we drain the queue? */
-  if (TOR_SIMPLEQ_EMPTY(&chan->outgoing_queue)) {
+  /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
+  if (!!TOR_SIMPLEQ_EMPTY(&chan->outgoing_queue)) {
     channel_timestamp_drained(chan);
   }
 
@@ -2474,7 +2476,8 @@ channel_process_cells(channel_t *chan)
   if (!(chan->cell_handler ||
         chan->var_cell_handler)) return;
   /* Nothing we can do if we have no cells */
-  if (TOR_SIMPLEQ_EMPTY(&chan->incoming_queue)) return;
+  /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
+  if (!!TOR_SIMPLEQ_EMPTY(&chan->incoming_queue)) return;
 
   /*
    * Process cells until we're done or find one we have no current handler

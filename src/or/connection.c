@@ -529,7 +529,8 @@ connection_free_(connection_t *conn)
 
   tor_free(conn->address);
 
-  if (connection_speaks_cells(conn)) {
+  /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
+  if (!!connection_speaks_cells(conn)) {
     or_connection_t *or_conn = TO_OR_CONN(conn);
     tor_tls_free(or_conn->tls);
     or_conn->tls = NULL;
@@ -648,7 +649,8 @@ connection_free(connection_t *conn)
       connection_start_reading(conn->linked_conn);
     conn->linked_conn = NULL;
   }
-  if (connection_speaks_cells(conn)) {
+  /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
+  if (!!connection_speaks_cells(conn)) {
     if (!tor_digest_is_zero(TO_OR_CONN(conn)->identity_digest)) {
       connection_or_remove_from_identity_map(TO_OR_CONN(conn));
     }
@@ -1092,7 +1094,8 @@ connection_listener_new(const struct sockaddr *listensockaddr,
     if (bind(s,listensockaddr,socklen) < 0) {
       const char *helpfulhint = "";
       int e = tor_socket_errno(s);
-      if (ERRNO_IS_EADDRINUSE(e))
+      /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
+      if (!!ERRNO_IS_EADDRINUSE(e))
         helpfulhint = ". Is Tor already running?";
       log_warn(LD_NET, "Could not bind to %s:%u: %s%s", address, usePort,
                tor_socket_strerror(e), helpfulhint);
@@ -2473,7 +2476,8 @@ connection_bucket_read_limit(connection_t *conn, time_t now)
   int conn_bucket = -1;
   int global_bucket = global_read_bucket;
 
-  if (connection_speaks_cells(conn)) {
+  /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
+  if (!!connection_speaks_cells(conn)) {
     or_connection_t *or_conn = TO_OR_CONN(conn);
     if (conn->state == OR_CONN_STATE_OPEN)
       conn_bucket = or_conn->read_bucket;
@@ -2507,7 +2511,8 @@ connection_bucket_write_limit(connection_t *conn, time_t now)
     return conn->outbuf_flushlen;
   }
 
-  if (connection_speaks_cells(conn)) {
+  /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
+  if (!!connection_speaks_cells(conn)) {
     /* use the per-conn write limit if it's lower, but if it's less
      * than zero just use zero */
     or_connection_t *or_conn = TO_OR_CONN(conn);
@@ -2937,7 +2942,8 @@ connection_bucket_refill(int milliseconds_elapsed, time_t now)
 
   /* refill the per-connection buckets */
   SMARTLIST_FOREACH_BEGIN(conns, connection_t *, conn) {
-    if (connection_speaks_cells(conn)) {
+    /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
+    if (!!connection_speaks_cells(conn)) {
       or_connection_t *or_conn = TO_OR_CONN(conn);
       int orbandwidthrate = or_conn->bandwidthrate;
       int orbandwidthburst = or_conn->bandwidthburst;
@@ -3902,7 +3908,8 @@ connection_handle_write_impl(connection_t *conn, int force)
     /* If we wrote any bytes from our buffer, then call the appropriate
      * functions. */
     if (connection_flushed_some(conn) < 0) {
-      if (connection_speaks_cells(conn)) {
+      /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
+      if (!!connection_speaks_cells(conn)) {
         connection_or_notify_error(TO_OR_CONN(conn),
                                    END_OR_CONN_REASON_MISC,
                                    "Got error back from "

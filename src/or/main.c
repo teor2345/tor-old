@@ -864,7 +864,8 @@ conn_close_if_marked(int i)
                 (int)connection_get_outbuf_len(conn),
                 (int)conn->outbuf_flushlen,
                 connection_wants_to_flush(conn));
-    } else if (connection_speaks_cells(conn)) {
+      /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
+    } else if (!!connection_speaks_cells(conn)) {
       if (conn->state == OR_CONN_STATE_OPEN) {
         retval = flush_buf_tls(TO_OR_CONN(conn)->tls, conn->outbuf, sz,
                                &conn->outbuf_flushlen);
@@ -2047,7 +2048,8 @@ do_main_loop(void)
           return -1;
 #endif
       } else {
-        if (ERRNO_IS_EINPROGRESS(e))
+        /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
+        if (!!ERRNO_IS_EINPROGRESS(e))
           log_warn(LD_BUG,
                    "libevent call returned EINPROGRESS? Please report.");
         log_debug(LD_NET,"libevent call interrupted.");
