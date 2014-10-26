@@ -75,7 +75,8 @@ uint64_t
 trunnel_htonll(uint64_t a)
 {
 #ifdef IS_LITTLE_ENDIAN
-  return trunnel_htonl(a>>32) | (((uint64_t)trunnel_htonl(a))<<32);
+  return trunnel_htonl((uint32_t)(a>>32))
+    | (((uint64_t)trunnel_htonl((uint32_t)a))<<32);
 #else
   return a;
 #endif
