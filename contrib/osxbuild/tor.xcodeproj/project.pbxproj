@@ -728,6 +728,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		02057F1D19FC9E5300D775D9 /* orconfig-arch.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "orconfig-arch.h"; sourceTree = "<group>"; };
 		025354DA19ACAF65006D569F /* tor */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tor; sourceTree = BUILT_PRODUCTS_DIR; };
 		025354DE19ACB16D006D569F /* orconfig.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = orconfig.h; path = ../../orconfig.h; sourceTree = "<group>"; };
 		025355C519ACB377006D569F /* addressmap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = addressmap.c; sourceTree = "<group>"; };
@@ -1175,10 +1176,11 @@
 			isa = PBXGroup;
 			children = (
 				025354DE19ACB16D006D569F /* orconfig.h */,
+				02057F1D19FC9E5300D775D9 /* orconfig-arch.h */,
 				02B4DCBF19F6B9D000DACF3B /* orconfig-i386.h */,
 				02B4DCC019F6B9D000DACF3B /* orconfig-x86_64.h */,
-				0253572E19ACBAD3006D569F /* micro-revision.i */,
 				02B4DCE619F6CD3300DACF3B /* curve25519-donna-arch.c */,
+				0253572E19ACBAD3006D569F /* micro-revision.i */,
 				025354E019ACB323006D569F /* src */,
 				02CBDF6719C40A270088AD76 /* doc */,
 				02B4DCBC19F6B4C200DACF3B /* MacPorts */,
@@ -1901,7 +1903,7 @@
 		025354B919AB6515006D569F /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0600;
+				LastUpgradeCheck = 0610;
 				ORGANIZATIONNAME = "Tim Wilson-Brown";
 				TargetAttributes = {
 					025354C019AB6515006D569F = {
@@ -1999,7 +2001,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Disable by changing the shell to /bin/cat\n# (Generated file for x86_64 & i386 has been checked in to git)\n\n# Create an orconfig-arch.h file that conditionally includes architecture-specific orconfig-*.h files\n\n# rm \"$SRCROOT\"/orconfig-arch.h.\nif [ -f \"$SRCROOT\"/orconfig-arch.h.tmp ]; then\n  mv -f \"$SRCROOT\"/orconfig-arch.h.tmp \"$SRCROOT\"/orconfig-arch.h.tmp.bak\nfi\n\nfor AN_ARCH in $ARCHS; do\n  echo \"\" >> \"$SRCROOT\"/orconfig-arch.h.tmp\n  echo \"#ifdef __${AN_ARCH}__\" >> \"$SRCROOT\"/orconfig-arch.h.tmp\n  echo \"#include \\\"contrib/osxbuild/orconfig-${AN_ARCH}.h\\\"\" >> \"$SRCROOT\"/orconfig-arch.h.tmp\n  echo \"#endif // __${AN_ARCH}__\" >> \"$SRCROOT\"/orconfig-arch.h.tmp\ndone\n\n# replace if different\nif ! diff -N \"$SRCROOT\"/orconfig-arch.h.tmp \"$SRCROOT\"/orconfig-arch.h > /dev/null; then\n  # backup if target exists\n  if [ -f \"$SRCROOT\"/orconfig-arch.h ]; then\n    mv -f \"$SRCROOT\"/orconfig-arch.h \"$SRCROOT\"/orconfig-arch.h.bak\n  fi\n  mv \"$SRCROOT\"/orconfig-arch.h.tmp \"$SRCROOT\"/orconfig-arch.h\nfi";
+			shellScript = "# Disable by changing the shell to /bin/cat\n# (Generated file for x86_64 & i386 should be checked in to git)\n\n# Create an orconfig-arch.h file that conditionally includes architecture-specific orconfig-*.h files\n\n# rm \"$SRCROOT\"/orconfig-arch.h.\nif [ -f \"$SRCROOT\"/orconfig-arch.h.tmp ]; then\n  mv -f \"$SRCROOT\"/orconfig-arch.h.tmp \"$SRCROOT\"/orconfig-arch.h.tmp.bak\nfi\n\ncat << EOF > \"$SRCROOT\"/orconfig-arch.h.tmp\n/** This file is generated based on the build architecture list,\n * then copied over tor/orconfig.h before building. */\n\n/** Xcode expects architecture-specific code to be conditionalised,\n * rather than being in different files. It doesn't have per-architecture\n * file -> target memberships, so we fake it here. */\nEOF\n\nfor AN_ARCH in $ARCHS; do\n  echo \"\" >> \"$SRCROOT\"/orconfig-arch.h.tmp\n  echo \"#ifdef __${AN_ARCH}__\" >> \"$SRCROOT\"/orconfig-arch.h.tmp\n  echo \"#include \\\"contrib/osxbuild/orconfig-${AN_ARCH}.h\\\"\" >> \"$SRCROOT\"/orconfig-arch.h.tmp\n  echo \"#endif // __${AN_ARCH}__\" >> \"$SRCROOT\"/orconfig-arch.h.tmp\ndone\n\n# replace if different\nif ! diff -N \"$SRCROOT\"/orconfig-arch.h.tmp \"$SRCROOT\"/orconfig-arch.h > /dev/null; then\n  # backup if target exists\n  if [ -f \"$SRCROOT\"/orconfig-arch.h ]; then\n    mv -f \"$SRCROOT\"/orconfig-arch.h \"$SRCROOT\"/orconfig-arch.h.bak\n  fi\n  mv \"$SRCROOT\"/orconfig-arch.h.tmp \"$SRCROOT\"/orconfig-arch.h\nfi";
 		};
 		02B4DCEB19F7497D00DACF3B /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -2619,6 +2621,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
+				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
+				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
@@ -2627,9 +2632,11 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -2638,11 +2645,17 @@
 					"$(inherited)",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -2667,6 +2680,8 @@
 					"-DPARANOIA",
 					"-DSHARE_DATADIR=\"\\\"/Library/tor/share\\\"\"",
 					"-DLOCALSTATEDIR=\"\\\"/Library/tor/state\\\"\"",
+					"-fno-omit-frame-pointer",
+					"-fasynchronous-unwind-tables",
 				);
 				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../src/ext";
 				WARNING_CFLAGS = (
@@ -2700,6 +2715,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
+				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
+				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
@@ -2708,16 +2726,23 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -2734,7 +2759,7 @@
 					"-DCURVE25519_ENABLED",
 					"-DUSE_CURVE25519_DONNA=1",
 					"-D_SYS_BUF_H_=\"avoid including sys/buf.h as it conflicts with some tor buffer functions\"",
-					"-I/test/tor/external/include",
+					"-I/opt/local/include",
 					"-ftrapv",
 					"-fstack-protector",
 					"-ffp-contract=fast",
@@ -3687,7 +3712,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -3712,7 +3736,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_OBJC_ARC = YES;
