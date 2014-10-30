@@ -101,8 +101,7 @@ connection_mark_unattached_ap_,(entry_connection_t *conn, int endreason,
                "stream (marked at %s:%d) sending two socks replies?",
                file, line);
 
-    /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
-    if (!!SOCKS_COMMAND_IS_CONNECT(conn->socks_request->command))
+    if (SOCKS_COMMAND_IS_CONNECT(conn->socks_request->command))
       connection_ap_handshake_socks_reply(conn, NULL, 0, endreason);
     else if (SOCKS_COMMAND_IS_RESOLVE(conn->socks_request->command))
       connection_ap_handshake_socks_resolved(conn,
@@ -1612,8 +1611,7 @@ connection_ap_handshake_process_socks(entry_connection_t *conn)
     return -1;
   } /* else socks handshake is done, continue processing */
 
-  /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
-  if (!!SOCKS_COMMAND_IS_CONNECT(socks->command))
+  if (SOCKS_COMMAND_IS_CONNECT(socks->command))
     control_event_stream_status(conn, STREAM_EVENT_NEW, 0);
   else
     control_event_stream_status(conn, STREAM_EVENT_NEW_RESOLVE, 0);
