@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Tor Project, Inc. */
+/* Copyright (c) 2012-2014, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 #include "orconfig.h"
@@ -12,10 +12,6 @@
 #include "crypto.h"
 #include "crypto_curve25519.h"
 #include "onion_ntor.h"
-
-#ifndef CURVE25519_ENABLED
-#error "This isn't going to work without curve25519."
-#endif
 
 #define N_ARGS(n) STMT_BEGIN {                                  \
     if (argc < (n)) {                                           \

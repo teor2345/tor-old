@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2014, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -2554,9 +2554,7 @@ typedef struct extend_info_t {
   uint16_t port; /**< OR port. */
   tor_addr_t addr; /**< IP address. */
   crypto_pk_t *onion_key; /**< Current onionskin key. */
-#ifdef CURVE25519_ENABLED
   curve25519_public_key_t curve25519_onion_key;
-#endif
 } extend_info_t;
 
 /** Certificate for v3 directory protocol: binds long-term authority identity
@@ -3229,6 +3227,14 @@ static const or_circuit_t *CONST_TO_OR_CIRCUIT(const circuit_t *);
  * Assert if the cast is impossible. */
 static origin_circuit_t *TO_ORIGIN_CIRCUIT(circuit_t *);
 static const origin_circuit_t *CONST_TO_ORIGIN_CIRCUIT(const circuit_t *);
+
+/** Return 1 iff <b>node</b> has Exit flag and no BadExit flag.
+ * Otherwise, return 0.
+ */
+static INLINE int node_is_good_exit(const node_t *node)
+{
+  return node->is_exit && ! node->is_bad_exit;
+}
 
 static INLINE or_circuit_t *TO_OR_CIRCUIT(circuit_t *x)
 {

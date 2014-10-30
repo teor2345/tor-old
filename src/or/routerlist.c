@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2014, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -2203,7 +2203,7 @@ smartlist_choose_node_by_bandwidth(const smartlist_t *sl,
     uint32_t this_bw = 0;
     i = node_sl_idx;
 
-    is_exit = node->is_exit;
+    is_exit = node_is_good_exit(node);
     is_guard = node->is_possible_guard;
     if (node->rs) {
       if (node->rs->has_bandwidth) {
@@ -2961,7 +2961,8 @@ extrainfo_insert,(routerlist_t *rl, extrainfo_t *ei))
     goto done;
   }
   if (routerinfo_incompatible_with_extrainfo(ri, ei, sd, NULL)) {
-    r = (sd->extrainfo_is_bogus) ? ROUTER_BAD_EI : ROUTER_NOT_IN_CONSENSUS;
+    r = (ri->cache_info.extrainfo_is_bogus) ?
+      ROUTER_BAD_EI : ROUTER_NOT_IN_CONSENSUS;
     goto done;
   }
 

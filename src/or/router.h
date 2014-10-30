@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2014, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -32,10 +32,8 @@ crypto_pk_t *init_key_from_file(const char *fname, int generate,
                                     int severity);
 void v3_authority_check_key_expiry(void);
 
-#ifdef CURVE25519_ENABLED
 di_digest256_map_t *construct_ntor_key_map(void);
 void ntor_key_map_free(di_digest256_map_t *map);
-#endif
 
 int router_initialize_tls_context(void);
 int init_keys(void);

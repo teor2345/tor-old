@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2014, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -896,9 +896,9 @@ create_unix_sockaddr(const char *listenaddress, char **readable_address,
 }
 #endif /* HAVE_SYS_UN_H */
 
-/** Warn that an accept or a connect has failed because we're running up
- * against our ulimit.  Rate-limit these warnings so that we don't spam
- * the log. */
+/** Warn that an accept or a connect has failed because we're running out of
+ * TCP sockets we can use on current system.  Rate-limit these warnings so
+ * that we don't spam the log. */
 static void
 warn_too_many_conns(void)
 {
@@ -908,7 +908,7 @@ warn_too_many_conns(void)
   if ((m = rate_limit_log(&last_warned, approx_time()))) {
     int n_conns = get_n_open_sockets();
     log_warn(LD_NET,"Failing because we have %d connections already. Please "
-             "raise your ulimit -n.%s", n_conns, m);
+             "read doc/TUNING for guidance.%s", n_conns, m);
     tor_free(m);
     control_event_general_status(LOG_WARN, "TOO_MANY_CONNECTIONS CURRENT=%d",
                                  n_conns);

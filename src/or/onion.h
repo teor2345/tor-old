@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2013, The Tor Project, Inc. */
+ * Copyright (c) 2007-2014, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -23,10 +23,8 @@ typedef struct server_onion_keys_t {
   uint8_t my_identity[DIGEST_LEN];
   crypto_pk_t *onion_key;
   crypto_pk_t *last_onion_key;
-#ifdef CURVE25519_ENABLED
   di_digest256_map_t *curve25519_key_map;
   curve25519_keypair_t *junk_keypair;
-#endif
 } server_onion_keys_t;
 
 #define MAX_ONIONSKIN_CHALLENGE_LEN 255
