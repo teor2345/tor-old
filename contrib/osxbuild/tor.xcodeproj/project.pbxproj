@@ -729,6 +729,7 @@
 
 /* Begin PBXFileReference section */
 		02057F1D19FC9E5300D775D9 /* orconfig-arch.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "orconfig-arch.h"; sourceTree = "<group>"; };
+		021196361A0E122D00A4D2ED /* changes */ = {isa = PBXFileReference; lastKnownFileType = folder; name = changes; path = ../../changes; sourceTree = "<group>"; };
 		025354DA19ACAF65006D569F /* tor */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tor; sourceTree = BUILT_PRODUCTS_DIR; };
 		025354DE19ACB16D006D569F /* orconfig.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = orconfig.h; path = ../../orconfig.h; sourceTree = "<group>"; };
 		025355C519ACB377006D569F /* addressmap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = addressmap.c; sourceTree = "<group>"; };
@@ -1179,10 +1180,11 @@
 				02057F1D19FC9E5300D775D9 /* orconfig-arch.h */,
 				02B4DCBF19F6B9D000DACF3B /* orconfig-i386.h */,
 				02B4DCC019F6B9D000DACF3B /* orconfig-x86_64.h */,
-				02B4DCE619F6CD3300DACF3B /* curve25519-donna-arch.c */,
 				0253572E19ACBAD3006D569F /* micro-revision.i */,
+				02B4DCE619F6CD3300DACF3B /* curve25519-donna-arch.c */,
 				025354E019ACB323006D569F /* src */,
 				02CBDF6719C40A270088AD76 /* doc */,
+				021196361A0E122D00A4D2ED /* changes */,
 				02B4DCBC19F6B4C200DACF3B /* MacPorts */,
 				025354DB19ACAFE3006D569F /* Products */,
 				028FE5F619D7E5E000EAE502 /* bench */,
@@ -2621,9 +2623,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
-				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
-				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
-				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
@@ -2632,7 +2631,6 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
@@ -2649,13 +2647,9 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_SHADOW = YES;
-				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNKNOWN_PRAGMAS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -2680,8 +2674,6 @@
 					"-DPARANOIA",
 					"-DSHARE_DATADIR=\"\\\"/Library/tor/share\\\"\"",
 					"-DLOCALSTATEDIR=\"\\\"/Library/tor/state\\\"\"",
-					"-fno-omit-frame-pointer",
-					"-fasynchronous-unwind-tables",
 				);
 				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../src/ext";
 				WARNING_CFLAGS = (
@@ -2715,9 +2707,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
-				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
-				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
-				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
@@ -2726,7 +2715,6 @@
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = YES;
@@ -2736,13 +2724,9 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_SHADOW = YES;
-				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNKNOWN_PRAGMAS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -2759,7 +2743,7 @@
 					"-DCURVE25519_ENABLED",
 					"-DUSE_CURVE25519_DONNA=1",
 					"-D_SYS_BUF_H_=\"avoid including sys/buf.h as it conflicts with some tor buffer functions\"",
-					"-I/opt/local/include",
+					"-I/test/tor/external/include",
 					"-ftrapv",
 					"-fstack-protector",
 					"-ffp-contract=fast",
@@ -3712,6 +3696,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -3736,6 +3721,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_OBJC_ARC = YES;
