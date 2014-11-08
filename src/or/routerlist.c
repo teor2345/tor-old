@@ -79,6 +79,7 @@ static const char *signed_descriptor_get_body_impl(
                                               const signed_descriptor_t *desc,
                                               int with_annotations);
 static void list_pending_downloads(digestmap_t *result,
+                                   digest256map_t *result256,
                                    int purpose, const char *prefix);
 static void list_pending_fpsk_downloads(fp_pair_map_t *result);
 static void launch_dummy_descriptor_download_as_needed(time_t now,
@@ -717,7 +718,8 @@ authority_certs_fetch_missing(networkstatus_t *status, time_t now)
    * First, we get the lists of already pending downloads so we don't
    * duplicate effort.
    */
-  list_pending_downloads(pending_id, DIR_PURPOSE_FETCH_CERTIFICATE, "fp/");
+  list_pending_downloads(pending_id, NULL,
+                         DIR_PURPOSE_FETCH_CERTIFICATE, "fp/");
   list_pending_fpsk_downloads(pending_cert);
 
   /*
@@ -1535,7 +1537,7 @@ dirserver_choose_by_weight(const smartlist_t *servers, double authority_weight)
   u64_dbl_t *weights;
   const dir_server_t *ds;
 
-  weights = tor_calloc(sizeof(u64_dbl_t), n);
+  weights = tor_calloc(n, sizeof(u64_dbl_t));
   for (i = 0; i < n; ++i) {
     ds = smartlist_get(servers, i);
     weights[i].dbl = ds->weight;
@@ -2044,7 +2046,7 @@ compute_weighted_bandwidths(const smartlist_t *sl,
   Web /= weight_scale;
   Wdb /= weight_scale;
 
-  bandwidths = tor_calloc(sizeof(u64_dbl_t), smartlist_len(sl));
+  bandwidths = tor_calloc(smartlist_len(sl), sizeof(u64_dbl_t));
 
   // Cycle through smartlist and total the bandwidth.
   SMARTLIST_FOREACH_BEGIN(sl, const node_t *, node) {
@@ -2191,7 +2193,7 @@ smartlist_choose_node_by_bandwidth(const smartlist_t *sl,
 
   /* First count the total bandwidth weight, and make a list
    * of each value.  We use UINT64_MAX to indicate "unknown". */
-  bandwidths = tor_calloc(sizeof(u64_dbl_t), smartlist_len(sl));
+  bandwidths = tor_calloc(smartlist_len(sl), sizeof(u64_dbl_t));
   fast_bits = bitarray_init_zero(smartlist_len(sl));
   exit_bits = bitarray_init_zero(smartlist_len(sl));
   guard_bits = bitarray_init_zero(smartlist_len(sl));
@@ -3583,9 +3585,9 @@ routerlist_remove_old_cached_routers_with_id(time_t now,
     n_extra = n - mdpr;
   }
 
-  lifespans = tor_calloc(sizeof(struct duration_idx_t), n);
-  rmv = tor_calloc(sizeof(uint8_t), n);
-  must_keep = tor_calloc(sizeof(uint8_t), n);
+  lifespans = tor_calloc(n, sizeof(struct duration_idx_t));
+  rmv = tor_calloc(n, sizeof(uint8_t));
+  must_keep = tor_calloc(n, sizeof(uint8_t));
   /* Set lifespans to contain the lifespan and index of each server. */
   /* Set rmv[i-lo]=1 if we're going to remove a server for being too old. */
   for (i = lo; i <= hi; ++i) {
@@ -4269,7 +4271,7 @@ clear_dir_servers(void)
  * corresponding elements of <b>result</b> to a nonzero value.
  */
 static void
-list_pending_downloads(digestmap_t *result,
+list_pending_downloads(digestmap_t *result, digest256map_t *result256,
                        int purpose, const char *prefix)
 {
   const size_t p_len = strlen(prefix);
@@ -4279,7 +4281,7 @@ list_pending_downloads(digestmap_t *result,
   if (purpose == DIR_PURPOSE_FETCH_MICRODESC)
     flags = DSR_DIGEST256|DSR_BASE64;
 
-  tor_assert(result);
+  tor_assert(result || result256);
 
   SMARTLIST_FOREACH_BEGIN(conns, connection_t *, conn) {
     if (conn->type == CONN_TYPE_DIR &&
@@ -4292,11 +4294,19 @@ list_pending_downloads(digestmap_t *result,
     }
   } SMARTLIST_FOREACH_END(conn);
 
-  SMARTLIST_FOREACH(tmp, char *, d,
+  if (result) {
+    SMARTLIST_FOREACH(tmp, char *, d,
                     {
                       digestmap_set(result, d, (void*)1);
                       tor_free(d);
                     });
+  } else if (result256) {
+    SMARTLIST_FOREACH(tmp, uint8_t *, d,
+                    {
+                      digest256map_set(result256, d, (void*)1);
+                      tor_free(d);
+                    });
+  }
   smartlist_free(tmp);
 }
 
@@ -4308,20 +4318,16 @@ list_pending_descriptor_downloads(digestmap_t *result, int extrainfo)
 {
   int purpose =
     extrainfo ? DIR_PURPOSE_FETCH_EXTRAINFO : DIR_PURPOSE_FETCH_SERVERDESC;
-  list_pending_downloads(result, purpose, "d/");
+  list_pending_downloads(result, NULL, purpose, "d/");
 }
 
 /** For every microdescriptor we are currently downloading by descriptor
- * digest, set result[d] to (void*)1.   (Note that microdescriptor digests
- * are 256-bit, and digestmap_t only holds 160-bit digests, so we're only
- * getting the first 20 bytes of each digest here.)
- *
- * XXXX Let there be a digestmap256_t, and use that instead.
+ * digest, set result[d] to (void*)1.
  */
 void
-list_pending_microdesc_downloads(digestmap_t *result)
+list_pending_microdesc_downloads(digest256map_t *result)
 {
-  list_pending_downloads(result, DIR_PURPOSE_FETCH_MICRODESC, "d/");
+  list_pending_downloads(NULL, result, DIR_PURPOSE_FETCH_MICRODESC, "d/");
 }
 
 /** For every certificate we are currently downloading by (identity digest,
