@@ -128,7 +128,6 @@ test_checkdir_perms(void *testdata)
 
   done:
   tor_free(testdir);
-
 }
 
 #define CHECKDIR(name,flags)                              \

@@ -10,9 +10,6 @@
 /* tor's configuration directory */
 #define CONFDIR "/usr/local/etc/tor"
 
-/* Defined if we have a curve25519 implementation */
-#define CURVE25519_ENABLED 1
-
 /* Define to 1 iff memset(0) sets doubles to 0.0 */
 #define DOUBLE_0_REP_IS_ZERO_BYTES 1
 
@@ -479,7 +476,7 @@
 #define PACKAGE_NAME "tor"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "tor 0.2.6.0-alpha-dev"
+#define PACKAGE_STRING "tor 0.2.6.1-alpha-dev"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "tor"
@@ -488,7 +485,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "0.2.6.0-alpha-dev"
+#define PACKAGE_VERSION "0.2.6.1-alpha-dev"
 
 /* How to access the PC from a struct ucontext */
 #define PC_FROM_UCONTEXT uc_mcontext->__ss.__eip
@@ -588,7 +585,7 @@
 #define USING_TWOS_COMPLEMENT 1
 
 /* Version number of package */
-#define VERSION "0.2.6.0-alpha-dev"
+#define VERSION "0.2.6.1-alpha-dev"
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */
