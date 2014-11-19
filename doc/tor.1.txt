@@ -550,7 +550,7 @@ GENERAL OPTIONS
     \'info'. (Default: 0)
 
 [[PredictedPortsRelevanceTime]] **PredictedPortsRelevanceTime** __NUM__::
-    Set how long, after the client has mad an anonymized connection to a
+    Set how long, after the client has made an anonymized connection to a
     given port, we will try to make sure that we build circuits to
     exits that support that port. The maximum value for this option is 1
     hour. (Default: 1 hour)
@@ -1426,16 +1426,6 @@ The following options are useful only for clients (that is, if
     Tor will use a default value chosen by the directory
     authorities. (Default: -1.)
 
-[[Support022HiddenServices]] **Support022HiddenServices** **0**|**1**|**auto**::
-    Tor hidden services running versions before 0.2.3.x required clients to
-    send timestamps, which can potentially be used to distinguish clients
-    whose view of the current time is skewed. If this option is set to 0, we
-    do not send this timestamp, and hidden services on obsolete Tor versions
-    will not work.  If this option is set to 1, we send the timestamp.  If
-    this option is "auto", we take a recommendation from the latest consensus
-    document. (Default: auto)
-
-
 SERVER OPTIONS
 --------------
 
@@ -2042,6 +2032,7 @@ The following options are used to configure a hidden service.
     recent HiddenServiceDir. By default, this option maps the virtual port to
     the same port on 127.0.0.1 over TCP. You may override the target port,
     address, or both by specifying a target of addr, port, or addr:port.
+    (You can specify an IPv6 target as [addr]:port.)
     You may also have multiple lines with  the same VIRTPORT: when a user
     connects to that VIRTPORT, one of the TARGETs from those lines will be
     chosen at random.
@@ -2408,6 +2399,11 @@ __DataDirectory__**/stats/buffer-stats**::
 __DataDirectory__**/stats/conn-stats**::
     Only used by servers. This file is used to collect approximate connection
     history (number of active connections over time).
+
+__DataDirectory__**/networkstatus-bridges**::
+    Only used by authoritative bridge directories. Contains information
+    about bridges that have self-reported themselves to the bridge
+    authority.
 
 __HiddenServiceDirectory__**/hostname**::
     The <base32-encoded-fingerprint>.onion domain name for this hidden service.

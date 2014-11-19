@@ -2946,6 +2946,7 @@ MOCK_IMPL(STATIC was_router_added_t,
 extrainfo_insert,(routerlist_t *rl, extrainfo_t *ei))
 {
   was_router_added_t r;
+  const char *compatibility_error_msg;
   routerinfo_t *ri = rimap_get(rl->identity_map,
                                ei->cache_info.identity_digest);
   signed_descriptor_t *sd =
@@ -2962,9 +2963,14 @@ extrainfo_insert,(routerlist_t *rl, extrainfo_t *ei))
     r = ROUTER_NOT_IN_CONSENSUS;
     goto done;
   }
-  if (routerinfo_incompatible_with_extrainfo(ri, ei, sd, NULL)) {
+  if (routerinfo_incompatible_with_extrainfo(ri, ei, sd,
+                                             &compatibility_error_msg)) {
     r = (ri->cache_info.extrainfo_is_bogus) ?
       ROUTER_BAD_EI : ROUTER_NOT_IN_CONSENSUS;
+
+    log_warn(LD_DIR,"router info incompatible with extra info (reason: %s)",
+             compatibility_error_msg);
+
     goto done;
   }
 
@@ -3377,7 +3383,7 @@ router_add_to_routerlist(routerinfo_t *router, const char **msg,
                router_describe(router));
       *msg = "Router descriptor was not new.";
       routerinfo_free(router);
-      return ROUTER_WAS_NOT_NEW;
+      return ROUTER_IS_ALREADY_KNOWN;
     }
   }
 
@@ -3462,7 +3468,7 @@ router_add_to_routerlist(routerinfo_t *router, const char **msg,
                                       &routerlist->desc_store);
       routerlist_insert_old(routerlist, router);
       *msg = "Router descriptor was not new.";
-      return ROUTER_WAS_NOT_NEW;
+      return ROUTER_IS_ALREADY_KNOWN;
     } else {
       /* Same key, and either new, or listed in the consensus. */
       log_debug(LD_DIR, "Replacing entry for router %s",

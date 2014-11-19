@@ -676,6 +676,10 @@ typedef enum {
 
 /* Negative reasons are internal: we never send them in a DESTROY or TRUNCATE
  * call; they only go to the controller for tracking  */
+
+/* Closing introduction point that were opened in parallel. */
+#define END_CIRC_REASON_IP_NOW_REDUNDANT -4
+
 /** Our post-timeout circuit time measurement period expired.
  * We must give up now */
 #define END_CIRC_REASON_MEASUREMENT_EXPIRED -3
@@ -4225,9 +4229,6 @@ typedef struct {
   /** How long (seconds) do we keep a guard before picking a new one? */
   int GuardLifetime;
 
-  /** Should we send the timestamps that pre-023 hidden services want? */
-  int Support022HiddenServices;
-
 } or_options_t;
 
 /** Persistent state for an onion router, as saved to disk. */
@@ -4999,14 +5000,30 @@ typedef enum {
 
 /** Return value for router_add_to_routerlist() and dirserv_add_descriptor() */
 typedef enum was_router_added_t {
+  /* Router was added successfully. */
   ROUTER_ADDED_SUCCESSFULLY = 1,
+  /* Router descriptor was added with warnings to submitter. */
   ROUTER_ADDED_NOTIFY_GENERATOR = 0,
+  /* Extrainfo document was rejected because no corresponding router
+   * descriptor was found OR router descriptor was rejected because
+   * it was incompatible with its extrainfo document. */
   ROUTER_BAD_EI = -1,
-  ROUTER_WAS_NOT_NEW = -2,
+  /* Router descriptor was rejected because it is already known. */
+  ROUTER_IS_ALREADY_KNOWN = -2,
+  /* General purpose router was rejected, because it was not listed
+   * in consensus. */
   ROUTER_NOT_IN_CONSENSUS = -3,
+  /* Router was neither in directory consensus nor in any of
+   * networkstatus documents. Caching it to access later.
+   * (Applies to fetched descriptors only.) */
   ROUTER_NOT_IN_CONSENSUS_OR_NETWORKSTATUS = -4,
+  /* Router was rejected by directory authority. */
   ROUTER_AUTHDIR_REJECTS = -5,
+  /* Bridge descriptor was rejected because such bridge was not one
+   * of the bridges we have listed in our configuration. */
   ROUTER_WAS_NOT_WANTED = -6,
+  /* Router descriptor was rejected because it was older than
+   * OLD_ROUTER_DESC_MAX_AGE. */
   ROUTER_WAS_TOO_OLD = -7,
 } was_router_added_t;
 
