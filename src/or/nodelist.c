@@ -1521,19 +1521,24 @@ count_loading_descriptors_progress(void)
   /* Strictly, this should be:
    * router_have_minimum_dir_info(0) && !router_have_minimum_dir_info(1)
    * but that is implied by the calling context of this function */
-  /* backwards compatibility: always report exit fraction */
-  loading_exit = 1; /*router_have_minimum_dir_info(0);*/
+  loading_exit = router_have_minimum_dir_info(0);
 
   paths = compute_frac_paths_available(consensus, options, now, loading_exit,
                                        &num_present, &num_usable,
                                        NULL);
 
   fraction = paths / get_frac_paths_needed_for_circs(options,consensus);
-  if (fraction > 1.0)
+  if (fraction > 1.0) {
     return 0; /* it's not the number of descriptors holding us back */
-  return BOOTSTRAP_STATUS_LOADING_DESCRIPTORS + (int)
-    (fraction*(BOOTSTRAP_STATUS_CONN_OR-1 -
-               BOOTSTRAP_STATUS_LOADING_DESCRIPTORS));
+  } else if (!loading_exit) {
+  return BOOTSTRAP_STATUS_LOADING_DESCRIPTORS_INTERNAL + (int)
+    (fraction*(BOOTSTRAP_STATUS_CONN_OR_INTERNAL-1 -
+               BOOTSTRAP_STATUS_LOADING_DESCRIPTORS_INTERNAL));
+  } else {
+    return BOOTSTRAP_STATUS_LOADING_DESCRIPTORS_EXIT + (int)
+    (fraction*(BOOTSTRAP_STATUS_CONN_OR_EXIT-1 -
+               BOOTSTRAP_STATUS_LOADING_DESCRIPTORS_EXIT));
+  }
 }
 
 /** Return the fraction of paths needed before we're willing to build
@@ -1651,7 +1656,7 @@ update_router_have_minimum_dir_info(void)
     /* Maintain the existing controller notification interface by only
      * notifying ENOUGH_DIR_INFO for exit circuits.
      * control_event_client_status(LOG_NOTICE, "ENOUGH_DIR_INFO"); */
-    control_event_bootstrap(BOOTSTRAP_STATUS_CONN_OR/*_INTERNAL*/, 0);
+    control_event_bootstrap(BOOTSTRAP_STATUS_CONN_OR_INTERNAL, 0);
   }
   /* If exit paths have just become available in this update.
    * Most of the time, this will follow immediately after internal paths. */
@@ -1661,7 +1666,7 @@ update_router_have_minimum_dir_info(void)
                " to build %s circuits.",
                "exit");
     control_event_client_status(LOG_NOTICE, "ENOUGH_DIR_INFO");
-    control_event_bootstrap(BOOTSTRAP_STATUS_CONN_OR/*_EXIT*/, 0);
+    control_event_bootstrap(BOOTSTRAP_STATUS_CONN_OR_EXIT, 0);
   }
 
   /* If internal paths have just become unavailable in this update */

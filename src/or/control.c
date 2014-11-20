@@ -4811,17 +4811,41 @@ bootstrap_status_to_string(bootstrap_status_t s, const char **tag,
       *tag = "loading_descriptors";
       *summary = "Loading relay descriptors";
       break;
-    case BOOTSTRAP_STATUS_CONN_OR:
-      *tag = "conn_or";
-      *summary = "Connecting to the Tor network";
-      break;
-    case BOOTSTRAP_STATUS_HANDSHAKE_OR:
-      *tag = "handshake_or";
-      *summary = "Finishing handshake with first hop";
-      break;
     case BOOTSTRAP_STATUS_CIRCUIT_CREATE:
       *tag = "circuit_create";
       *summary = "Establishing a Tor circuit";
+      break;
+    case BOOTSTRAP_STATUS_LOADING_DESCRIPTORS_INTERNAL:
+      *tag = "loading_descriptors_internal";
+      *summary = "Loading relay descriptors (internal)";
+      break;
+    case BOOTSTRAP_STATUS_CONN_OR_INTERNAL:
+      *tag = "conn_or_internal";
+      *summary = "Connecting to the Tor network (internal)";
+      break;
+    case BOOTSTRAP_STATUS_HANDSHAKE_OR_INTERNAL:
+      *tag = "handshake_or_internal";
+      *summary = "Finishing handshake with first hop (internal)";
+      break;
+    case BOOTSTRAP_STATUS_CIRCUIT_CREATE_INTERNAL:
+      *tag = "circuit_create_internal";
+      *summary = "Establishing a Tor circuit (internal)";
+      break;
+    case BOOTSTRAP_STATUS_LOADING_DESCRIPTORS_EXIT:
+      *tag = "loading_descriptors_exit";
+      *summary = "Loading relay descriptors (exit)";
+      break;
+    case BOOTSTRAP_STATUS_CONN_OR_EXIT:
+      *tag = "conn_or_exit";
+      *summary = "Connecting to the Tor network (exit)";
+      break;
+    case BOOTSTRAP_STATUS_HANDSHAKE_OR_EXIT:
+      *tag = "handshake_or_exit";
+      *summary = "Finishing handshake with first hop (exit)";
+      break;
+    case BOOTSTRAP_STATUS_CIRCUIT_CREATE_EXIT:
+      *tag = "circuit_create_exit";
+      *summary = "Establishing a Tor circuit (exit)";
       break;
     case BOOTSTRAP_STATUS_DONE:
       *tag = "done";
@@ -4882,10 +4906,32 @@ control_event_bootstrap(bootstrap_status_t status, int progress)
   /* special case for handshaking status, since our TLS handshaking code
    * can't distinguish what the connection is going to be for. */
   if (status == BOOTSTRAP_STATUS_HANDSHAKE) {
-    if (bootstrap_percent < BOOTSTRAP_STATUS_CONN_OR) {
+    if (bootstrap_percent < BOOTSTRAP_STATUS_CONN_OR_INTERNAL) {
       status = BOOTSTRAP_STATUS_HANDSHAKE_DIR;
+    } else if (bootstrap_percent < BOOTSTRAP_STATUS_CONN_OR_EXIT) {
+        status = BOOTSTRAP_STATUS_HANDSHAKE_OR_INTERNAL;
     } else {
-      status = BOOTSTRAP_STATUS_HANDSHAKE_OR;
+      status = BOOTSTRAP_STATUS_HANDSHAKE_OR_EXIT;
+    }
+  }
+
+  /* special case for loading descriptor status, since our descriptor load code
+   * can't distinguish what the load is going to be for. */
+  if (status == BOOTSTRAP_STATUS_LOADING_DESCRIPTORS) {
+    if (bootstrap_percent < BOOTSTRAP_STATUS_CONN_OR_EXIT) {
+      status = BOOTSTRAP_STATUS_LOADING_DESCRIPTORS_INTERNAL;
+    } else {
+      status = BOOTSTRAP_STATUS_LOADING_DESCRIPTORS_EXIT;
+    }
+  }
+
+  /* special case for circuit create status, since our circuit creation code
+   * can't distinguish what the connection is going to be for. */
+  if (status == BOOTSTRAP_STATUS_CIRCUIT_CREATE) {
+    if (bootstrap_percent < BOOTSTRAP_STATUS_CONN_OR_EXIT) {
+      status = BOOTSTRAP_STATUS_CIRCUIT_CREATE_INTERNAL;
+    } else {
+      status = BOOTSTRAP_STATUS_CIRCUIT_CREATE_EXIT;
     }
   }
 
