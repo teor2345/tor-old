@@ -79,7 +79,7 @@ int node_is_unreliable(const node_t *router, int need_uptime,
 int router_exit_policy_all_nodes_reject(const tor_addr_t *addr, uint16_t port,
                                         int need_uptime);
 void router_set_status(const char *digest, int up);
-int router_have_minimum_dir_info(void);
+int router_have_minimum_dir_info(int build_exit_circuit);
 void router_dir_info_changed(void);
 const char *get_dir_info_status_string(void);
 int count_loading_descriptors_progress(void);

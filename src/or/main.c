@@ -977,12 +977,17 @@ directory_info_has_arrived(time_t now, int from_cache)
 {
   const or_options_t *options = get_options();
 
-  if (!router_have_minimum_dir_info()) {
+  /* check if we have enough info for both exit and internal circuits,
+   * or just internal circuits */
+  if (!router_have_minimum_dir_info(1)) {
+    int internal_but_not_exit = router_have_minimum_dir_info(0);
     int quiet = from_cache ||
                 directory_too_idle_to_fetch_descriptors(options, now);
     tor_log(quiet ? LOG_INFO : LOG_NOTICE, LD_DIR,
-        "I learned some more directory information, but not enough to "
-        "build a circuit: %s", get_dir_info_status_string());
+            "I learned some more directory information, but not enough to "
+            "build %s circuit: %s",
+            internal_but_not_exit ? "an exit" : "an internal or exit",
+            get_dir_info_status_string());
     update_all_descriptor_downloads(now);
     return;
   } else {
@@ -1244,7 +1249,9 @@ run_scheduled_events(time_t now)
       time_to_try_getting_descriptors < now) {
     update_all_descriptor_downloads(now);
     update_extrainfo_downloads(now);
-    if (router_have_minimum_dir_info())
+    /* if we can build internal circuits for descriptor fetches,
+     * be greedy with our retries */
+    if (router_have_minimum_dir_info(0))
       time_to_try_getting_descriptors = now + LAZY_DESCRIPTOR_RETRY_INTERVAL;
     else
       time_to_try_getting_descriptors = now + GREEDY_DESCRIPTOR_RETRY_INTERVAL;
@@ -1329,8 +1336,10 @@ run_scheduled_events(time_t now)
      * networkstatus_get_reasonably_live_consensus(), but that value is way
      * way too high.  Arma: is the bridge issue there resolved yet? -NM */
 #define NS_EXPIRY_SLOP (24*60*60)
+    /* be conservative, and notify of changed dir info
+     * even if only internal circuits are working */
     if (ns && ns->valid_until < now+NS_EXPIRY_SLOP &&
-        router_have_minimum_dir_info()) {
+        router_have_minimum_dir_info(0)) {
       router_dir_info_changed();
     }
 #define CHECK_EXPIRED_NS_INTERVAL (2*60)
@@ -1513,7 +1522,8 @@ run_scheduled_events(time_t now)
    *    that became dirty more than MaxCircuitDirtiness seconds ago,
    *    and we make a new circ if there are no clean circuits.
    */
-  have_dir_info = router_have_minimum_dir_info();
+  /* some of these circuit types only require internal circuits */
+  have_dir_info = router_have_minimum_dir_info(0);
   if (have_dir_info && !net_is_disabled()) {
     circuit_build_needed_circs(now);
   } else {

@@ -1256,22 +1256,31 @@ router_set_status(const char *digest, int up)
 }
 
 /** True iff, the last time we checked whether we had enough directory info
- * to build circuits, the answer was "yes". */
-static int have_min_dir_info = 0;
+ * to build circuits, the answer was "yes". We check bandwidth fractions
+ * for internal and exit circuits separately, to avoid bug 13718, where
+ * the first exit in a Tor network can't bootstrap because it mistakenly
+ * checks for an exit circuit before building an internal path.
+ * have_min_dir_info_exit necessarily implies have_min_dir_info_internal,
+ * as we use the same minimum fraction for each. */
+static int have_min_dir_info_internal = 0;
+static int have_min_dir_info_exit = 0;
 /** True iff enough has changed since the last time we checked whether we had
  * enough directory info to build circuits that our old answer can no longer
  * be trusted. */
 static int need_to_update_have_min_dir_info = 1;
 /** String describing what we're missing before we have enough directory
  * info. */
-static char dir_info_status[256] = "";
+static char dir_info_status[512] = "";
 
-/** Return true iff we have enough networkstatus and router information to
- * start building circuits.  Right now, this means "more than half the
- * networkstatus documents, and at least 1/4 of expected routers." */
-//XXX should consider whether we have enough exiting nodes here.
+/** Return true iff we have enough consensus information to
+ * start building circuits.  Right now, this means "a consensus that's
+ * less than a day old, and at least 60% of router descriptors,
+ * weighted by bandwidth". If <b>build_exit_circuit</b> is true, we consider
+ * descriptors for guards, middles, and exits; if not, we only consider
+ * guards and middles (for internal circuits). To obtain the final weighted
+ * bandwidth, we multiply the weighted bandwidth fraction for each position. */
 int
-router_have_minimum_dir_info(void)
+router_have_minimum_dir_info(int build_exit_circuit)
 {
   static int logged_delay=0;
   const char *delay_fetches_msg = NULL;
@@ -1288,7 +1297,10 @@ router_have_minimum_dir_info(void)
     update_router_have_minimum_dir_info();
   }
 
-  return have_min_dir_info;
+  if (build_exit_circuit)
+    return have_min_dir_info_exit;
+  else
+    return have_min_dir_info_internal;
 }
 
 /** Called when our internal view of the directory has changed.  This can be
@@ -1315,7 +1327,7 @@ get_dir_info_status_string(void)
  * descriptors for.  Store the former in *<b>num_usable</b> and the latter in
  * *<b>num_present</b>.  If <b>in_set</b> is non-NULL, only consider those
  * routers in <b>in_set</b>.  If <b>exit_only</b> is true, only consider nodes
- * with the Exit flag.  If *descs_out is present, add a node_t for each
+ * with the Exit flag.  If *<b>descs_out</b> is present, add a node_t for each
  * usable descriptor to it.
  */
 static void
@@ -1362,19 +1374,32 @@ count_usable_descriptors(int *num_present, int *num_usable,
 }
 
 /** Return an estimate of which fraction of usable paths through the Tor
- * network we have available for use. */
+ * network we have available for use. Count how many routers seem like ones
+ * we'd use, and how many of <em>those</em> we have descriptors for.  Store
+ * the former in *<b>num_usable_out</b> and the latter in
+ *<b>num_present_out</b>. If <b>usable_exit_paths</b> is true, include
+ * exit nodes in the fraction calculation, if <b>usable_exit_paths</b>
+ * is false, only include guard and middle nodes. If **<b>status_out</b>
+ * is present, print the available percentages of guard, middle, and
+ * (if <b>usable_exit_paths</b> is true) exit nodes to it.*/
 static double
 compute_frac_paths_available(const networkstatus_t *consensus,
                              const or_options_t *options, time_t now,
+                             int usable_exit_paths,
                              int *num_present_out, int *num_usable_out,
                              char **status_out)
 {
+  /* We only want to know about exits if we're interested in exit paths,
+   * or we're printing a status */
+  int calc_exit = usable_exit_paths || status_out;
   smartlist_t *guards = smartlist_new();
   smartlist_t *mid    = smartlist_new();
-  smartlist_t *exits  = smartlist_new();
-  smartlist_t *myexits= smartlist_new();
-  smartlist_t *myexits_unflagged = smartlist_new();
-  double f_guard, f_mid, f_exit, f_myexit, f_myexit_unflagged;
+  smartlist_t *exits  = calc_exit ? smartlist_new() : NULL;
+  smartlist_t *myexits = calc_exit ? smartlist_new() : NULL;
+  smartlist_t *myexits_unflagged = calc_exit ? smartlist_new() : NULL;
+  double f_guard  = 0.0, f_mid = 0.0;
+  double f_exit = 0.0, f_myexit = 0.0, f_myexit_unflagged = 0.0;
+  double f_path = 0.0;
   int np, nu; /* Ignored */
   const int authdir = authdir_mode_v3(options);
 
@@ -1395,69 +1420,95 @@ compute_frac_paths_available(const networkstatus_t *consensus,
     });
   }
 
-  /* All nodes with exit flag */
-  count_usable_descriptors(&np, &nu, exits, consensus, options, now,
-                           NULL, 1);
-  /* All nodes with exit flag in ExitNodes option */
-  count_usable_descriptors(&np, &nu, myexits, consensus, options, now,
-                           options->ExitNodes, 1);
-  /* Now compute the nodes in the ExitNodes option where which we don't know
-   * what their exit policy is, or we know it permits something. */
-  count_usable_descriptors(&np, &nu, myexits_unflagged,
-                           consensus, options, now,
-                           options->ExitNodes, 0);
-  SMARTLIST_FOREACH_BEGIN(myexits_unflagged, const node_t *, node) {
-    if (node_has_descriptor(node) && node_exit_policy_rejects_all(node))
-      SMARTLIST_DEL_CURRENT(myexits_unflagged, node);
-  } SMARTLIST_FOREACH_END(node);
+  /* If we are only interested in internal paths, and we're
+   * not outputting the status, don't even bother with exit fractions */
+  if (calc_exit) {
+    /* All nodes with exit flag */
+    count_usable_descriptors(&np, &nu, exits, consensus, options, now,
+                             NULL, 1);
+    /* All nodes with exit flag in ExitNodes option */
+    count_usable_descriptors(&np, &nu, myexits, consensus, options, now,
+                             options->ExitNodes, 1);
+    /* Now compute the nodes in the ExitNodes option where which we don't know
+     * what their exit policy is, or we know it permits something. */
+    count_usable_descriptors(&np, &nu, myexits_unflagged,
+                             consensus, options, now,
+                             options->ExitNodes, 0);
+    SMARTLIST_FOREACH_BEGIN(myexits_unflagged, const node_t *, node) {
+      if (node_has_descriptor(node) && node_exit_policy_rejects_all(node))
+        SMARTLIST_DEL_CURRENT(myexits_unflagged, node);
+    } SMARTLIST_FOREACH_END(node);
+  }
 
   f_guard = frac_nodes_with_descriptors(guards, WEIGHT_FOR_GUARD);
   f_mid   = frac_nodes_with_descriptors(mid,    WEIGHT_FOR_MID);
-  f_exit  = frac_nodes_with_descriptors(exits,  WEIGHT_FOR_EXIT);
-  f_myexit= frac_nodes_with_descriptors(myexits,WEIGHT_FOR_EXIT);
-  f_myexit_unflagged=
-            frac_nodes_with_descriptors(myexits_unflagged,WEIGHT_FOR_EXIT);
+  if (calc_exit) {
+    f_exit  = frac_nodes_with_descriptors(exits,  WEIGHT_FOR_EXIT);
+    f_myexit= frac_nodes_with_descriptors(myexits,WEIGHT_FOR_EXIT);
+    f_myexit_unflagged=
+              frac_nodes_with_descriptors(myexits_unflagged,WEIGHT_FOR_EXIT);
 
-  /* If our ExitNodes list has eliminated every possible Exit node, and there
-   * were some possible Exit nodes, then instead consider nodes that permit
-   * exiting to some ports. */
-  if (smartlist_len(myexits) == 0 &&
-      smartlist_len(myexits_unflagged)) {
-    f_myexit = f_myexit_unflagged;
+    /* If our ExitNodes list has eliminated every possible Exit node, and there
+     * were some possible Exit nodes, then instead consider nodes that permit
+     * exiting to some ports. */
+    if (smartlist_len(myexits) == 0 &&
+        smartlist_len(myexits_unflagged)) {
+      f_myexit = f_myexit_unflagged;
+    }
   }
 
   smartlist_free(guards);
   smartlist_free(mid);
-  smartlist_free(exits);
-  smartlist_free(myexits);
-  smartlist_free(myexits_unflagged);
+  if (calc_exit) {
+    smartlist_free(exits);
+    smartlist_free(myexits);
+    smartlist_free(myexits_unflagged);
+  }
 
-  /* This is a tricky point here: we don't want to make it easy for a
-   * directory to trickle exits to us until it learns which exits we have
-   * configured, so require that we have a threshold both of total exits
-   * and usable exits. */
-  if (f_myexit < f_exit)
-    f_exit = f_myexit;
+  if (calc_exit) {
+    /* This is a tricky point here: we don't want to make it easy for a
+     * directory to trickle exits to us until it learns which exits we have
+     * configured, so require that we have a threshold both of total exits
+     * and usable exits. */
+    if (f_myexit < f_exit)
+      f_exit = f_myexit;
+  }
 
+  /* Calculate the bandwidth fraction of the paths we're interested in */
+  f_path = f_guard * f_mid;
+
+  /* Only use the exit fraction if we are interested in exit paths */
+  if (usable_exit_paths)
+    f_path *= f_exit;
+
+  /* We will always have the exit fraction available here,
+   * even if we're not using it in the f_path calculation,
+   * as we calculate f_exit based on:
+   * calc_exit = usable_exit_paths || status_out */
   if (status_out)
     tor_asprintf(status_out,
                  "%d%% of guards bw, "
                  "%d%% of midpoint bw, and "
-                 "%d%% of exit bw",
+                 "%d%% of exit bw%s = "
+                 "%d%% of %s path bw",
                  (int)(f_guard*100),
                  (int)(f_mid*100),
-                 (int)(f_exit*100));
+                 (int)(f_exit*100),
+                 usable_exit_paths ? "" : " (ignored)",
+                 (int)(f_path*100),
+                 usable_exit_paths ? "exit" : "internal");
 
-  return f_guard * f_mid * f_exit;
+  return f_path;
 }
 
 /** We just fetched a new set of descriptors. Compute how far through
- * the "loading descriptors" bootstrapping phase we are, so we can inform
- * the controller of our progress. */
+ * the relevant "loading descriptors" bootstrapping phase we are,
+ * so we can inform the controller of our progress. */
 int
 count_loading_descriptors_progress(void)
 {
   int num_present = 0, num_usable=0;
+  int loading_exit = 0;
   time_t now = time(NULL);
   const or_options_t *options = get_options();
   const networkstatus_t *consensus =
@@ -1467,16 +1518,27 @@ count_loading_descriptors_progress(void)
   if (!consensus)
     return 0; /* can't count descriptors if we have no list of them */
 
-  paths = compute_frac_paths_available(consensus, options, now,
+  /* Strictly, this should be:
+   * router_have_minimum_dir_info(0) && !router_have_minimum_dir_info(1)
+   * but that is implied by the calling context of this function */
+  loading_exit = router_have_minimum_dir_info(0);
+
+  paths = compute_frac_paths_available(consensus, options, now, loading_exit,
                                        &num_present, &num_usable,
                                        NULL);
 
   fraction = paths / get_frac_paths_needed_for_circs(options,consensus);
-  if (fraction > 1.0)
+  if (fraction > 1.0) {
     return 0; /* it's not the number of descriptors holding us back */
-  return BOOTSTRAP_STATUS_LOADING_DESCRIPTORS + (int)
-    (fraction*(BOOTSTRAP_STATUS_CONN_OR-1 -
-               BOOTSTRAP_STATUS_LOADING_DESCRIPTORS));
+  } else if (!loading_exit) {
+  return BOOTSTRAP_STATUS_LOADING_DESCRIPTORS_INTERNAL + (int)
+    (fraction*(BOOTSTRAP_STATUS_CONN_OR_INTERNAL-1 -
+               BOOTSTRAP_STATUS_LOADING_DESCRIPTORS_INTERNAL));
+  } else {
+    return BOOTSTRAP_STATUS_LOADING_DESCRIPTORS_EXIT + (int)
+    (fraction*(BOOTSTRAP_STATUS_CONN_OR_EXIT-1 -
+               BOOTSTRAP_STATUS_LOADING_DESCRIPTORS_EXIT));
+  }
 }
 
 /** Return the fraction of paths needed before we're willing to build
@@ -1495,14 +1557,15 @@ get_frac_paths_needed_for_circs(const or_options_t *options,
   }
 }
 
-/** Change the value of have_min_dir_info, setting it true iff we have enough
- * network and router information to build circuits.  Clear the value of
- * need_to_update_have_min_dir_info. */
+/** Change the values of internal_have_min_dir_info, and
+ * exit_have_min_dir_info, setting them true iff we have enough network and
+ * router information to build internal or exit circuits, respectively.
+ * Clear the value of need_to_update_have_min_dir_info. */
 static void
 update_router_have_minimum_dir_info(void)
 {
   time_t now = time(NULL);
-  int res;
+  int internal_res = 0, exit_res = 0;
   const or_options_t *options = get_options();
   const networkstatus_t *consensus =
     networkstatus_get_reasonably_live_consensus(now,usable_consensus_flavor());
@@ -1515,58 +1578,131 @@ update_router_have_minimum_dir_info(void)
     else
       strlcpy(dir_info_status, "We have no recent usable consensus.",
               sizeof(dir_info_status));
-    res = 0;
+    internal_res = exit_res = 0;
     goto done;
   }
 
   using_md = consensus->flavor == FLAV_MICRODESC;
 
+  /* Check internal path fraction: usable_exit_paths = 0 */
   {
     char *status = NULL;
     int num_present=0, num_usable=0;
     double paths = compute_frac_paths_available(consensus, options, now,
+                                                0,
                                                 &num_present, &num_usable,
                                                 &status);
 
     if (paths < get_frac_paths_needed_for_circs(options,consensus)) {
       tor_snprintf(dir_info_status, sizeof(dir_info_status),
                    "We need more %sdescriptors: we have %d/%d, and "
-                   "can only build %d%% of likely paths. (We have %s.)",
+                   "can only build %d%% of likely %s paths. (We have %s.)",
                    using_md?"micro":"", num_present, num_usable,
-                   (int)(paths*100), status);
+                   (int)(paths*100),
+                   "internal",
+                   status);
       /* log_notice(LD_NET, "%s", dir_info_status); */
       tor_free(status);
-      res = 0;
+      internal_res = 0;
+      control_event_bootstrap(BOOTSTRAP_STATUS_REQUESTING_DESCRIPTORS, 0);
+      /* if we don't have enough descriptors for an internal path,
+       * we won't have enough for an external path either, as
+       * !have_min_dir_info_internal implies !have_min_dir_info_exit.
+       * This way, we only log and send the control event once per update. */
+      goto done;
+    }
+
+    tor_free(status);
+    internal_res = 1;
+  }
+
+  /* Check exit path fraction: usable_exit_paths = 1 */
+  {
+    char *status = NULL;
+    int num_present=0, num_usable=0;
+    double paths = compute_frac_paths_available(consensus, options, now,
+                                                1,
+                                                &num_present, &num_usable,
+                                                &status);
+
+    if (paths < get_frac_paths_needed_for_circs(options,consensus)) {
+      tor_snprintf(dir_info_status, sizeof(dir_info_status),
+                   "We need more %sdescriptors: we have %d/%d, and "
+                   "can only build %d%% of likely %s paths. (We have %s.)",
+                   using_md?"micro":"", num_present, num_usable,
+                   (int)(paths*100),
+                   "exit",
+                   status);
+      /* log_notice(LD_NET, "%s", dir_info_status); */
+      tor_free(status);
+      exit_res = 0;
       control_event_bootstrap(BOOTSTRAP_STATUS_REQUESTING_DESCRIPTORS, 0);
       goto done;
     }
 
     tor_free(status);
-    res = 1;
+    exit_res = 1;
   }
 
  done:
-  if (res && !have_min_dir_info) {
-    log_notice(LD_DIR,
-        "We now have enough directory information to build circuits.");
-    control_event_client_status(LOG_NOTICE, "ENOUGH_DIR_INFO");
-    control_event_bootstrap(BOOTSTRAP_STATUS_CONN_OR, 0);
+
+  /* If internal paths have just become available in this update */
+  if (internal_res && !have_min_dir_info_internal) {
+    /* Downgrade to info if we're just about to log exit path availability */
+    tor_log((exit_res && !have_min_dir_info_exit) ? LOG_INFO : LOG_NOTICE,
+            LD_DIR,
+            "We now have enough directory information to build %s circuits.",
+            "internal");
+    /* Maintain the existing controller notification interface by only
+     * notifying ENOUGH_DIR_INFO for exit circuits.
+     * control_event_client_status(LOG_NOTICE, "ENOUGH_DIR_INFO"); */
+    control_event_bootstrap(BOOTSTRAP_STATUS_CONN_OR_INTERNAL, 0);
   }
-  if (!res && have_min_dir_info) {
+  /* If exit paths have just become available in this update.
+   * Most of the time, this will follow immediately after internal paths. */
+  if (exit_res && !have_min_dir_info_exit) {
+    log_notice(LD_DIR,
+               "We now have enough directory information"
+               " to build %s circuits.",
+               "exit");
+    control_event_client_status(LOG_NOTICE, "ENOUGH_DIR_INFO");
+    control_event_bootstrap(BOOTSTRAP_STATUS_CONN_OR_EXIT, 0);
+  }
+
+  /* If internal paths have just become unavailable in this update */
+  if (!internal_res && have_min_dir_info_internal) {
     int quiet = directory_too_idle_to_fetch_descriptors(options, now);
     tor_log(quiet ? LOG_INFO : LOG_NOTICE, LD_DIR,
         "Our directory information is no longer up-to-date "
-        "enough to build circuits: %s", dir_info_status);
+        "enough to build %s circuits: %s",
+            "internal",
+            dir_info_status);
 
-    /* a) make us log when we next complete a circuit, so we know when Tor
-     * is back up and usable, and b) disable some activities that Tor
-     * should only do while circuits are working, like reachability tests
-     * and fetching bridge descriptors only over circuits. */
+    /* a) make us log when we next complete an internal or exit circuit,
+     * so we know when Tor is back up and usable for at least some purposes,
+     * and b) disable some activities that Tor should only do while internal
+     * circuits are working, like reachability tests and fetching bridge
+     * descriptors only over circuits. */
     can_complete_circuit = 0;
 
     control_event_client_status(LOG_NOTICE, "NOT_ENOUGH_DIR_INFO");
+  } else if (!exit_res && have_min_dir_info_exit) {
+    /* If exit paths have just become unavailable in this update,
+     * but internal paths are still working */
+      int quiet = directory_too_idle_to_fetch_descriptors(options, now);
+      tor_log(quiet ? LOG_INFO : LOG_NOTICE, LD_DIR,
+              "Our directory information is no longer up-to-date "
+              "enough to build %s circuits: %s",
+              "exit",
+              dir_info_status);
+
+    /* XXXX: split can_complete_circuit into internal and external? */
+
+    control_event_client_status(LOG_NOTICE, "NOT_ENOUGH_DIR_INFO");
   }
-  have_min_dir_info = res;
+
+  have_min_dir_info_internal = internal_res;
+  have_min_dir_info_exit = exit_res;
   need_to_update_have_min_dir_info = 0;
 }
 
