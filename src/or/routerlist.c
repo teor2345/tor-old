@@ -4734,7 +4734,8 @@ update_extrainfo_downloads(time_t now)
     return;
   if (should_delay_dir_fetches(options, NULL))
     return;
-  if (!router_have_minimum_dir_info())
+  /* we only need internal circuits to fetch extrainfo documents */
+  if (!router_have_minimum_dir_info(0))
     return;
 
   pending = digestmap_new();

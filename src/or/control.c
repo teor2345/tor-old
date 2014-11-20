@@ -2017,7 +2017,9 @@ getinfo_helper_events(control_connection_t *control_conn,
     if (!strcmp(question, "status/circuit-established")) {
       *answer = tor_strdup(can_complete_circuit ? "1" : "0");
     } else if (!strcmp(question, "status/enough-dir-info")) {
-      *answer = tor_strdup(router_have_minimum_dir_info() ? "1" : "0");
+      /* Answer enough-dir-info for exit circuits for
+       * backwards compatibility */
+      *answer = tor_strdup(router_have_minimum_dir_info(1) ? "1" : "0");
     } else if (!strcmp(question, "status/good-server-descriptor") ||
                !strcmp(question, "status/accepted-server-descriptor")) {
       /* They're equivalent for now, until we can figure out how to make

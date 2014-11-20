@@ -1647,7 +1647,8 @@ circuit_launch_by_extend_info(uint8_t purpose,
   origin_circuit_t *circ;
   int onehop_tunnel = (flags & CIRCLAUNCH_ONEHOP_TUNNEL) != 0;
 
-  if (!onehop_tunnel && !router_have_minimum_dir_info()) {
+  if (!onehop_tunnel &&
+      !router_have_minimum_dir_info(!(flags & CIRCLAUNCH_IS_INTERNAL))) {
     log_debug(LD_CIRC,"Haven't fetched enough directory info yet; canceling "
               "circuit launch.");
     return NULL;
@@ -1806,7 +1807,7 @@ circuit_get_open_circ_or_launch(entry_connection_t *conn,
     return 1; /* we're happy */
   }
 
-  if (!want_onehop && !router_have_minimum_dir_info()) {
+  if (!want_onehop && !router_have_minimum_dir_info(!need_internal)) {
     if (!connection_get_by_type(CONN_TYPE_DIR)) {
       int severity = LOG_NOTICE;
       /* FFFF if this is a tunneled directory fetch, don't yell
@@ -1825,9 +1826,9 @@ circuit_get_open_circ_or_launch(entry_connection_t *conn,
         routerlist_retry_directory_downloads(time(NULL));
       }
     }
-    /* the stream will be dealt with when router_have_minimum_dir_info becomes
-     * 1, or when all directory attempts fail and directory_all_unreachable()
-     * kills it.
+    /* the stream will be dealt with when the appropriate
+     * router_have_minimum_dir_info_* becomes 1, or when all directory
+     * attempts fail and directory_all_unreachable() kills it.
      */
     return 0;
   }
