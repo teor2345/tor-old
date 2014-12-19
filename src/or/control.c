@@ -1263,6 +1263,7 @@ static const struct signal_t signal_table[] = {
   { SIGTERM, "INT" },
   { SIGNEWNYM, "NEWNYM" },
   { SIGCLEARDNSCACHE, "CLEARDNSCACHE"},
+  { SIGHEARTBEAT, "HEARTBEAT"},
   { 0, NULL },
 };
 
@@ -2015,7 +2016,7 @@ getinfo_helper_events(control_connection_t *control_conn,
     /* Note that status/ is not a catch-all for events; there's only supposed
      * to be a status GETINFO if there's a corresponding STATUS event. */
     if (!strcmp(question, "status/circuit-established")) {
-      *answer = tor_strdup(can_complete_circuit ? "1" : "0");
+      *answer = tor_strdup(have_completed_a_circuit() ? "1" : "0");
     } else if (!strcmp(question, "status/enough-dir-info")) {
       /* Answer enough-dir-info for exit circuits for
        * backwards compatibility */
@@ -4455,6 +4456,9 @@ control_event_signal(uintptr_t signal)
       break;
     case SIGCLEARDNSCACHE:
       signal_string = "CLEARDNSCACHE";
+      break;
+    case SIGHEARTBEAT:
+      signal_string = "HEARTBEAT";
       break;
     default:
       log_warn(LD_BUG, "Unrecognized signal %lu in control_event_signal",
