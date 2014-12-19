@@ -1,8 +1,10 @@
   o Minor bugfixes:
-    - Stop requiring exit dir info for new nodes to test their ORPort
-      reachability. Instead, allow tor to create internal circuits
-      once a minimum portion of guard and middle directory info is
-      available.
+    - Stop requiring a consensus containing exits, before new nodes
+      can test their ORPort reachability. Instead, allow tor to
+      create internal circuits based on an internal-only consensus.
+      (Minimum bandwidth weightings for guard and middle nodes
+      still apply.) This assists in bootstrapping a testing Tor
+      network.
       Fixes bugs 13718 & 13787. (Rarer, intermittent failures may
       still occur due to race conditions.)
       Makes bug 13161's TestingDirAuthVoteExit non-essential.

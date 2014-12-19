@@ -887,12 +887,26 @@ static int
 router_is_active(const routerinfo_t *ri, const node_t *node, time_t now)
 {
   time_t cutoff = now - ROUTER_MAX_AGE_TO_PUBLISH;
-  if (ri->cache_info.published_on < cutoff)
+  if (ri->cache_info.published_on < cutoff) {
     return 0;
-  if (!node->is_running || !node->is_valid || ri->is_hibernating)
+  }
+  if (!node->is_running || !node->is_valid || ri->is_hibernating) {
     return 0;
-  if (!ri->bandwidthcapacity)
+  }
+  /* Only require bandwith capacity in non-test networks, or
+   * if TestingTorNetwork, and TestingMinExitFlagThreshold is non-zero */
+  if (!ri->bandwidthcapacity) {
+    if (get_options()->TestingTorNetwork) {
+      if (get_options()->TestingMinExitFlagThreshold > 0) {
+        /* If we're in a TestingTorNetwork, and TestingMinExitFlagThreshold is,
+         * then require bandwidthcapacity */
+        return 0;
+      }
+    } else {
+      /* If we're not in a TestingTorNetwork, then require bandwidthcapacity */
       return 0;
+    }
+  }
   return 1;
 }
 
@@ -1037,7 +1051,7 @@ directory_fetches_dir_info_later(const or_options_t *options)
 }
 
 /** Return true iff we want to fetch and keep certificates for authorities
- * that we don't acknowledge as aurthorities ourself.
+ * that we don't acknowledge as authorities ourself.
  */
 int
 directory_caches_unknown_auth_certs(const or_options_t *options)
@@ -1498,7 +1512,7 @@ dirserv_compute_performance_thresholds(routerlist_t *rl,
       (unsigned long)guard_tk,
       (unsigned long)guard_bandwidth_including_exits_kb,
       (unsigned long)guard_bandwidth_excluding_exits_kb,
-      enough_mtbf_info ? "" : " don't ");
+      enough_mtbf_info ? "" : " don't");
 
   tor_free(uptimes);
   tor_free(mtbfs);
@@ -2811,8 +2825,87 @@ dirserv_test_reachability(time_t now)
    * wait til 0.2.0. -RD */
 //  time_t cutoff = now - ROUTER_MAX_AGE_TO_PUBLISH;
   routerlist_t *rl = router_get_routerlist();
-  static char ctr = 0;
+
+  /* Initialise the start point for the sequence of reachability
+   * tests to a random number, and use a random, relatively prime increment.
+   * This helps avoid situations where two authorities started at the same
+   * time do exactly the same tests from then on.
+   * (This is more of an issue in test networks.) */
+  static int ctr_init = 0;
+  static uint8_t ctr = 0;
+  static uint8_t ctr_increment = 1;
+
   int bridge_auth = authdir_mode_bridge(get_options());
+
+  if (PREDICT_UNLIKELY(!ctr_init)) {
+    /* We don't need cryptographically strong random numbers here.
+     * We could use tor_weak_random, but it needs initialisation.
+     * If we initialised it using a static seed, we'd just end up with another
+     * predictable sequence. But using crypto_seed_weak_rng() seems a waste
+     * to obtain two random values from tor_weak_random().
+     * So we just use crypto_rand_int() directly. */
+
+    /* ctr should be between 0 and REACHABILITY_MODULO_PER_TEST - 1.
+     * The code normalises ctr values to within this range,
+     * so there is no potential for bad initial values of ctr to cause issues.
+     */
+    ctr = crypto_rand_int(REACHABILITY_MODULO_PER_TEST);
+
+    /* ctr_increment must be between 1 and REACHABILITY_MODULO_PER_TEST - 1.
+     * It must also be relatively prime to REACHABILITY_MODULO_PER_TEST,
+     * as this ensures that the sequence covers all routers.
+     * Fortunately, when REACHABILITY_MODULO_PER_TEST is a power of 2,
+     * any odd number is relatively prime to it.
+     */
+    /* Get a number in the right range */
+    ctr_increment = crypto_rand_int(REACHABILITY_MODULO_PER_TEST);
+    /* Make it odd */
+    ctr_increment = ctr_increment | 0x01;
+
+    /* Ensure it's not zero */
+    tor_assert(ctr_increment > 0);
+
+    /* Ensure it's relatively prime:
+     * REACHABILITY_MODULO_PER_TEST is a power of 2, and... */
+    /* There has to be a better way! */
+    tor_assert(   REACHABILITY_MODULO_PER_TEST == 2
+               || REACHABILITY_MODULO_PER_TEST == 4
+               || REACHABILITY_MODULO_PER_TEST == 8
+               || REACHABILITY_MODULO_PER_TEST == 16
+               || REACHABILITY_MODULO_PER_TEST == 32
+               || REACHABILITY_MODULO_PER_TEST == 64
+               || REACHABILITY_MODULO_PER_TEST == 128);
+    /* ctr_increment does not divide it evenly, or is 1 */
+    tor_assert(REACHABILITY_MODULO_PER_TEST % ctr_increment != 0
+               || ctr_increment == 1);
+
+    /* Only initialise this static varaible once */
+    ctr_init = 1;
+  }
+
+  unsigned int test_multiplier = 1;
+
+  /* if we're learning reachability over a shorter period,
+   * compensate by increasing the number of tests proportionally,
+   * so we complete the testing within that period. */
+  if (get_options() && get_options()->TestingTorNetwork == 1
+      && get_options()->AssumeReachable == 0) {
+
+    int reach_time = get_options()->TestingAuthDirTimeToLearnReachability;
+
+    if (reach_time <= 0)
+      reach_time = 1;
+
+    if (reach_time < REACHABILITY_TEST_CYCLE_PERIOD)
+      test_multiplier = REACHABILITY_TEST_CYCLE_PERIOD/reach_time + 1;
+
+    /* Let's test everything in N = 1 groups minimum.
+     * Use REACHABILITY_MODULO_PER_TEST/N in both lines below for N groups. */
+    if (test_multiplier > REACHABILITY_MODULO_PER_TEST)
+      test_multiplier = REACHABILITY_MODULO_PER_TEST;
+
+    tor_assert(test_multiplier > 0);
+  }
 
   SMARTLIST_FOREACH_BEGIN(rl->routers, routerinfo_t *, router) {
     const char *id_digest = router->cache_info.identity_digest;
@@ -2822,11 +2915,24 @@ dirserv_test_reachability(time_t now)
       continue; /* bridge authorities only test reachability on bridges */
 //    if (router->cache_info.published_on > cutoff)
 //      continue;
-    if ((((uint8_t)id_digest[0]) % REACHABILITY_MODULO_PER_TEST) == ctr) {
+    /* This code has identical behaviour to the previous code:
+     * id_test_group == 0 when
+     * id_digest[0] % REACHABILITY_MODULO_PER_TEST == ctr
+     * Avoid underflow using casts and addition of the modulus */
+    uint8_t id_test_group = (
+                             ((int)(id_digest[0])
+                              + REACHABILITY_MODULO_PER_TEST
+                              - (int)ctr)
+                             % REACHABILITY_MODULO_PER_TEST);
+    /* But we now want to scale the number of tests, so we test a range.
+     * Testing if an unsigned number is >= 0 is redundant. */
+    if (/* id_test_group >= 0 &&
+        id_test_group < test_multiplier*/ id_test_group == 0) {
       dirserv_single_reachability_test(now, router);
     }
   } SMARTLIST_FOREACH_END(router);
-  ctr = (ctr + 1) % REACHABILITY_MODULO_PER_TEST; /* increment ctr */
+  /* increment ctr, avoiding overflow */
+  ctr = ((int)ctr + (int)ctr_increment) % REACHABILITY_MODULO_PER_TEST;
 }
 
 /** Given a fingerprint <b>fp</b> which is either set if we're looking for a

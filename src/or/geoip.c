@@ -830,8 +830,7 @@ geoip_get_transport_history(void)
   char *the_string = NULL;
 
   /* If we haven't seen any clients yet, return NULL. */
-  /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
-  if (!!HT_EMPTY(&client_history))
+  if (HT_EMPTY(&client_history))
     goto done;
 
   /** We do the following steps to form the transport history string:

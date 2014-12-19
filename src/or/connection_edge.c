@@ -101,8 +101,7 @@ connection_mark_unattached_ap_,(entry_connection_t *conn, int endreason,
                "stream (marked at %s:%d) sending two socks replies?",
                file, line);
 
-    /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
-    if (!!SOCKS_COMMAND_IS_CONNECT(conn->socks_request->command))
+    if (SOCKS_COMMAND_IS_CONNECT(conn->socks_request->command))
       connection_ap_handshake_socks_reply(conn, NULL, 0, endreason);
     else if (SOCKS_COMMAND_IS_RESOLVE(conn->socks_request->command))
       connection_ap_handshake_socks_resolved(conn,
@@ -745,8 +744,17 @@ connection_ap_fail_onehop(const char *failed_digest,
       /* we don't know the digest; have to compare addr:port */
       tor_addr_t addr;
       if (!build_state || !build_state->chosen_exit ||
-          !entry_conn->socks_request || !entry_conn->socks_request->address)
+          !entry_conn->socks_request) {
+        /* clang thinks that an array midway through a structure
+         * will never have a NULL address, under either:
+         * -Wpointer-bool-conversion if using !, or
+         * -Wtautological-pointer-compare if using == or !=
+         * It's probably right (unless pointers overflow and wrap),
+         * so we just skip this check
+         || !entry_conn->socks_request->address
+         */
         continue;
+      }
       if (tor_addr_parse(&addr, entry_conn->socks_request->address)<0 ||
           !tor_addr_eq(&build_state->chosen_exit->addr, &addr) ||
           build_state->chosen_exit->port != entry_conn->socks_request->port)
@@ -1612,8 +1620,7 @@ connection_ap_handshake_process_socks(entry_connection_t *conn)
     return -1;
   } /* else socks handshake is done, continue processing */
 
-  /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
-  if (!!SOCKS_COMMAND_IS_CONNECT(socks->command))
+  if (SOCKS_COMMAND_IS_CONNECT(socks->command))
     control_event_stream_status(conn, STREAM_EVENT_NEW, 0);
   else
     control_event_stream_status(conn, STREAM_EVENT_NEW_RESOLVE, 0);

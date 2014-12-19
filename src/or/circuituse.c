@@ -1024,9 +1024,11 @@ circuit_predict_and_launch_new(void)
 
   /* Second, see if we need any more exit circuits. */
   /* check if we know of a port that's been requested recently
-   * and no circuit is currently available that can handle it. */
+   * and no circuit is currently available that can handle it.
+   * Exits (obviously) require an exit circuit. */
   if (!circuit_all_predicted_ports_handled(now, &port_needs_uptime,
-                                           &port_needs_capacity)) {
+                                           &port_needs_capacity)
+      && router_have_minimum_dir_info(DIR_INFO_CIRCUIT_EXIT)) {
     if (port_needs_uptime)
       flags |= CIRCLAUNCH_NEED_UPTIME;
     if (port_needs_capacity)
@@ -1038,8 +1040,10 @@ circuit_predict_and_launch_new(void)
     return;
   }
 
-  /* Third, see if we need any more hidden service (server) circuits. */
-  if (num_rend_services() && num_uptime_internal < 3) {
+  /* Third, see if we need any more hidden service (server) circuits.
+   * HS servers only need an internal circuit. */
+  if (num_rend_services() && num_uptime_internal < 3
+      && router_have_minimum_dir_info(DIR_INFO_CIRCUIT_INTERNAL)) {
     flags = (CIRCLAUNCH_NEED_CAPACITY | CIRCLAUNCH_NEED_UPTIME |
              CIRCLAUNCH_IS_INTERNAL);
     log_info(LD_CIRC,
@@ -1050,43 +1054,54 @@ circuit_predict_and_launch_new(void)
     return;
   }
 
-  /* Fourth, see if we need any more hidden service (client) circuits. */
+  /* Fourth, see if we need any more hidden service (client) circuits.
+   * HS clients only need an internal circuit. */
   if (rep_hist_get_predicted_internal(now, &hidserv_needs_uptime,
                                       &hidserv_needs_capacity) &&
       ((num_uptime_internal<2 && hidserv_needs_uptime) ||
-        num_internal<2)) {
-    if (hidserv_needs_uptime)
-      flags |= CIRCLAUNCH_NEED_UPTIME;
-    if (hidserv_needs_capacity)
-      flags |= CIRCLAUNCH_NEED_CAPACITY;
-    flags |= CIRCLAUNCH_IS_INTERNAL;
-    log_info(LD_CIRC,
-             "Have %d clean circs (%d uptime-internal, %d internal), need"
-             " another hidden service circ.",
-             num, num_uptime_internal, num_internal);
-    circuit_launch(CIRCUIT_PURPOSE_C_GENERAL, flags);
-    return;
+       num_internal<2)
+      && router_have_minimum_dir_info(DIR_INFO_CIRCUIT_INTERNAL)) {
+        if (hidserv_needs_uptime)
+          flags |= CIRCLAUNCH_NEED_UPTIME;
+        if (hidserv_needs_capacity)
+          flags |= CIRCLAUNCH_NEED_CAPACITY;
+        flags |= CIRCLAUNCH_IS_INTERNAL;
+        log_info(LD_CIRC,
+                 "Have %d clean circs (%d uptime-internal, %d internal), need"
+                 " another hidden service circ.",
+                 num, num_uptime_internal, num_internal);
+        circuit_launch(CIRCUIT_PURPOSE_C_GENERAL, flags);
+        return;
   }
 
   /* Finally, check to see if we still need more circuits to learn
    * a good build timeout. But if we're close to our max number we
    * want, don't do another -- we want to leave a few slots open so
-   * we can still build circuits preemptively as needed. */
-  if (num < MAX_UNUSED_OPEN_CIRCUITS-2 &&
-      ! circuit_build_times_disabled() &&
-      circuit_build_times_needs_circuits_now(get_circuit_build_times())) {
-    flags = CIRCLAUNCH_NEED_CAPACITY;
-    log_info(LD_CIRC,
-             "Have %d clean circs need another buildtime test circ.", num);
-    circuit_launch(CIRCUIT_PURPOSE_C_GENERAL, flags);
-    return;
+   * we can still build circuits preemptively as needed.
+   * XXXX make the eager assumption that build timeout streams should be
+   * created as soon as we can build circuits. */
+  if (router_have_minimum_dir_info(DIR_INFO_CIRCUIT_EAGER)) {
+    if (num < MAX_UNUSED_OPEN_CIRCUITS-2 &&
+        ! circuit_build_times_disabled() &&
+        circuit_build_times_needs_circuits_now(get_circuit_build_times())) {
+      flags = CIRCLAUNCH_NEED_CAPACITY;
+      /* if there are no exits in the consensus, make timeout
+       * circuits internal */
+      if (router_have_consensus_path() == CONSENSUS_PATH_INTERNAL)
+        flags |= CIRCLAUNCH_IS_INTERNAL;
+      log_info(LD_CIRC,
+               "Have %d clean circs need another buildtime test circ.", num);
+      circuit_launch(CIRCUIT_PURPOSE_C_GENERAL, flags);
+      return;
+    }
   }
 }
 
 /** Build a new test circuit every 5 minutes */
 #define TESTING_CIRCUIT_INTERVAL 300
 
-/** This function is called once a second, if router_have_minimum_dir_info(0)
+/** This function is called once a second, if
+ * router_have_minimum_dir_info(DIR_INFO_CIRCUIT_INTERNAL)
  * is true. Its job is to make sure all services we offer have enough circuits
  * available. Some services just want enough circuits for current tasks,
  * whereas others want a minimum set of idle circuits hanging around.
@@ -1096,11 +1111,17 @@ circuit_build_needed_circs(time_t now)
 {
   const or_options_t *options = get_options();
 
-  /* launch a new circ for any pending streams that need one */
-  connection_ap_attach_pending();
+  /* launch a new circ for any pending streams that need one
+   * XXXX make the eager assumption that (some) AP streams (i.e. HS clients)
+   * don't require an exit circuit, review in #13814.
+   * This allows HSs to function in a consensus without exits. */
+  if (router_have_minimum_dir_info(DIR_INFO_CIRCUIT_EAGER))
+    connection_ap_attach_pending();
 
-  /* make sure any hidden services have enough intro points */
-  rend_services_introduce();
+  /* make sure any hidden services have enough intro points
+   * HS intro point streams only require an internal circuit */
+  if (router_have_minimum_dir_info(DIR_INFO_CIRCUIT_INTERNAL))
+    rend_services_introduce();
 
   circuit_expire_old_circs_as_needed(now);
 
@@ -1646,9 +1667,12 @@ circuit_launch_by_extend_info(uint8_t purpose,
 {
   origin_circuit_t *circ;
   int onehop_tunnel = (flags & CIRCLAUNCH_ONEHOP_TUNNEL) != 0;
+  dir_info_circuit_type_t req_dir_info = ((flags & CIRCLAUNCH_IS_INTERNAL) ?
+                                          DIR_INFO_CIRCUIT_INTERNAL :
+                                          DIR_INFO_CIRCUIT_EXIT);
 
   if (!onehop_tunnel &&
-      !router_have_minimum_dir_info(!(flags & CIRCLAUNCH_IS_INTERNAL))) {
+      !router_have_minimum_dir_info(req_dir_info)) {
     log_debug(LD_CIRC,"Haven't fetched enough directory info yet; canceling "
               "circuit launch.");
     return NULL;
@@ -1807,7 +1831,11 @@ circuit_get_open_circ_or_launch(entry_connection_t *conn,
     return 1; /* we're happy */
   }
 
-  if (!want_onehop && !router_have_minimum_dir_info(!need_internal)) {
+  dir_info_circuit_type_t req_dir_info = (need_internal ?
+                                          DIR_INFO_CIRCUIT_INTERNAL :
+                                          DIR_INFO_CIRCUIT_EXIT);
+
+  if (!want_onehop && !router_have_minimum_dir_info(req_dir_info)) {
     if (!connection_get_by_type(CONN_TYPE_DIR)) {
       int severity = LOG_NOTICE;
       /* FFFF if this is a tunneled directory fetch, don't yell
@@ -1827,7 +1855,7 @@ circuit_get_open_circ_or_launch(entry_connection_t *conn,
       }
     }
     /* the stream will be dealt with when the appropriate
-     * router_have_minimum_dir_info_* becomes 1, or when all directory
+     * router_have_minimum_dir_info() becomes 1, or when all directory
      * attempts fail and directory_all_unreachable() kills it.
      */
     return 0;

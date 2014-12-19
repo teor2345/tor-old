@@ -163,7 +163,11 @@ channel_tls_connect(const tor_addr_t *addr, uint16_t port,
             tlschan,
             U64_PRINTF_ARG(chan->global_identifier));
 
-  if (is_local_addr(addr)) {
+  /* We're local if we're on a local (private) address,
+   * and we don't allow relays on private addresses.
+   */
+  if (is_local_addr(addr)
+      && get_options()->DirAllowPrivateAddresses == 0) {
     log_debug(LD_CHANNEL,
               "Marking new outgoing channel " U64_FORMAT " at %p as local",
               U64_PRINTF_ARG(chan->global_identifier), chan);
@@ -304,7 +308,11 @@ channel_tls_handle_incoming(or_connection_t *orconn)
   tlschan->conn = orconn;
   orconn->chan = tlschan;
 
-  if (is_local_addr(&(TO_CONN(orconn)->addr))) {
+  /* We're local if we're on a local (private) address,
+   * and we don't allow relays on private addresses.
+   */
+  if (is_local_addr(&(TO_CONN(orconn)->addr))
+      && get_options()->DirAllowPrivateAddresses == 0) {
     log_debug(LD_CHANNEL,
               "Marking new incoming channel " U64_FORMAT " at %p as local",
               U64_PRINTF_ARG(chan->global_identifier), chan);
@@ -1291,7 +1299,11 @@ channel_tls_update_marks(or_connection_t *conn)
 
   chan = TLS_CHAN_TO_BASE(conn->chan);
 
-  if (is_local_addr(&(TO_CONN(conn)->addr))) {
+  /* We're local if we're on a local (private) address,
+   * and we don't allow relays on private addresses.
+   */
+  if (is_local_addr(&(TO_CONN(conn)->addr))
+      && get_options()->DirAllowPrivateAddresses == 0) {
     if (!channel_is_local(chan)) {
       log_debug(LD_CHANNEL,
                 "Marking channel " U64_FORMAT " at %p as local",

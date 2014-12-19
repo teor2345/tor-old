@@ -2211,11 +2211,29 @@ router_choose_random_node(smartlist_t *excludedsmartlist,
   router_add_running_nodes_to_smartlist(sl, allow_invalid,
                                         need_uptime, need_capacity,
                                         need_guard, need_desc);
+  log_debug(LD_CIRC,
+           "We found %d running nodes.",
+            smartlist_len(sl));
+
   smartlist_subtract(sl,excludednodes);
-  if (excludedsmartlist)
+  log_debug(LD_CIRC,
+            "We removed %d excludednodes, leaving %d nodes.",
+            smartlist_len(excludednodes),
+            smartlist_len(sl));
+
+  if (excludedsmartlist) {
     smartlist_subtract(sl,excludedsmartlist);
-  if (excludedset)
+    log_debug(LD_CIRC,
+              "We removed %d excludedsmartlist, leaving %d nodes.",
+              smartlist_len(excludedsmartlist),
+              smartlist_len(sl));
+  }
+  if (excludedset) {
     routerset_subtract_nodes(sl,excludedset);
+    log_debug(LD_CIRC,
+              "We removed excludedset, leaving %d nodes.",
+              smartlist_len(sl));
+  }
 
   // Always weight by bandwidth
   choice = node_sl_choose_by_bandwidth(sl, rule);
@@ -4528,7 +4546,7 @@ update_extrainfo_downloads(time_t now)
   if (should_delay_dir_fetches(options, NULL))
     return;
   /* we only need internal circuits to fetch extrainfo documents */
-  if (!router_have_minimum_dir_info(0))
+  if (!router_have_minimum_dir_info(DIR_INFO_CIRCUIT_INTERNAL))
     return;
 
   pending = digestmap_new();

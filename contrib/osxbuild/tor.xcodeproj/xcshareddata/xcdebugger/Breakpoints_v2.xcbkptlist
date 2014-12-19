@@ -15,7 +15,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "2937"
             endingLineNumber = "2937"
-            landmarkName = "tor_main()"
+            landmarkName = "sandbox_init_filter()"
             landmarkType = "7">
             <Actions>
                <BreakpointActionProxy

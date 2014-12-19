@@ -826,8 +826,7 @@ connection_or_update_token_buckets(smartlist_t *conns,
 {
   SMARTLIST_FOREACH(conns, connection_t *, conn,
   {
-    /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
-    if (!!connection_speaks_cells(conn))
+    if (connection_speaks_cells(conn))
       connection_or_update_token_buckets_helper(TO_OR_CONN(conn), 0, options);
   });
 }

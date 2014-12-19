@@ -890,8 +890,7 @@ conn_close_if_marked(int i)
                 (int)connection_get_outbuf_len(conn),
                 (int)conn->outbuf_flushlen,
                 connection_wants_to_flush(conn));
-      /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
-    } else if (!!connection_speaks_cells(conn)) {
+    } else if (connection_speaks_cells(conn)) {
       if (conn->state == OR_CONN_STATE_OPEN) {
         retval = flush_buf_tls(TO_OR_CONN(conn)->tls, conn->outbuf, sz,
                                &conn->outbuf_flushlen);
@@ -1005,14 +1004,15 @@ directory_info_has_arrived(time_t now, int from_cache)
 
   /* check if we have enough info for both exit and internal circuits,
    * or just internal circuits */
-  if (!router_have_minimum_dir_info(1)) {
-    int internal_but_not_exit = router_have_minimum_dir_info(0);
+  if (!router_have_minimum_dir_info(DIR_INFO_CIRCUIT_EXIT)) {
     int quiet = from_cache ||
                 directory_too_idle_to_fetch_descriptors(options, now);
     tor_log(quiet ? LOG_INFO : LOG_NOTICE, LD_DIR,
             "I learned some more directory information, but not enough to "
-            "build %s circuit: %s",
-            internal_but_not_exit ? "an exit" : "an internal or exit",
+            "build %s circuits: %s",
+            ((router_have_consensus_path() == CONSENSUS_PATH_INTERNAL) ?
+             "internal" :
+             "internal or exit"),
             get_dir_info_status_string());
     update_all_descriptor_downloads(now);
     return;
@@ -1275,9 +1275,9 @@ run_scheduled_events(time_t now)
       time_to_try_getting_descriptors < now) {
     update_all_descriptor_downloads(now);
     update_extrainfo_downloads(now);
-    /* if we can build internal circuits for descriptor fetches,
-     * be greedy with our retries */
-    if (router_have_minimum_dir_info(0))
+    /* if we have enough descriptors to build something, be lazy;
+     * if not, try harder */
+    if (router_have_minimum_dir_info(DIR_INFO_CIRCUIT_EAGER))
       time_to_try_getting_descriptors = now + LAZY_DESCRIPTOR_RETRY_INTERVAL;
     else
       time_to_try_getting_descriptors = now + GREEDY_DESCRIPTOR_RETRY_INTERVAL;
@@ -1365,7 +1365,7 @@ run_scheduled_events(time_t now)
     /* be conservative, and notify of changed dir info
      * even if only internal circuits are working */
     if (ns && ns->valid_until < now+NS_EXPIRY_SLOP &&
-        router_have_minimum_dir_info(0)) {
+        router_have_minimum_dir_info(DIR_INFO_CIRCUIT_EAGER)) {
       router_dir_info_changed();
     }
 #define CHECK_EXPIRED_NS_INTERVAL (2*60)
@@ -1549,7 +1549,7 @@ run_scheduled_events(time_t now)
    *    and we make a new circ if there are no clean circuits.
    */
   /* some of these circuit types only require internal circuits */
-  have_dir_info = router_have_minimum_dir_info(0);
+  have_dir_info = router_have_minimum_dir_info(DIR_INFO_CIRCUIT_EAGER);
   if (have_dir_info && !net_is_disabled()) {
     circuit_build_needed_circs(now);
   } else {
@@ -2084,8 +2084,7 @@ do_main_loop(void)
           return -1;
 #endif
       } else {
-        /* !! is for -Wparentheses-equality (-Wall?) appeasement under clang */
-        if (!!ERRNO_IS_EINPROGRESS(e))
+        if (ERRNO_IS_EINPROGRESS(e))
           log_warn(LD_BUG,
                    "libevent call returned EINPROGRESS? Please report.");
         log_debug(LD_NET,"libevent call interrupted.");
