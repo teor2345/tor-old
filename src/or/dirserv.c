@@ -2833,6 +2833,64 @@ dirserv_test_reachability(time_t now)
 
   int bridge_auth = authdir_mode_bridge(get_options());
 
+  /* The code for bug #13928: Authority Reachability Randomisation
+   * can be disabled here, leaving only the changes in
+   * bug #13929: Increase Reachability Test Frequency */
+#if 1
+  /* Initialise the start point for the sequence of reachability
+   * tests to a random number, and use a random, relatively prime increment.
+   * This helps avoid situations where two authorities started at the same
+   * time do exactly the same tests from then on.
+   * (This is more of an issue in test networks.) */
+  static int ctr_init = 0;
+  
+  if (PREDICT_UNLIKELY(!ctr_init)) {
+    /* We don't need cryptographically strong random numbers here.
+     * We could use tor_weak_random, but it needs initialisation.
+     * If we initialised it using a static seed, we'd just end up with another
+     * predictable sequence. But using crypto_seed_weak_rng() seems a waste
+     * to obtain two random values from tor_weak_random().
+     * So we just use crypto_rand_int() directly. */
+
+    /* ctr should be between 0 and REACHABILITY_MODULO_PER_TEST - 1.
+     * The code normalises ctr values to within this range,
+     * so there is no potential for bad initial values of ctr to cause issues.
+     */
+    ctr = crypto_rand_int(REACHABILITY_MODULO_PER_TEST);
+
+    /* ctr_increment must be between 1 and REACHABILITY_MODULO_PER_TEST - 1.
+     * It must also be relatively prime to REACHABILITY_MODULO_PER_TEST,
+     * as this ensures that the sequence covers all routers.
+     * Fortunately, when REACHABILITY_MODULO_PER_TEST is a power of 2,
+     * any odd number is relatively prime to it.
+     */
+    /* Get a number in the right range */
+    ctr_increment = crypto_rand_int(REACHABILITY_MODULO_PER_TEST);
+    /* Make it odd */
+    ctr_increment = ctr_increment | 0x01;
+
+    /* Ensure it's not zero */
+    tor_assert(ctr_increment > 0);
+
+    /* Ensure it's relatively prime:
+     * REACHABILITY_MODULO_PER_TEST is a power of 2, and... */
+    /* There has to be a better way! */
+    tor_assert(   REACHABILITY_MODULO_PER_TEST == 2
+               || REACHABILITY_MODULO_PER_TEST == 4
+               || REACHABILITY_MODULO_PER_TEST == 8
+               || REACHABILITY_MODULO_PER_TEST == 16
+               || REACHABILITY_MODULO_PER_TEST == 32
+               || REACHABILITY_MODULO_PER_TEST == 64
+               || REACHABILITY_MODULO_PER_TEST == 128);
+    /* ...ctr_increment does not divide it evenly, or is 1 */
+    tor_assert(REACHABILITY_MODULO_PER_TEST % ctr_increment != 0
+               || ctr_increment == 1);
+
+    /* Only initialise this static varaible once */
+    ctr_init = 1;
+  }
+#endif
+
   unsigned int test_multiplier = 1;
 
   /* if we're learning reachability over a shorter period,
