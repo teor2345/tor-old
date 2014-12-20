@@ -39,11 +39,7 @@ static void select(ge_precomp *t,int pos,signed char b)
 {
   ge_precomp minust;
   unsigned char bnegative = negative(b);
-<<<<<<< HEAD
   unsigned char babs = b - SHL8( (-bnegative) & (unsigned char)b, 1);
-=======
-  unsigned char babs = b - SHL8(((-bnegative) & b),1);
->>>>>>> bug-13280-shift-overflow-ed25519-draft
 
   ge_precomp_0(t);
   cmov(t,&base[pos][0],equal(babs,1));
