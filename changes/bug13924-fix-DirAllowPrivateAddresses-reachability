@@ -1,0 +1,7 @@
+  o Minor bugfixes:
+    - Stop assuming that DirAllowPrivateAddresses is 0 when checking
+      reachability. Instead, if DirAllowPrivateAddresses is 1, assume
+      all OR connections are remote. (This is necessary due to many test
+      scenarios running all nodes on localhost.)
+      This assists in bootstrapping a testing Tor network.
+      Fixes bugs 13718 & 13924.
