@@ -2843,7 +2843,7 @@ dirserv_test_reachability(time_t now)
    * time do exactly the same tests from then on.
    * (This is more of an issue in test networks.) */
   static int ctr_init = 0;
-  
+
   if (PREDICT_UNLIKELY(!ctr_init)) {
     /* We don't need cryptographically strong random numbers here.
      * We could use tor_weak_random, but it needs initialisation.
@@ -2926,7 +2926,8 @@ dirserv_test_reachability(time_t now)
     /* We may want to increase the number of relays tested per interval */
     uint8_t temp_ctr = ctr;
     for (uint8_t i = 0; i < test_multiplier; i++) {
-      if ((((uint8_t)id_digest[0]) % REACHABILITY_MODULO_PER_TEST) == temp_ctr) {
+      if ((((uint8_t)id_digest[0]) % REACHABILITY_MODULO_PER_TEST)
+          == temp_ctr) {
         dirserv_single_reachability_test(now, router);
       }
       /* increment temp_ctr, avoiding overflow */
