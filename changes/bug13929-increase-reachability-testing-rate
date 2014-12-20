@@ -1,0 +1,5 @@
+  o Minor bugfixes:
+    - Increase reachability testing rate proportionally when
+      TestingAuthDirTimeToLearnReachability has a low value.
+      This assists in bootstrapping a testing Tor network.
+      Fixes bugs 13718 & 13929.

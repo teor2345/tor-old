@@ -733,7 +733,7 @@ running_long_enough_to_decide_unreachable(void)
 }
 
 /** Each server needs to have passed a reachability test no more
- * than this number of seconds ago, or he is listed as down in
+ * than this number of seconds ago, or it is listed as down in
  * the directory. */
 #define REACHABLE_TIMEOUT (45*60)
 
@@ -2811,6 +2811,9 @@ dirserv_single_reachability_test(time_t now, routerinfo_t *router)
  * The load balancing is such that if we get called once every ten
  * seconds, we will cycle through all the tests in
  * REACHABILITY_TEST_CYCLE_PERIOD seconds (a bit over 20 minutes).
+ * If TestingAuthDirTimeToLearnReachability is lower than
+ * REACHABILITY_TEST_CYCLE_PERIOD seconds, increase the number of relays
+ * we test per call proportionally.
  */
 void
 dirserv_test_reachability(time_t now)
@@ -2825,8 +2828,34 @@ dirserv_test_reachability(time_t now)
    * wait til 0.2.0. -RD */
 //  time_t cutoff = now - ROUTER_MAX_AGE_TO_PUBLISH;
   routerlist_t *rl = router_get_routerlist();
-  static char ctr = 0;
+  static uint8_t ctr = 0;
+  static uint8_t ctr_increment = 1;
+
   int bridge_auth = authdir_mode_bridge(get_options());
+  
+  unsigned int test_multiplier = 1;
+
+  /* if we're learning reachability over a shorter period,
+   * compensate by increasing the number of tests proportionally,
+   * so we complete the testing within that period. */
+  if (get_options() && get_options()->TestingTorNetwork == 1
+      && get_options()->AssumeReachable == 0) {
+
+    int reach_time = get_options()->TestingAuthDirTimeToLearnReachability;
+
+    if (reach_time <= 0)
+    reach_time = 1;
+
+    if (reach_time < REACHABILITY_TEST_CYCLE_PERIOD)
+    test_multiplier = REACHABILITY_TEST_CYCLE_PERIOD/reach_time + 1;
+
+    /* Let's test everything in N = 1 groups minimum.
+     * Use REACHABILITY_MODULO_PER_TEST/N in both lines below for N groups. */
+    if (test_multiplier > REACHABILITY_MODULO_PER_TEST)
+    test_multiplier = REACHABILITY_MODULO_PER_TEST;
+
+    tor_assert(test_multiplier > 0);
+  }
 
   SMARTLIST_FOREACH_BEGIN(rl->routers, routerinfo_t *, router) {
     const char *id_digest = router->cache_info.identity_digest;
@@ -2836,11 +2865,19 @@ dirserv_test_reachability(time_t now)
       continue; /* bridge authorities only test reachability on bridges */
 //    if (router->cache_info.published_on > cutoff)
 //      continue;
-    if ((((uint8_t)id_digest[0]) % REACHABILITY_MODULO_PER_TEST) == ctr) {
-      dirserv_single_reachability_test(now, router);
+    /* We may want to increase the number of relays tested per interval */
+    uint8_t temp_ctr = ctr;
+    for (uint8_t i = 0; i < test_multiplier; i++) {
+      if ((((uint8_t)id_digest[0]) % REACHABILITY_MODULO_PER_TEST) == temp_ctr) {
+        dirserv_single_reachability_test(now, router);
+      }
+      /* increment temp_ctr, avoiding overflow */
+      temp_ctr = (((int)temp_ctr + (int)ctr_increment)
+                  % REACHABILITY_MODULO_PER_TEST);
     }
   } SMARTLIST_FOREACH_END(router);
-  ctr = (ctr + 1) % REACHABILITY_MODULO_PER_TEST; /* increment ctr */
+  /* increment ctr, avoiding overflow */
+  ctr = ((int)ctr + (int)ctr_increment) % REACHABILITY_MODULO_PER_TEST;
 }
 
 /** Given a fingerprint <b>fp</b> which is either set if we're looking for a
