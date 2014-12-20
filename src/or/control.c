@@ -2018,7 +2018,10 @@ getinfo_helper_events(control_connection_t *control_conn,
     if (!strcmp(question, "status/circuit-established")) {
       *answer = tor_strdup(have_completed_a_circuit() ? "1" : "0");
     } else if (!strcmp(question, "status/enough-dir-info")) {
-      *answer = tor_strdup(router_have_minimum_dir_info() ? "1" : "0");
+      /* Answer enough-dir-info eagerly for
+       * backwards compatibility */
+      *answer = tor_strdup(
+        router_have_minimum_dir_info(DIR_INFO_CIRCUIT_EAGER) ? "1" : "0");
     } else if (!strcmp(question, "status/good-server-descriptor") ||
                !strcmp(question, "status/accepted-server-descriptor")) {
       /* They're equivalent for now, until we can figure out how to make
@@ -4807,23 +4810,43 @@ bootstrap_status_to_string(bootstrap_status_t s, const char **tag,
       break;
     case BOOTSTRAP_STATUS_REQUESTING_DESCRIPTORS:
       *tag = "requesting_descriptors";
-      *summary = "Asking for relay descriptors";
+      /* XXXX this appears to incorrectly report internal on most loads */
+      *summary = router_have_consensus_path() == CONSENSUS_PATH_INTERNAL ?
+        "Asking for relay descriptors for internal paths" :
+        "Asking for relay descriptors";
       break;
+    /* If we're sure there are no exits in the consensus,
+     * inform the controller by adding "internal"
+     * to the status summaries.
+     * (We only check this while loading descriptors,
+     * so we may not know in the earlier stages.)
+     * But if there are exits, we can't be sure whether
+     * we're creating internal or exit paths/circuits.
+     * XXXX Or should be use different tags or statuses
+     * for internal and exit/all? */
     case BOOTSTRAP_STATUS_LOADING_DESCRIPTORS:
       *tag = "loading_descriptors";
-      *summary = "Loading relay descriptors";
+      *summary = router_have_consensus_path() == CONSENSUS_PATH_INTERNAL ?
+        "Loading relay descriptors for internal paths" :
+        "Loading relay descriptors";
       break;
     case BOOTSTRAP_STATUS_CONN_OR:
       *tag = "conn_or";
-      *summary = "Connecting to the Tor network";
+      *summary = router_have_consensus_path() == CONSENSUS_PATH_INTERNAL ?
+        "Connecting to the Tor network internally" :
+        "Connecting to the Tor network";
       break;
     case BOOTSTRAP_STATUS_HANDSHAKE_OR:
       *tag = "handshake_or";
-      *summary = "Finishing handshake with first hop";
+      *summary = router_have_consensus_path() == CONSENSUS_PATH_INTERNAL ?
+        "Finishing handshake with first hop of internal circuit" :
+        "Finishing handshake with first hop";
       break;
     case BOOTSTRAP_STATUS_CIRCUIT_CREATE:
       *tag = "circuit_create";
-      *summary = "Establishing a Tor circuit";
+      *summary = router_have_consensus_path() == CONSENSUS_PATH_INTERNAL ?
+        "Establishing an internal Tor circuit" :
+        "Establishing a Tor circuit";
       break;
     case BOOTSTRAP_STATUS_DONE:
       *tag = "done";

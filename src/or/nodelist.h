@@ -79,7 +79,53 @@ int node_is_unreliable(const node_t *router, int need_uptime,
 int router_exit_policy_all_nodes_reject(const tor_addr_t *addr, uint16_t port,
                                         int need_uptime);
 void router_set_status(const char *digest, int up);
-int router_have_minimum_dir_info(void);
+
+/** router_have_minimum_dir_info tests to see if we have enough
+ * descriptor information to create these types of circuits.
+ * If there are exits in the consensus, we wait until we have enough
+ * info to create exit paths before creating any circuits. If there are
+ * no exits in the consensus, we wait for enough info to create internal
+ * paths, and don't create exit paths.
+ * Therefore, we create all available circuit types at the same time. */
+typedef enum {
+  /* Internal circuits: hidden services, directory fetches,
+   * relay reachability self-tests, ... */
+  DIR_INFO_CIRCUIT_INTERNAL = 0,
+  /* Exit circuits: predicted circuits, user traffic circuits, ... */
+  DIR_INFO_CIRCUIT_EXIT = 1,
+  /* We don't care what kind of circuit:
+   * we want to start whether there are exits in the consensus or not */
+  DIR_INFO_CIRCUIT_EAGER = DIR_INFO_CIRCUIT_INTERNAL,
+  /* We don't care what kind of circuit:
+   * but we want to wait until we can create all known types of circuits */
+  DIR_INFO_CIRCUIT_CONSERVATIVE = DIR_INFO_CIRCUIT_EXIT
+} dir_info_circuit_type_t;
+int router_have_minimum_dir_info(dir_info_circuit_type_t circuit_type);
+
+/** Set to CONSENSUS_PATH_EXIT if, the last time we checked
+ * whether we had enough directory info to build circuits,
+ * we had at least one exit node in the consensus,
+ * as defined in compute_frac_paths_available:
+ *   - Has an Exit flag
+ *   - Has an Exit flag and is in the ExitNodes option
+ *   - Is in the ExitNodes option and exit policy isn't "reject *"
+ * Used to delay building any circuits until we can build all circuits.
+ * Set to CONSENSUS_PATH_INTERNAL if there are no such exits.
+ * Set to CONSENSUS_PATH_UNKNOWN if we have never checked, or have
+ * reason to believe our last check was invalid.
+ */
+typedef enum {
+  /* we haven't checked yet, or we have invalidated our previous check */
+  CONSENSUS_PATH_UNKNOWN = -1,
+  /* The consensus only has internal relays, and it can only
+   * create internal paths, circuits, streams, ... */
+  CONSENSUS_PATH_INTERNAL = 0,
+  /* The consensus has at least one exit, and can therefore (potentially)
+   * create exit and internal paths, circuits, streams, ... */
+  CONSENSUS_PATH_EXIT = 1
+} consensus_path_type_t;
+consensus_path_type_t router_have_consensus_path(void);
+
 void router_dir_info_changed(void);
 const char *get_dir_info_status_string(void);
 int count_loading_descriptors_progress(void);
