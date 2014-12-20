@@ -2832,7 +2832,7 @@ dirserv_test_reachability(time_t now)
   static uint8_t ctr_increment = 1;
 
   int bridge_auth = authdir_mode_bridge(get_options());
-  
+
   unsigned int test_multiplier = 1;
 
   /* if we're learning reachability over a shorter period,
@@ -2868,7 +2868,8 @@ dirserv_test_reachability(time_t now)
     /* We may want to increase the number of relays tested per interval */
     uint8_t temp_ctr = ctr;
     for (uint8_t i = 0; i < test_multiplier; i++) {
-      if ((((uint8_t)id_digest[0]) % REACHABILITY_MODULO_PER_TEST) == temp_ctr) {
+      if ((((uint8_t)id_digest[0]) % REACHABILITY_MODULO_PER_TEST)
+          == temp_ctr) {
         dirserv_single_reachability_test(now, router);
       }
       /* increment temp_ctr, avoiding overflow */
