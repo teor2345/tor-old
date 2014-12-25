@@ -4621,6 +4621,9 @@ test_util_round_to_next_multiple_of(void *arg)
   tt_assert(round_uint64_to_next_multiple_of(99,7) == 105);
   tt_assert(round_uint64_to_next_multiple_of(99,9) == 99);
 
+  tt_assert(round_uint64_to_next_multiple_of(UINT64_MAX,2) ==
+            UINT64_MAX-UINT64_MAX%2);
+
   tt_assert(round_int64_to_next_multiple_of(0,1) == 0);
   tt_assert(round_int64_to_next_multiple_of(0,7) == 0);
 
@@ -4635,6 +4638,26 @@ test_util_round_to_next_multiple_of(void *arg)
   tt_assert(round_int64_to_next_multiple_of(INT64_MIN,2) == INT64_MIN);
   tt_assert(round_int64_to_next_multiple_of(INT64_MAX,2) ==
                                             INT64_MAX-INT64_MAX%2);
+
+  tt_assert(round_uint32_to_next_multiple_of(0,1) == 0);
+  tt_assert(round_uint32_to_next_multiple_of(0,7) == 0);
+
+  tt_assert(round_uint32_to_next_multiple_of(99,1) == 99);
+  tt_assert(round_uint32_to_next_multiple_of(99,7) == 105);
+  tt_assert(round_uint32_to_next_multiple_of(99,9) == 99);
+
+  tt_assert(round_uint32_to_next_multiple_of(UINT32_MAX,2) ==
+            UINT32_MAX-UINT32_MAX%2);
+
+  tt_assert(round_to_next_multiple_of(0,1) == 0);
+  tt_assert(round_to_next_multiple_of(0,7) == 0);
+
+  tt_assert(round_to_next_multiple_of(99,1) == 99);
+  tt_assert(round_to_next_multiple_of(99,7) == 105);
+  tt_assert(round_to_next_multiple_of(99,9) == 99);
+
+  tt_assert(round_to_next_multiple_of(UINT_MAX,2) ==
+            UINT_MAX-UINT_MAX%2);
  done:
   ;
 }
