@@ -75,6 +75,10 @@
 #include <event2/bufferevent.h>
 #endif
 
+#ifdef HAVE_SYSTEMD
+#include <systemd/sd-daemon.h>
+#endif
+
 void evdns_shutdown(int);
 
 /********* PROTOTYPES **********/
@@ -1394,6 +1398,11 @@ run_scheduled_events(time_t now)
       if (next_write && next_write < next_time_to_write_stats_files)
         next_time_to_write_stats_files = next_write;
     }
+    if (options->HiddenServiceStatistics) {
+      time_t next_write = rep_hist_hs_stats_write(time_to_write_stats_files);
+      if (next_write && next_write < next_time_to_write_stats_files)
+        next_time_to_write_stats_files = next_write;
+    }
     if (options->ExitPortStatistics) {
       time_t next_write = rep_hist_exit_stats_write(time_to_write_stats_files);
       if (next_write && next_write < next_time_to_write_stats_files)
@@ -1765,6 +1774,17 @@ second_elapsed_callback(periodic_timer_t *timer, void *arg)
   current_second = now; /* remember which second it is, for next time */
 }
 
+#ifdef HAVE_SYSTEMD_209
+static periodic_timer_t *systemd_watchdog_timer = NULL;
+
+/** Libevent callback: invoked to reset systemd watchdog. */
+static void
+systemd_watchdog_callback(periodic_timer_t *timer, void *arg)
+{
+  sd_notify(1, "WATCHDOG=1");
+}
+#endif
+
 #ifndef USE_BUFFEREVENTS
 /** Timer: used to invoke refill_callback(). */
 static periodic_timer_t *refill_timer = NULL;
@@ -2033,6 +2053,28 @@ do_main_loop(void)
     tor_assert(second_timer);
   }
 
+#ifdef HAVE_SYSTEMD_209
+  uint64_t watchdog_delay;
+  /* set up systemd watchdog notification. */
+  if (sd_watchdog_enabled(1, &watchdog_delay) > 0) {
+    if (! systemd_watchdog_timer) {
+      struct timeval watchdog;
+      /* The manager will "act on" us if we don't send them a notification
+       * every 'watchdog_delay' microseconds.  So, send notifications twice
+       * that often.  */
+      watchdog_delay /= 2;
+      watchdog.tv_sec = watchdog_delay  / 1000000;
+      watchdog.tv_usec = watchdog_delay % 1000000;
+
+      systemd_watchdog_timer = periodic_timer_new(tor_libevent_get_base(),
+                                                  &watchdog,
+                                                  systemd_watchdog_callback,
+                                                  NULL);
+      tor_assert(systemd_watchdog_timer);
+    }
+  }
+#endif
+
 #ifndef USE_BUFFEREVENTS
   if (!refill_timer) {
     struct timeval refill_interval;
@@ -2047,6 +2089,11 @@ do_main_loop(void)
                                       NULL);
     tor_assert(refill_timer);
   }
+#endif
+
+#ifdef HAVE_SYSTEMD
+  log_notice(LD_GENERAL, "Signaling readyness to systemd");
+  sd_notify(0, "READY=1");
 #endif
 
   for (;;) {
