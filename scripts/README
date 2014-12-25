@@ -61,3 +61,6 @@ Code transformation scripts
 
 coccinelle/calloc.cocci -- Transform code to replace variants of
 malloc(a*b) with calloc(a,b)
+
+codetrans/safe_shl.pl -- Transform code to replace a << b with safe left shift
+SHLnn(a,b), and a <<= b with a = SHLnn(a,b), where nn is the bit width of a.
