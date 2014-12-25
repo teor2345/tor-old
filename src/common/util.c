@@ -533,9 +533,26 @@ sample_laplace_distribution(double mu, double b, double p)
 {
   tor_assert(p >= 0.0 && p < 1.0);
   /* This is the "inverse cumulative distribution function" from:
-   * http://en.wikipedia.org/wiki/Laplace_distribution */
-  return mu - b * (p > 0.5 ? 1.0 : -1.0)
-                * tor_mathlog(1.0 - 2.0 * fabs(p - 0.5));
+   * http://en.wikipedia.org/wiki/Laplace_distribution
+   * taking sgn(0.5) == -1.0, which is mostly irrelevant because log(1.0) == 0
+   */
+
+  double diff_p = 1.0 - 2.0 * fabs(p - 0.5);
+  /* Avoid taking log(0.0) == negative infinity, as some processors or
+   * compiler options can cause the program to trap. */
+  double log_diff_p = 0.0;
+  if (diff_p <= 0.0) {
+    /* When p >= 0.0 && p < 1.0, diff_p >= 0.0 && diff_p <= 1.0.
+     * So log(diff_p) approaches negative infinity as diff_p approaches 0.0 */
+    log_diff_p = -INFINITY;
+  } else {
+    log_diff_p = tor_mathlog(diff_p);
+  }
+
+  /* When b * log_diff_p is Inf * zero, this will generate a +NaN or -NaN.
+   * This is converted to INT_MIN or INT_MAX.
+   * XXXX Should Inf * zero be defined as 0.0 instead? */
+  return mu - b * ((p > 0.5) ? 1.0 : -1.0) * log_diff_p;
 }
 
 /** Add random noise between INT64_MIN and INT64_MAX coming from a
@@ -546,10 +563,35 @@ int64_t
 add_laplace_noise(int64_t signal, double random, double delta_f,
                   double epsilon)
 {
-  /* cast to int64_t intended */
-  int64_t noise = sample_laplace_distribution(
-               0.0, /* just add noise, no further signal */
-               delta_f / epsilon, random);
+  /* Avoid dividing by epsilon if it is +0.0 or -0.0, as some processors or
+   * compiler options can cause the program to trap */
+  double b = 0.0;
+  if (fabs(epsilon) == 0.0) {
+    /* If epsilon is zero, the distribution is infinitely spread out,
+     * that is, each value in [-Inf,+Inf] is equally likely.
+     * This means that it is almost certain that the chosen value will be
+     * infinite. We therefore set b equal to either -Inf or +Inf.
+     */
+    double esign = (signbit(epsilon) == 0.0) ? 1.0 : -1.0;
+    double dfsign = (signbit(delta_f) == 0.0) ? 1.0 : -1.0;
+    /* Treat 0.0/0.0 as Inf rather than NaN.
+     * XXXX Should 0.0/0.0 be defined as 0.0 instead? */
+    b = esign * dfsign * INFINITY;
+  } else {
+    b = delta_f / epsilon;
+  }
+
+  /* cast to int64_t using tor_llround to avoid compiler complaints.
+   * Changing from truncation to rounding would produce different results,
+   * so we apply trunc() to the double value first. */
+  int64_t noise = tor_llround(
+                    trunc(
+                      sample_laplace_distribution(
+                        0.0, /* just add noise, no further signal */
+                        b,
+                        random)));
+
+  /* clip (signal + noise) to [INT64_MIN, INT64_MAX] */
   if (noise > 0 && INT64_MAX - noise < signal)
     return INT64_MAX;
   else if (noise < 0 && INT64_MIN - noise > signal)
