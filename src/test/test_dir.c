@@ -388,6 +388,12 @@ test_dir_routerparse_bad(void *arg)
 #include "example_extrainfo.inc"
 
 static void
+routerinfo_free_wrapper_(void *arg)
+{
+  routerinfo_free(arg);
+}
+
+static void
 test_dir_extrainfo_parsing(void *arg)
 {
   (void) arg;
@@ -455,9 +461,9 @@ test_dir_extrainfo_parsing(void *arg)
 #undef CHECK_FAIL
 
  done:
+  extrainfo_free(ei);
   routerinfo_free(ri);
-  /* XXXX elements should get freed too */
-  digestmap_free((digestmap_t*)map, NULL);
+  digestmap_free((digestmap_t*)map, routerinfo_free_wrapper_);
 }
 
 static void
@@ -552,9 +558,8 @@ test_dir_parse_router_list(void *arg)
   SMARTLIST_FOREACH(chunks, char *, cp, tor_free(cp));
   smartlist_free(chunks);
   routerinfo_free(ri);
-  /* XXXX this leaks: */
   if (map) {
-    digestmap_free((digestmap_t*)map, NULL);
+    digestmap_free((digestmap_t*)map, routerinfo_free_wrapper_);
     router_get_routerlist()->identity_map =
       (struct digest_ri_map_t*)digestmap_new();
   }
@@ -605,6 +610,7 @@ test_dir_load_routers(void *arg)
   smartlist_t *wanted = smartlist_new();
   char buf[DIGEST_LEN];
   char *mem_op_hex_tmp = NULL;
+  char *list = NULL;
 
 #define ADD(str)                                                        \
   do {                                                                  \
@@ -630,7 +636,7 @@ test_dir_load_routers(void *arg)
   /* Not ADDing BAD_PORTS */
   ADD(EX_RI_BAD_TOKENS);
 
-  char *list = smartlist_join_strings(chunks, "", 0, NULL);
+  list = smartlist_join_strings(chunks, "", 0, NULL);
   tt_int_op(1, OP_EQ,
             router_load_routers_from_string(list, NULL, SAVED_IN_JOURNAL,
                                             wanted, 1, NULL));
@@ -670,6 +676,7 @@ test_dir_load_routers(void *arg)
   smartlist_free(chunks);
   SMARTLIST_FOREACH(wanted, char *, cp, tor_free(cp));
   smartlist_free(wanted);
+  tor_free(list);
 }
 
 static int mock_get_by_ei_dd_calls = 0;
@@ -722,6 +729,7 @@ test_dir_load_extrainfo(void *arg)
   smartlist_t *wanted = smartlist_new();
   char buf[DIGEST_LEN];
   char *mem_op_hex_tmp = NULL;
+  char *list = NULL;
 
 #define ADD(str)                                                        \
   do {                                                                  \
@@ -746,7 +754,7 @@ test_dir_load_extrainfo(void *arg)
   ADD(EX_EI_BAD_TOKENS);
   ADD(EX_EI_BAD_SIG2);
 
-  char *list = smartlist_join_strings(chunks, "", 0, NULL);
+  list = smartlist_join_strings(chunks, "", 0, NULL);
   router_load_extrainfo_from_string(list, NULL, SAVED_IN_JOURNAL, wanted, 1);
 
   /* The "maximal" router was added. */
@@ -788,6 +796,7 @@ test_dir_load_extrainfo(void *arg)
   smartlist_free(chunks);
   SMARTLIST_FOREACH(wanted, char *, cp, tor_free(cp));
   smartlist_free(wanted);
+  tor_free(list);
 }
 
 static void
