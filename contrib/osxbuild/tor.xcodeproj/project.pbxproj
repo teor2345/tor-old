@@ -511,6 +511,14 @@
 		02B7802F19F1F7D500B58842 /* address.c in Sources */ = {isa = PBXBuildFile; fileRef = 0253569D19ACB38D006D569F /* address.c */; };
 		02B7803019F1F7E000B58842 /* csiphash.c in Sources */ = {isa = PBXBuildFile; fileRef = 025356EC19ACB3C0006D569F /* csiphash.c */; };
 		02B7803119F1F7FB00B58842 /* di_ops.c in Sources */ = {isa = PBXBuildFile; fileRef = 025356B019ACB38D006D569F /* di_ops.c */; };
+		02FB1D9F1A461F52004905DC /* scheduler.c in Sources */ = {isa = PBXBuildFile; fileRef = 02FB1D9D1A461F52004905DC /* scheduler.c */; };
+		02FB1DA01A461F52004905DC /* scheduler.c in Sources */ = {isa = PBXBuildFile; fileRef = 02FB1D9D1A461F52004905DC /* scheduler.c */; };
+		02FB1DA11A461F52004905DC /* scheduler.c in Sources */ = {isa = PBXBuildFile; fileRef = 02FB1D9D1A461F52004905DC /* scheduler.c */; };
+		02FB1DA91A462861004905DC /* test_channel.c in Sources */ = {isa = PBXBuildFile; fileRef = 02FB1DA31A462861004905DC /* test_channel.c */; settings = {COMPILER_FLAGS = "-Wno-pedantic"; }; };
+		02FB1DAB1A462861004905DC /* test_channeltls.c in Sources */ = {isa = PBXBuildFile; fileRef = 02FB1DA41A462861004905DC /* test_channeltls.c */; };
+		02FB1DAD1A462861004905DC /* test_checkdir.c in Sources */ = {isa = PBXBuildFile; fileRef = 02FB1DA51A462861004905DC /* test_checkdir.c */; };
+		02FB1DAF1A462861004905DC /* test_relay.c in Sources */ = {isa = PBXBuildFile; fileRef = 02FB1DA61A462861004905DC /* test_relay.c */; };
+		02FB1DB11A462861004905DC /* test_scheduler.c in Sources */ = {isa = PBXBuildFile; fileRef = 02FB1DA71A462861004905DC /* test_scheduler.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1095,6 +1103,14 @@
 		02CBDF7B19C40A270088AD76 /* torify.1.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = torify.1.in; sourceTree = "<group>"; };
 		02CBDF7C19C40A270088AD76 /* torify.1.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = torify.1.txt; sourceTree = "<group>"; };
 		02CBDF7D19C40A270088AD76 /* torify.html.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = torify.html.in; sourceTree = "<group>"; };
+		02FB1D9D1A461F52004905DC /* scheduler.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = scheduler.c; sourceTree = "<group>"; };
+		02FB1D9E1A461F52004905DC /* scheduler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = scheduler.h; sourceTree = "<group>"; };
+		02FB1DA21A462861004905DC /* fakechans.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fakechans.h; sourceTree = "<group>"; };
+		02FB1DA31A462861004905DC /* test_channel.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_channel.c; sourceTree = "<group>"; };
+		02FB1DA41A462861004905DC /* test_channeltls.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_channeltls.c; sourceTree = "<group>"; };
+		02FB1DA51A462861004905DC /* test_checkdir.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_checkdir.c; sourceTree = "<group>"; };
+		02FB1DA61A462861004905DC /* test_relay.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_relay.c; sourceTree = "<group>"; };
+		02FB1DA71A462861004905DC /* test_scheduler.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = test_scheduler.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1322,6 +1338,8 @@
 				0253562E19ACB377006D569F /* routerparse.h */,
 				0253562F19ACB377006D569F /* routerset.c */,
 				0253563019ACB377006D569F /* routerset.h */,
+				02FB1D9D1A461F52004905DC /* scheduler.c */,
+				02FB1D9E1A461F52004905DC /* scheduler.h */,
 				0253563119ACB377006D569F /* statefile.c */,
 				0253563219ACB377006D569F /* statefile.h */,
 				0253563319ACB377006D569F /* status.c */,
@@ -1481,6 +1499,7 @@
 			children = (
 				0282FBC919BC7572008675BC /* bench.c */,
 				0282FBCB19BC7572008675BC /* bt_test.py */,
+				02FB1DA21A462861004905DC /* fakechans.h */,
 				0282FBCE19BC7572008675BC /* ntor_ref.py */,
 				0282FBCF19BC7572008675BC /* slownacl_curve25519.py */,
 				02AC6D2819E3FD64006EEB3C /* test_accounting.c */,
@@ -1489,6 +1508,9 @@
 				0282FBFB19BC7572008675BC /* test_buffers.c */,
 				0282FBFC19BC7572008675BC /* test_cell_formats.c */,
 				0282FBFD19BC7572008675BC /* test_cell_queue.c */,
+				02FB1DA31A462861004905DC /* test_channel.c */,
+				02FB1DA41A462861004905DC /* test_channeltls.c */,
+				02FB1DA51A462861004905DC /* test_checkdir.c */,
 				0282FBFE19BC7572008675BC /* test_circuitlist.c */,
 				0282FBFF19BC7572008675BC /* test_circuitmux.c */,
 				0282FC0019BC7572008675BC /* test_cmdline_args.py */,
@@ -1511,10 +1533,12 @@
 				0282FC1219BC7572008675BC /* test_options.c */,
 				0282FC1319BC7572008675BC /* test_policy.c */,
 				0282FC1419BC7572008675BC /* test_pt.c */,
+				02FB1DA61A462861004905DC /* test_relay.c */,
 				0282FC1519BC7572008675BC /* test_relaycell.c */,
 				0282FC1619BC7572008675BC /* test_replay.c */,
 				0282FC1719BC7572008675BC /* test_routerkeys.c */,
 				0282FC1819BC7572008675BC /* test_routerset.c */,
+				02FB1DA71A462861004905DC /* test_scheduler.c */,
 				0282FC1919BC7572008675BC /* test_socks.c */,
 				0282FC1A19BC7572008675BC /* test_status.c */,
 				0282FC1B19BC7572008675BC /* test_util.c */,
@@ -2116,6 +2140,7 @@
 				0253566119ACB377006D569F /* reasons.c in Sources */,
 				028FE25619D6216B00EAE502 /* ge_add.c in Sources */,
 				0253565719ACB377006D569F /* microdesc.c in Sources */,
+				02FB1D9F1A461F52004905DC /* scheduler.c in Sources */,
 				0253564319ACB377006D569F /* command.c in Sources */,
 				028FE25519D6216B00EAE502 /* fe_tobytes.c in Sources */,
 				028FE24819D6216B00EAE502 /* fe_add.c in Sources */,
@@ -2169,6 +2194,7 @@
 				028FE2BB19D7DFC700EAE502 /* routerset.c in Sources */,
 				028FE2BC19D7DFC700EAE502 /* channel.c in Sources */,
 				028FE2BD19D7DFC700EAE502 /* ge_madd.c in Sources */,
+				02FB1DAB1A462861004905DC /* test_channeltls.c in Sources */,
 				028FE3EF19D7E39400EAE502 /* tinytest.c in Sources */,
 				028FE2BE19D7DFC700EAE502 /* fe_sq.c in Sources */,
 				028FE2BF19D7DFC700EAE502 /* open.c in Sources */,
@@ -2179,6 +2205,7 @@
 				028FE2C519D7DFC700EAE502 /* ge_p3_to_cached.c in Sources */,
 				028FE2C619D7DFC700EAE502 /* ext_orport.c in Sources */,
 				028FE2C719D7DFC700EAE502 /* ge_precomp_0.c in Sources */,
+				02FB1DA91A462861004905DC /* test_channel.c in Sources */,
 				028FE2C819D7DFC700EAE502 /* fe_invert.c in Sources */,
 				028FE2C919D7DFC700EAE502 /* fe_neg.c in Sources */,
 				028FE2CA19D7DFC700EAE502 /* pwbox.c in Sources */,
@@ -2188,6 +2215,7 @@
 				028FE2CE19D7DFC700EAE502 /* circpathbias.c in Sources */,
 				028FE2CF19D7DFC700EAE502 /* fe_1.c in Sources */,
 				028FE2D019D7DFC700EAE502 /* config_codedigest.c in Sources */,
+				02FB1DAD1A462861004905DC /* test_checkdir.c in Sources */,
 				028FE2D119D7DFC700EAE502 /* crypto_ed25519.c in Sources */,
 				028FE2D219D7DFC700EAE502 /* ge_p3_tobytes.c in Sources */,
 				028FE2D319D7DFC700EAE502 /* ge_tobytes.c in Sources */,
@@ -2218,6 +2246,7 @@
 				028FE2EB19D7DFC700EAE502 /* address.c in Sources */,
 				028FE2EC19D7DFC700EAE502 /* dirvote.c in Sources */,
 				028FE2ED19D7DFC700EAE502 /* rendcommon.c in Sources */,
+				02FB1DAF1A462861004905DC /* test_relay.c in Sources */,
 				028FE2EE19D7DFC700EAE502 /* ge_frombytes.c in Sources */,
 				028FE2EF19D7DFC700EAE502 /* container.c in Sources */,
 				028FE2F019D7DFC700EAE502 /* backtrace.c in Sources */,
@@ -2235,6 +2264,7 @@
 				028FE2FB19D7DFC700EAE502 /* di_ops.c in Sources */,
 				028FE2FC19D7DFC700EAE502 /* procmon.c in Sources */,
 				028FE2FD19D7DFC700EAE502 /* trunnel.c in Sources */,
+				02FB1DB11A462861004905DC /* test_scheduler.c in Sources */,
 				028FE2FE19D7DFC700EAE502 /* torgzip.c in Sources */,
 				028FE2FF19D7DFC700EAE502 /* ge_p3_to_p2.c in Sources */,
 				028FE30019D7DFC700EAE502 /* ge_double_scalarmult.c in Sources */,
@@ -2258,6 +2288,7 @@
 				028FE31219D7DFC700EAE502 /* connection.c in Sources */,
 				028FE31319D7DFC700EAE502 /* status.c in Sources */,
 				028FE31419D7DFC700EAE502 /* circuitmux_ewma.c in Sources */,
+				02FB1DA11A461F52004905DC /* scheduler.c in Sources */,
 				028FE31519D7DFC700EAE502 /* statefile.c in Sources */,
 				028FE31619D7DFC700EAE502 /* keyconv.c in Sources */,
 				028FE31719D7DFC700EAE502 /* ge_p2_0.c in Sources */,
@@ -2436,6 +2467,7 @@
 				028FE58A19D7E5E000EAE502 /* backtrace.c in Sources */,
 				028FE58B19D7E5E000EAE502 /* router.c in Sources */,
 				028FE58C19D7E5E000EAE502 /* crypto_curve25519.c in Sources */,
+				02FB1DA01A461F52004905DC /* scheduler.c in Sources */,
 				028FE58D19D7E5E000EAE502 /* fe_cmov.c in Sources */,
 				028FE58E19D7E5E000EAE502 /* circuituse.c in Sources */,
 				028FE58F19D7E5E000EAE502 /* fe_sq2.c in Sources */,
