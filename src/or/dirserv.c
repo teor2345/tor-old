@@ -2873,15 +2873,9 @@ dirserv_test_reachability(time_t now)
     tor_assert(ctr_increment > 0);
 
     /* Ensure it's relatively prime:
-     * REACHABILITY_MODULO_PER_TEST is a power of 2, and... */
-    /* There has to be a better way! */
-    tor_assert(   REACHABILITY_MODULO_PER_TEST == 2
-               || REACHABILITY_MODULO_PER_TEST == 4
-               || REACHABILITY_MODULO_PER_TEST == 8
-               || REACHABILITY_MODULO_PER_TEST == 16
-               || REACHABILITY_MODULO_PER_TEST == 32
-               || REACHABILITY_MODULO_PER_TEST == 64
-               || REACHABILITY_MODULO_PER_TEST == 128);
+     * The REACHABILITY_MODULO_PER_TEST is a power of 2,
+     * (that is, it has 1 and only 1 bit set) and... */
+    tor_assert(n_bits_set_u8(REACHABILITY_MODULO_PER_TEST) == 1);
     /* ...ctr_increment does not divide it evenly, or is 1 */
     tor_assert(REACHABILITY_MODULO_PER_TEST % ctr_increment != 0
                || ctr_increment == 1);
