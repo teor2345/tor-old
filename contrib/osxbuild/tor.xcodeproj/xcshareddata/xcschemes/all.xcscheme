@@ -14,9 +14,37 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "028FE33F19D7E02900EAE502"
-               BuildableName = "test-child"
-               BlueprintName = "test-child"
+               BlueprintIdentifier = "025354C019AB6515006D569F"
+               BuildableName = "tor"
+               BlueprintName = "tor"
+               ReferencedContainer = "container:tor.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "028FE2B419D7DFC700EAE502"
+               BuildableName = "test"
+               BlueprintName = "test"
+               ReferencedContainer = "container:tor.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "028FE54A19D7E5E000EAE502"
+               BuildableName = "bench"
+               BlueprintName = "bench"
                ReferencedContainer = "container:tor.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -32,9 +60,9 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "028FE33F19D7E02900EAE502"
-            BuildableName = "test-child"
-            BlueprintName = "test-child"
+            BlueprintIdentifier = "028FE54A19D7E5E000EAE502"
+            BuildableName = "bench"
+            BlueprintName = "bench"
             ReferencedContainer = "container:tor.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -51,9 +79,9 @@
       <BuildableProductRunnable>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "028FE33F19D7E02900EAE502"
-            BuildableName = "test-child"
-            BlueprintName = "test-child"
+            BlueprintIdentifier = "028FE2B419D7DFC700EAE502"
+            BuildableName = "test"
+            BlueprintName = "test"
             ReferencedContainer = "container:tor.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -66,15 +94,15 @@
       useCustomWorkingDirectory = "NO"
       buildConfiguration = "Release"
       debugDocumentVersioning = "YES">
-      <BuildableProductRunnable>
+      <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "028FE33F19D7E02900EAE502"
-            BuildableName = "test-child"
-            BlueprintName = "test-child"
+            BlueprintIdentifier = "028FE54A19D7E5E000EAE502"
+            BuildableName = "bench"
+            BlueprintName = "bench"
             ReferencedContainer = "container:tor.xcodeproj">
          </BuildableReference>
-      </BuildableProductRunnable>
+      </MacroExpansion>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">
