@@ -733,7 +733,7 @@ running_long_enough_to_decide_unreachable(void)
 }
 
 /** Each server needs to have passed a reachability test no more
- * than this number of seconds ago, or he is listed as down in
+ * than this number of seconds ago, or it is listed as down in
  * the directory. */
 #define REACHABLE_TIMEOUT (45*60)
 
@@ -2811,6 +2811,9 @@ dirserv_single_reachability_test(time_t now, routerinfo_t *router)
  * The load balancing is such that if we get called once every ten
  * seconds, we will cycle through all the tests in
  * REACHABILITY_TEST_CYCLE_PERIOD seconds (a bit over 20 minutes).
+ * If TestingAuthDirTimeToLearnReachability is lower than
+ * REACHABILITY_TEST_CYCLE_PERIOD seconds, increase the number of relays
+ * we test per call proportionally.
  */
 void
 dirserv_test_reachability(time_t now)
@@ -2825,17 +2828,21 @@ dirserv_test_reachability(time_t now)
    * wait til 0.2.0. -RD */
 //  time_t cutoff = now - ROUTER_MAX_AGE_TO_PUBLISH;
   routerlist_t *rl = router_get_routerlist();
+  static uint8_t ctr = 0;
+  static uint8_t ctr_increment = 1;
 
+  int bridge_auth = authdir_mode_bridge(get_options());
+
+  /* The code for bug #13928: Authority Reachability Randomisation
+   * can be disabled here, leaving only the changes in
+   * bug #13929: Increase Reachability Test Frequency */
+#if 1
   /* Initialise the start point for the sequence of reachability
    * tests to a random number, and use a random, relatively prime increment.
    * This helps avoid situations where two authorities started at the same
    * time do exactly the same tests from then on.
    * (This is more of an issue in test networks.) */
   static int ctr_init = 0;
-  static uint8_t ctr = 0;
-  static uint8_t ctr_increment = 1;
-
-  int bridge_auth = authdir_mode_bridge(get_options());
 
   if (PREDICT_UNLIKELY(!ctr_init)) {
     /* We don't need cryptographically strong random numbers here.
@@ -2875,13 +2882,14 @@ dirserv_test_reachability(time_t now)
                || REACHABILITY_MODULO_PER_TEST == 32
                || REACHABILITY_MODULO_PER_TEST == 64
                || REACHABILITY_MODULO_PER_TEST == 128);
-    /* ctr_increment does not divide it evenly, or is 1 */
+    /* ...ctr_increment does not divide it evenly, or is 1 */
     tor_assert(REACHABILITY_MODULO_PER_TEST % ctr_increment != 0
                || ctr_increment == 1);
 
     /* Only initialise this static varaible once */
     ctr_init = 1;
   }
+#endif
 
   unsigned int test_multiplier = 1;
 
@@ -2915,20 +2923,16 @@ dirserv_test_reachability(time_t now)
       continue; /* bridge authorities only test reachability on bridges */
 //    if (router->cache_info.published_on > cutoff)
 //      continue;
-    /* This code has identical behaviour to the previous code:
-     * id_test_group == 0 when
-     * id_digest[0] % REACHABILITY_MODULO_PER_TEST == ctr
-     * Avoid underflow using casts and addition of the modulus */
-    uint8_t id_test_group = (
-                             ((int)(id_digest[0])
-                              + REACHABILITY_MODULO_PER_TEST
-                              - (int)ctr)
-                             % REACHABILITY_MODULO_PER_TEST);
-    /* But we now want to scale the number of tests, so we test a range.
-     * Testing if an unsigned number is >= 0 is redundant. */
-    if (/* id_test_group >= 0 &&
-        id_test_group < test_multiplier*/ id_test_group == 0) {
-      dirserv_single_reachability_test(now, router);
+    /* We may want to increase the number of relays tested per interval */
+    uint8_t temp_ctr = ctr;
+    for (uint8_t i = 0; i < test_multiplier; i++) {
+      if ((((uint8_t)id_digest[0]) % REACHABILITY_MODULO_PER_TEST)
+          == temp_ctr) {
+        dirserv_single_reachability_test(now, router);
+      }
+      /* increment temp_ctr, avoiding overflow */
+      temp_ctr = (((int)temp_ctr + (int)ctr_increment)
+                  % REACHABILITY_MODULO_PER_TEST);
     }
   } SMARTLIST_FOREACH_END(router);
   /* increment ctr, avoiding overflow */

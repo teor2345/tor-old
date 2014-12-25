@@ -1059,19 +1059,19 @@ circuit_predict_and_launch_new(void)
   if (rep_hist_get_predicted_internal(now, &hidserv_needs_uptime,
                                       &hidserv_needs_capacity) &&
       ((num_uptime_internal<2 && hidserv_needs_uptime) ||
-       num_internal<2)
-      && router_have_minimum_dir_info(DIR_INFO_CIRCUIT_INTERNAL)) {
-        if (hidserv_needs_uptime)
-          flags |= CIRCLAUNCH_NEED_UPTIME;
-        if (hidserv_needs_capacity)
-          flags |= CIRCLAUNCH_NEED_CAPACITY;
-        flags |= CIRCLAUNCH_IS_INTERNAL;
-        log_info(LD_CIRC,
-                 "Have %d clean circs (%d uptime-internal, %d internal), need"
-                 " another hidden service circ.",
-                 num, num_uptime_internal, num_internal);
-        circuit_launch(CIRCUIT_PURPOSE_C_GENERAL, flags);
-        return;
+        num_internal<2)
+        && router_have_minimum_dir_info(DIR_INFO_CIRCUIT_INTERNAL)) {
+    if (hidserv_needs_uptime)
+      flags |= CIRCLAUNCH_NEED_UPTIME;
+    if (hidserv_needs_capacity)
+      flags |= CIRCLAUNCH_NEED_CAPACITY;
+    flags |= CIRCLAUNCH_IS_INTERNAL;
+    log_info(LD_CIRC,
+             "Have %d clean circs (%d uptime-internal, %d internal), need"
+             " another hidden service circ.",
+             num, num_uptime_internal, num_internal);
+    circuit_launch(CIRCUIT_PURPOSE_C_GENERAL, flags);
+    return;
   }
 
   /* Finally, check to see if we still need more circuits to learn

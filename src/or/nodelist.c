@@ -1659,7 +1659,7 @@ compute_frac_paths_available(const networkstatus_t *consensus,
 int
 count_loading_descriptors_progress(void)
 {
-  int num_present = 0, num_usable=0;
+  int num_present = 0, num_usable = 0;
   int loading_exit_descriptors = 0;
   time_t now = time(NULL);
   const or_options_t *options = get_options();

@@ -1275,7 +1275,7 @@ run_scheduled_events(time_t now)
       time_to_try_getting_descriptors < now) {
     update_all_descriptor_downloads(now);
     update_extrainfo_downloads(now);
-    /* if we have enough descriptors to build something, be lazy;
+    /* if we have enough descriptors to build any circuits, be lazy;
      * if not, try harder */
     if (router_have_minimum_dir_info(DIR_INFO_CIRCUIT_EAGER))
       time_to_try_getting_descriptors = now + LAZY_DESCRIPTOR_RETRY_INTERVAL;
@@ -1362,7 +1362,7 @@ run_scheduled_events(time_t now)
      * networkstatus_get_reasonably_live_consensus(), but that value is way
      * way too high.  Arma: is the bridge issue there resolved yet? -NM */
 #define NS_EXPIRY_SLOP (24*60*60)
-    /* be conservative, and notify of changed dir info
+    /* notify of changed dir info
      * even if only internal circuits are working */
     if (ns && ns->valid_until < now+NS_EXPIRY_SLOP &&
         router_have_minimum_dir_info(DIR_INFO_CIRCUIT_EAGER)) {

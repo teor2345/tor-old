@@ -35,7 +35,7 @@
 /** Lowest allowable value for DistSeconds when TestingTorNetwork is 1 */
 #define MIN_DIST_SECONDS_TESTING 2
 
-/** Lowest allowable voting interval for a non-testing network. */
+/** Lowest allowable voting interval. */
 #define MIN_VOTE_INTERVAL 300
 /** Lowest allowable voting interval when TestingTorNetwork is 1:
  * Voting Interval can be:

@@ -1,0 +1,7 @@
+  o Minor bugfixes:
+    - Stop requiring a consensus containing exits, before new nodes
+      can test their ORPort reachability. Instead, allow Tor to
+      create internal circuits when it receives a consensus with no exits.
+      This assists in bootstrapping a testing Tor network.
+      Fixes bugs 13718 & 13814.
+      Makes bug 13161's TestingDirAuthVoteExit non-essential.
