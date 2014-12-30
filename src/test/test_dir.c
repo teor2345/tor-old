@@ -2893,6 +2893,99 @@ test_dir_http_handling(void *args)
   tor_free(url);
 }
 
+static void
+reachability_test_cycle(int modulo_per_test,
+                        int initial_group,
+                        int group_step)
+{
+  /* This is almost identical to dirserv_test_reachability() in dirserv.c,
+   * with mocked modulo_per_test, initial_group, and group_step,
+   * and without the list of routers and special-case code. */
+
+  /* mock the values of the key functions */
+  (void)dirserv_reachability_modulo_per_test(modulo_per_test);
+  uint8_t ctr = dirserv_reachability_initial_group(initial_group);
+  (void)dirserv_reachability_group_step(group_step);
+
+  /* Record how many times we've tested reachability on each group */
+  uint8_t reachability_test_count[UCHAR_MAX];
+
+  for (unsigned int i = 0; i < UCHAR_MAX; i++) {
+    reachability_test_count[i] = 0;
+  }
+
+  /* test dirserv_reachability_modulo_per_test() rounds of reachability */
+  for (unsigned int reach_check = 0;
+       reach_check < dirserv_reachability_modulo_per_test(DSV_STD);
+       reach_check++) {
+    /* test each possible start byte for a router */
+    for (int first_byte = 0;
+         first_byte < UCHAR_MAX;
+         first_byte++) {
+      /* fake the first byte of an id_digest - it's all we ever check */
+      char fake_id_digest = (char)first_byte;
+      /* To check this testing framework, use:
+       * j % dirserv_reachability_modulo_per_test() == i as the condition */
+      if (dirserv_reachability_id_is_in_group(&fake_id_digest, ctr)) {
+        reachability_test_count[first_byte]++;
+      }
+    }
+    ctr = dirserv_reachability_increment_ctr(ctr);
+  }
+
+  /* Check that we're testing reachability on each group once. */
+  for (unsigned int i = 0; i < UCHAR_MAX; i++) {
+    tt_int_op(reachability_test_count[i], OP_EQ, 1);
+  }
+
+ done:
+  ;
+}
+
+static void
+test_dir_reachability_test(void *args)
+{
+  (void)args;
+
+  /* Test a standard cycle:
+   * (we can't do this after mocking any of the values) */
+  reachability_test_cycle(DSV_STD,
+                          DSV_STD,
+                          DSV_STD);
+
+  /* Exhaustively test all possible cycles:
+   *  - Test all scaled modulus values (1,2,4,8,16,32,64,128)
+   *  - Mock random values and test:
+   *    ~ all start values (0-127) and
+   *    ~ all step values (1,3,5,7,...,127)
+   * Exhaustive testing might just be possible: 2^3 * 2^8 * 2^7 = 2^18
+   * But for each modulus, we can run as few as (modulus * modulus/2) tests:
+   * (2^13 + 2^11 + 2^9 + 2^7 + 2^5 + 2^3 + 2^1 + 1) < 2^14
+   */
+
+  /* test each possible modulus from default down to 1,
+   * dividing by 2 each time */
+  for (unsigned int modulo_per_test = DEFAULT_REACHABILITY_MODULO_PER_TEST;
+       modulo_per_test > 0;
+       modulo_per_test /= 2) {
+
+    /* test each start group from 0 to (modulus - 1) */
+    for (unsigned int initial_group = 0;
+         initial_group < modulo_per_test;
+         initial_group++) {
+
+      /* test each step value, odd numbers from 1 to (modulus - 1) */
+      for (unsigned int group_step = 1;
+           group_step < modulo_per_test;
+           group_step += 2) {
+        reachability_test_cycle(modulo_per_test,
+                                initial_group,
+                                group_step);
+      }
+    }
+  }
+}
+
 #define DIR_LEGACY(name)                                                   \
   { #name, test_dir_ ## name , TT_FORK, NULL, NULL }
 
@@ -2920,6 +3013,7 @@ struct testcase_t dir_tests[] = {
   DIR_LEGACY(clip_unmeasured_bw_kb_alt),
   DIR(fmt_control_ns, 0),
   DIR(http_handling, 0),
+  DIR(reachability_test, 0),
   END_OF_TESTCASES
 };
 

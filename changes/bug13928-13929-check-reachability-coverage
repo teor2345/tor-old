@@ -1,0 +1,5 @@
+  o Minor features (authorities, testing):
+    - Create exhaustive unit tests that test every scale, start point, and
+      permutation of authority reachability test cycles. Ensure that each
+      reachability test cycle covers all digests exactly once.
+      Tests 13929 and 13928. Patch by "teor".
