@@ -797,8 +797,8 @@ dirserv_set_router_is_running(routerinfo_t *router, time_t now)
      */
     time_t when = now;
     if (node->last_reachable &&
-        node->last_reachable + REACHABILITY_TEST_CYCLE_PERIOD < now)
-      when = node->last_reachable + REACHABILITY_TEST_CYCLE_PERIOD;
+        node->last_reachable + dirserv_reachability_test_cycle_period() < now)
+      when = node->last_reachable + dirserv_reachability_test_cycle_period();
     rep_hist_note_router_unreachable(router->cache_info.identity_digest, when);
   }
 
@@ -2805,15 +2805,235 @@ dirserv_single_reachability_test(time_t now, routerinfo_t *router)
   }
 }
 
+/** Helper function for dirserv_test_reachability().
+ * Returns the number of groups to be tested.
+ * Defaults to DEFAULT_REACHABILITY_MODULO_PER_TEST, unless
+ * DIRSERV_SCALE_REACHABILITY and TestingTorNetwork are set.
+ * Returns a power of two value based on the ratio of
+ * TestingAuthDirTimeToLearnReachability to
+ * DEFAULT_REACHABILITY_TEST_CYCLE_PERIOD.
+ * If TestingAuthDirTimeToLearnReachability changes,
+ * (can it change while running?), dynamically determine a new modulo.
+ */
+uint8_t
+dirserv_reachability_modulo_per_test(int set_value_for_test)
+{
+  uint8_t reachability_modulo = DEFAULT_REACHABILITY_MODULO_PER_TEST;
+
+  /* if we're passed any other value than DIRSERV_NOT_TESTING, keep it */
+  static int set_value = DIRSERV_NOT_TESTING;
+  if (set_value_for_test != DIRSERV_NOT_TESTING) {
+    set_value = set_value_for_test;
+  }
+
+#if DIRSERV_SCALE_REACHABILITY
+  /* if we're learning reachability over a shorter period,
+   * compensate by increasing the number of tests proportionally,
+   * so we complete the testing in approximately that period */
+  if (get_options() && get_options()->TestingTorNetwork == 1
+      && get_options()->AssumeReachable == 0) {
+
+    int reach_time = get_options()->TestingAuthDirTimeToLearnReachability;
+
+    /* the expected reachability time is shorter than the default
+     * test cycle period, so calculate a new modulo that will produce
+     * approximately that period. */
+    if (reach_time < DEFAULT_REACHABILITY_TEST_CYCLE_PERIOD) {
+      reachability_modulo = reach_time/REACHABILITY_TEST_INTERVAL;
+    }
+
+    /* Ensure the new modulo meets the DIRSERV_MIN_REACHABILITY_GROUPS minimum.
+     */
+    if (reachability_modulo < DIRSERV_MIN_REACHABILITY_GROUPS) {
+      reachability_modulo = DIRSERV_MIN_REACHABILITY_GROUPS;
+    }
+
+    /* Finally, round the new modulo to the nearest power of two */
+    reachability_modulo = round_to_power_of_2(reachability_modulo);
+  }
+#endif
+
+  if (set_value != DIRSERV_NOT_TESTING) {
+    reachability_modulo = set_value;
+  }
+
+  /* ensure it's a power of two, and it is greater than 0 */
+  tor_assert(n_bits_set_u8(reachability_modulo) == 1);
+  /* ensure we're scaling up the number of tests per interval, not down */
+  tor_assert(reachability_modulo <= DEFAULT_REACHABILITY_MODULO_PER_TEST);
+
+  return reachability_modulo;
+}
+
+/* How many seconds elapse before we've tested the reachability
+ * of all relay groups? */
+time_t
+dirserv_reachability_test_cycle_period(void)
+{
+  return (REACHABILITY_TEST_INTERVAL
+          * dirserv_reachability_modulo_per_test(DIRSERV_NOT_TESTING));
+}
+
+/** Helper function for dirserv_test_reachability().
+ * Returns the first group to be tested once the authority starts up.
+ * Defaults to 0, unless DIRSERV_PERMUTE_REACHABILITY is set.
+ * Should only be called once to initialise the value of the group counter. */
+uint8_t
+dirserv_reachability_initial_group(int set_value_for_test)
+{
+  uint8_t ctr_initial_group = 0;
+
+  /* if we're passed any other value than DIRSERV_NOT_TESTING, keep it */
+  static int set_value = DIRSERV_NOT_TESTING;
+  if (set_value_for_test != DIRSERV_NOT_TESTING) {
+    set_value = set_value_for_test;
+  }
+
+#if DIRSERV_PERMUTE_REACHABILITY
+
+  /* Initialise the start point for the sequence of reachability
+   * tests to a random number.
+   * This helps avoid situations where two authorities started at the same
+   * time do exactly the same tests from then on.
+   * (This is more of an issue in test networks.) */
+
+  /* We don't need cryptographically strong random numbers here.
+   * We could use tor_weak_random, but it needs initialisation.
+   * If we initialised it using a static seed, we'd just end up with another
+   * predictable sequence. But using crypto_seed_weak_rng() seems a waste
+   * to obtain two random values from tor_weak_random().
+   * So we just use crypto_rand_int() directly. */
+
+  /* ctr should be between 0 and dirserv_reachability_modulo_per_test() - 1.
+   * The code normalises ctr values to within this range,
+   * so there is no potential for bad initial values of ctr to cause issues.
+   */
+  ctr_initial_group = crypto_rand_int(
+                    dirserv_reachability_modulo_per_test(DIRSERV_NOT_TESTING));
+
+#endif
+
+  if (set_value != DIRSERV_NOT_TESTING) {
+    ctr_initial_group = set_value;
+  }
+
+  tor_assert(ctr_initial_group
+             < dirserv_reachability_modulo_per_test(DIRSERV_NOT_TESTING));
+
+  return ctr_initial_group;
+}
+
+/** Helper function for dirserv_test_reachability().
+ * Returns the gap between each group to be tested.
+ * Defaults to 1, unless DIRSERV_PERMUTE_REACHABILITY is set.
+ * Always returns the same value no matter how many times it's called.
+ * Doesn't use dirserv_reachability_modulo_per_test(),
+ * to avoid issues if it changes.
+ */
+uint8_t
+dirserv_reachability_group_step(int set_value_for_testing)
+{
+  static uint8_t ctr_group_step = 1;
+
+#if DIRSERV_PERMUTE_REACHABILITY
+
+  /* Initialise the step between reachability test groups to
+   * a random, relatively prime increment.
+   * This helps avoid situations where two authorities started at the same
+   * time do exactly the same tests from then on.
+   * (This is more of an issue in test networks.) */
+  static int cgs_init = 0;
+
+  /* apply the set value for testing - can be set multiple times */
+  if (set_value_for_testing != DIRSERV_NOT_TESTING) {
+    ctr_group_step = set_value_for_testing;
+    cgs_init = 1;
+  }
+
+  if (PREDICT_UNLIKELY(!cgs_init)) {
+    /* We don't need cryptographically strong random numbers here.
+     * We could use tor_weak_random, but it needs initialisation.
+     * If we initialised it using a static seed, we'd just end up with another
+     * predictable sequence. But using crypto_seed_weak_rng() seems a waste
+     * to obtain two random values from tor_weak_random().
+     * So we just use crypto_rand_int() directly. */
+
+    /* ctr_increment must be between 1 and
+     * dirserv_reachability_modulo_per_test() - 1.
+     * It must also be relatively prime to
+     * dirserv_reachability_modulo_per_test(),
+     * as this ensures that the sequence covers all relays.
+     * Fortunately, when dirserv_reachability_modulo_per_test()
+     * is a power of 2, any odd number is relatively prime to it.
+     * If dirserv_reachability_modulo_per_test() changes to a larger value
+     * (can it change while running?), the old cycle could be too small to
+     * test the reachability of all the groups.
+     */
+    /* Get a number in the right range */
+    ctr_group_step = crypto_rand_int(
+                    dirserv_reachability_modulo_per_test(DIRSERV_NOT_TESTING));
+    /* Make it odd */
+    ctr_group_step = ctr_group_step | 0x01;
+
+    /* Only initialise this static varaible once */
+    cgs_init = 1;
+  }
+#endif
+
+  /* Ensure it's not zero to avoid trapping on the modulus below */
+  tor_assert(ctr_group_step > 0);
+
+  /* Ensure it's relatively prime:
+   * That dirserv_reachability_modulo_per_test() is a power of 2,
+   * (that is, it has 1 and only 1 bit set) and... */
+  tor_assert(n_bits_set_u8(
+              dirserv_reachability_modulo_per_test(DIRSERV_NOT_TESTING)) == 1);
+  /* ...ctr_increment does not divide it evenly, or is 1 */
+  tor_assert((dirserv_reachability_modulo_per_test(DIRSERV_NOT_TESTING)
+              % ctr_group_step != 0)
+             || ctr_group_step == 1);
+
+  return ctr_group_step;
+}
+
+/** Helper function for dirserv_test_reachability().
+ * Increments the counter so that we can test the next group.
+ * Uses dirserv_reachability_group_step() and
+ * dirserv_reachability_modulo_per_test(). */
+uint8_t
+dirserv_reachability_increment_ctr(uint8_t ctr)
+{
+  /* increment ctr, avoiding overflow */
+  return (((int)ctr
+           + (int)dirserv_reachability_group_step(DIRSERV_NOT_TESTING))
+          % dirserv_reachability_modulo_per_test(DIRSERV_NOT_TESTING));
+}
+
+/** Helper function for dirserv_test_reachability().
+ * Checks if the relay id_digest is in the group corresponding to ctr */
+int
+dirserv_reachability_id_is_in_group(const char *id_digest, uint8_t ctr)
+{
+  /* test if the first byte of id_digest is in the
+   * dirserv_reachability_modulo_per_test() group corresponding to ctr */
+  return ((((uint8_t)id_digest[0])
+           % dirserv_reachability_modulo_per_test(DIRSERV_NOT_TESTING))
+          == ctr);
+}
+
 /** Auth dir server only: load balance such that we only
  * try a few connections per call.
- *
  * The load balancing is such that if we get called once every ten
  * seconds, we will cycle through all the tests in
- * REACHABILITY_TEST_CYCLE_PERIOD seconds (a bit over 20 minutes).
- * If TestingAuthDirTimeToLearnReachability is lower than
- * REACHABILITY_TEST_CYCLE_PERIOD seconds, increase the number of relays
- * we test per call proportionally.
+ * DEFAULT_REACHABILITY_TEST_CYCLE_PERIOD seconds (a bit over 20 minutes).
+ * If DIRSERV_SCALE_REACHABILITY is set, and
+ * TestingAuthDirTimeToLearnReachability is lower than
+ * DEFAULT_REACHABILITY_TEST_CYCLE_PERIOD seconds, increase the number of
+ * relays we test per call proportionally, but never split them into fewer
+ * than DIRSERV_MIN_REACHABILITY_GROUPS.
+ * If DIRSERV_PERMUTE_REACHABILITY is set, randomise the start and
+ * permute the order that we test the groups of relays, but still test
+ * each group exactly once each cycle.
  */
 void
 dirserv_test_reachability(time_t now)
@@ -2828,86 +3048,15 @@ dirserv_test_reachability(time_t now)
    * wait til 0.2.0. -RD */
 //  time_t cutoff = now - ROUTER_MAX_AGE_TO_PUBLISH;
   routerlist_t *rl = router_get_routerlist();
-  static uint8_t ctr = 0;
-  static uint8_t ctr_increment = 1;
   int bridge_auth = authdir_mode_bridge(get_options());
-
-  /* The code for bug #13928: Authority Reachability Randomisation
-   * can be disabled here, leaving only the changes in
-   * bug #13929: Increase Reachability Test Frequency */
-#if 1
-  /* Initialise the start point for the sequence of reachability
-   * tests to a random number, and use a random, relatively prime increment.
-   * This helps avoid situations where two authorities started at the same
-   * time do exactly the same tests from then on.
-   * (This is more of an issue in test networks.) */
+  static uint8_t ctr = 0;
   static int ctr_init = 0;
 
   if (PREDICT_UNLIKELY(!ctr_init)) {
-    /* We don't need cryptographically strong random numbers here.
-     * We could use tor_weak_random, but it needs initialisation.
-     * If we initialised it using a static seed, we'd just end up with another
-     * predictable sequence. But using crypto_seed_weak_rng() seems a waste
-     * to obtain two random values from tor_weak_random().
-     * So we just use crypto_rand_int() directly. */
-
-    /* ctr should be between 0 and REACHABILITY_MODULO_PER_TEST - 1.
-     * The code normalises ctr values to within this range,
-     * so there is no potential for bad initial values of ctr to cause issues.
-     */
-    ctr = crypto_rand_int(REACHABILITY_MODULO_PER_TEST);
-
-    /* ctr_increment must be between 1 and REACHABILITY_MODULO_PER_TEST - 1.
-     * It must also be relatively prime to REACHABILITY_MODULO_PER_TEST,
-     * as this ensures that the sequence covers all routers.
-     * Fortunately, when REACHABILITY_MODULO_PER_TEST is a power of 2,
-     * any odd number is relatively prime to it.
-     */
-    /* Get a number in the right range */
-    ctr_increment = crypto_rand_int(REACHABILITY_MODULO_PER_TEST);
-    /* Make it odd */
-    ctr_increment = ctr_increment | 0x01;
-
-    /* Ensure it's not zero */
-    tor_assert(ctr_increment > 0);
-
-    /* Ensure it's relatively prime:
-     * The REACHABILITY_MODULO_PER_TEST is a power of 2,
-     * (that is, it has 1 and only 1 bit set) and... */
-    tor_assert(n_bits_set_u8(REACHABILITY_MODULO_PER_TEST) == 1);
-    /* ...ctr_increment does not divide it evenly, or is 1 */
-    tor_assert(REACHABILITY_MODULO_PER_TEST % ctr_increment != 0
-               || ctr_increment == 1);
-
-    /* Only initialise this static varaible once */
+    /* ctr will be initialised to the default of 0,
+     * unless DIRSERV_PERMUTE_REACHABILITY is set  */
+    ctr = dirserv_reachability_initial_group(DIRSERV_NOT_TESTING);
     ctr_init = 1;
-  }
-#endif
-
-  unsigned int test_multiplier = 1;
-  /* if we're learning reachability over a shorter period,
-   * compensate by increasing the number of tests proportionally,
-   * so we complete the testing within that period. */
-  if (get_options() && get_options()->TestingTorNetwork == 1
-      && get_options()->AssumeReachable == 0) {
-
-    int reach_time = get_options()->TestingAuthDirTimeToLearnReachability;
-
-    if (reach_time <= 0) {
-      reach_time = 1;
-    }
-
-    if (reach_time < REACHABILITY_TEST_CYCLE_PERIOD) {
-      test_multiplier = REACHABILITY_TEST_CYCLE_PERIOD/reach_time + 1;
-    }
-
-    /* Let's test everything in N = 1 groups minimum.
-     * Use REACHABILITY_MODULO_PER_TEST/N in both lines below for N groups. */
-    if (test_multiplier > REACHABILITY_MODULO_PER_TEST) {
-      test_multiplier = REACHABILITY_MODULO_PER_TEST;
-    }
-
-    tor_assert(test_multiplier > 0);
   }
 
   SMARTLIST_FOREACH_BEGIN(rl->routers, routerinfo_t *, router) {
@@ -2918,21 +3067,11 @@ dirserv_test_reachability(time_t now)
       continue; /* bridge authorities only test reachability on bridges */
 //    if (router->cache_info.published_on > cutoff)
 //      continue;
-
-    /* We may want to increase the number of relays tested per interval */
-    uint8_t temp_ctr = ctr;
-    for (uint8_t i = 0; i < test_multiplier; i++) {
-      if ((((uint8_t)id_digest[0]) % REACHABILITY_MODULO_PER_TEST)
-          == temp_ctr) {
-        dirserv_single_reachability_test(now, router);
-      }
-      /* increment temp_ctr, avoiding overflow */
-      temp_ctr = (((int)temp_ctr + (int)ctr_increment)
-                  % REACHABILITY_MODULO_PER_TEST);
+    if (dirserv_reachability_id_is_in_group(id_digest, ctr)) {
+      dirserv_single_reachability_test(now, router);
     }
   } SMARTLIST_FOREACH_END(router);
-  /* increment ctr, avoiding overflow */
-  ctr = ((int)ctr + (int)ctr_increment) % REACHABILITY_MODULO_PER_TEST;
+  ctr = dirserv_reachability_increment_ctr(ctr);
 }
 
 /** Given a fingerprint <b>fp</b> which is either set if we're looking for a

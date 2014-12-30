@@ -1,0 +1,20 @@
+  o Minor features (authorities):
+    - Increase reachability testing rate when
+      TestingAuthDirTimeToLearnReachability is set lower than
+      the default value. Experimental feature activated by the
+      DIRSERV_SCALE_REACHABILITY macro. Resolves 13929. Patch
+      by "teor".
+
+  o Minor features (authorities):
+    - Randomise reachability testing start point and randomly
+      permute reachability testing order. Prevents an issue where
+      authorities that start at similar times, test each relay at
+      similar times. (This is more of an issue in test networks.)
+      Experimental feature activated by the
+      DIRSERV_PERMUTE_REACHABILITY macro. Resolves 13928. Patch
+      by "teor".
+
+  o Minor features (authorities, testing):
+    - Create exhaustive unit tests that ensure every scale,
+      start point, and permutation, cover all digests exactly once
+      each testing cycle. Tests 13929 and 13928. Patch by "teor".
