@@ -16,15 +16,32 @@
 
 /** What fraction (1 over this number) of the relay ID space do we
  * (as a directory authority) launch connections to at each reachability
- * test? */
+ * test? (when DIRSERV_SCALE_REACHABILITY is not set) */
 #define DEFAULT_REACHABILITY_MODULO_PER_TEST 128
 
 /** How often (in seconds) do we launch reachability tests? */
 #define REACHABILITY_TEST_INTERVAL 10
 
-/** How many seconds apart are the reachability tests for a given relay? */
+/** How many seconds apart are the reachability tests for a given relay?
+ * (when DIRSERV_SCALE_REACHABILITY is not set) */
 #define DEFAULT_REACHABILITY_TEST_CYCLE_PERIOD \
   (REACHABILITY_TEST_INTERVAL*DEFAULT_REACHABILITY_MODULO_PER_TEST)
+
+/* Activate the code for bug #13929: Increase Reachability Test Frequency */
+#ifndef DIRSERV_SCALE_REACHABILITY
+#define DIRSERV_SCALE_REACHABILITY 1
+#endif
+
+/* The minimum numer of groups for reachability tests.
+ * Will be rounded to the nearest power of 2. */
+#if DIRSERV_SCALE_REACHABILITY
+#ifndef DIRSERV_MIN_REACHABILITY_GROUPS
+#define DIRSERV_MIN_REACHABILITY_GROUPS 1
+#endif
+#else /* !DIRSERV_SCALE_REACHABILITY */
+#undef DIRSERV_MIN_REACHABILITY_GROUPS
+#define DIRSERV_MIN_REACHABILITY_GROUPS REACHABILITY_MODULO_PER_TEST
+#endif
 
 /** Maximum length of an exit policy summary. */
 #define MAX_EXITPOLICY_SUMMARY_LEN 1000

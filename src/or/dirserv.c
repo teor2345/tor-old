@@ -2770,7 +2770,13 @@ dirserv_should_launch_reachability_test(const routerinfo_t *ri,
 
 /** Helper function for dirserv_test_reachability().
  * Returns the number of groups to be tested.
- * Defaults to DEFAULT_REACHABILITY_MODULO_PER_TEST.
+ * Defaults to DEFAULT_REACHABILITY_MODULO_PER_TEST, unless
+ * DIRSERV_SCALE_REACHABILITY and TestingTorNetwork are set.
+ * Returns a power of two value based on the ratio of
+ * TestingAuthDirTimeToLearnReachability to
+ * DEFAULT_REACHABILITY_TEST_CYCLE_PERIOD.
+ * If TestingAuthDirTimeToLearnReachability changes,
+ * (can it change while running?), dynamically determine a new modulo.
  */
 uint8_t
 dirserv_reachability_modulo_per_test(int set_value_for_test)
@@ -2782,6 +2788,33 @@ dirserv_reachability_modulo_per_test(int set_value_for_test)
   if (set_value_for_test != DSV_STD) {
     set_value = set_value_for_test;
   }
+
+#if DIRSERV_SCALE_REACHABILITY
+  /* if we're learning reachability over a shorter period,
+   * compensate by increasing the number of tests proportionally,
+   * so we complete the testing in approximately that period */
+  if (get_options() && get_options()->TestingTorNetwork == 1
+      && get_options()->AssumeReachable == 0) {
+
+    int reach_time = get_options()->TestingAuthDirTimeToLearnReachability;
+
+    /* the expected reachability time is shorter than the default
+     * test cycle period, so calculate a new modulo that will produce
+     * approximately that period. */
+    if (reach_time < DEFAULT_REACHABILITY_TEST_CYCLE_PERIOD) {
+      reachability_modulo = reach_time/REACHABILITY_TEST_INTERVAL;
+    }
+
+    /* Ensure the new modulo meets the DIRSERV_MIN_REACHABILITY_GROUPS minimum.
+     */
+    if (reachability_modulo < DIRSERV_MIN_REACHABILITY_GROUPS) {
+      reachability_modulo = DIRSERV_MIN_REACHABILITY_GROUPS;
+    }
+
+    /* Finally, round the new modulo to the nearest power of two */
+    reachability_modulo = round_to_power_of_2(reachability_modulo);
+  }
+#endif
 
   if (set_value != DSV_STD) {
     reachability_modulo = set_value;
@@ -2935,6 +2968,11 @@ dirserv_single_reachability_test(time_t now, routerinfo_t *router)
  * The load balancing is such that if we get called once every ten
  * seconds, we will cycle through all the tests in
  * DEFAULT_REACHABILITY_TEST_CYCLE_PERIOD seconds (a bit over 20 minutes).
+ * If DIRSERV_SCALE_REACHABILITY is set, and
+ * TestingAuthDirTimeToLearnReachability is lower than
+ * DEFAULT_REACHABILITY_TEST_CYCLE_PERIOD seconds, increase the number of
+ * relays we test per call proportionally, but never split them into fewer
+ * than DIRSERV_MIN_REACHABILITY_GROUPS.
  */
 void
 dirserv_test_reachability(time_t now)

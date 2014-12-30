@@ -1,0 +1,6 @@
+  o Minor features (authorities):
+    - Increase reachability testing rate proportionally when
+      TestingAuthDirTimeToLearnReachability is set lower than the default
+      value. This assists in bootstrapping a testing Tor network.
+      Experimental feature activated by the DIRSERV_SCALE_REACHABILITY macro.
+      Fixes bug 13929. Patch by "teor".
