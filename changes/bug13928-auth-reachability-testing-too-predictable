@@ -1,0 +1,14 @@
+  o Minor features (authorities):
+    - Tor authorities' reachability testing of relays is predictable,
+      as it is sequential, always starts at the lowest fingerprints, and
+      checks fingerprints in numeric order. This means that authorities
+      that start in the same 10-second period, check the reachability
+      of the same relays at the same time. (This is more of an issue
+      in testing networks.)
+      To fix this, each authority picks a random start point and
+      sequence order when it starts reachability testing.
+      This may improve the accuracy and reliability of reachability testing.
+      It is likely to have a negligilbe to positive effect on security by
+      reducing the predictability of reachability testing sequences.
+      Experimental feature activated by the DIRSERV_PERMUTE_REACHABILITY
+      macro. Fixes bug 13928. Patch by "teor".

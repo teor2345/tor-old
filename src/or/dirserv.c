@@ -2839,7 +2839,7 @@ dirserv_reachability_test_cycle_period(void)
 
 /** Helper function for dirserv_test_reachability().
  * Returns the first group to be tested once the authority starts up.
- * Defaults to 0.
+ * Defaults to 0, unless DIRSERV_PERMUTE_REACHABILITY is set.
  * Should only be called once to initialise the value of the group counter. */
 uint8_t
 dirserv_reachability_initial_group(int set_value_for_test)
@@ -2851,6 +2851,29 @@ dirserv_reachability_initial_group(int set_value_for_test)
   if (set_value_for_test != DSV_STD) {
     set_value = set_value_for_test;
   }
+
+#if DIRSERV_PERMUTE_REACHABILITY
+
+  /* Initialise the start point for the sequence of reachability
+   * tests to a random number.
+   * This helps avoid situations where two authorities started at the same
+   * time do exactly the same tests from then on.
+   * (This is more of an issue in test networks.) */
+
+  /* We don't need cryptographically strong random numbers here.
+   * We could use tor_weak_random, but it needs initialisation.
+   * If we initialised it using a static seed, we'd just end up with another
+   * predictable sequence. But using crypto_seed_weak_rng() seems a waste
+   * to obtain two random values from tor_weak_random().
+   * So we just use crypto_rand_int() directly. */
+
+  /* ctr should be between 0 and dirserv_reachability_modulo_per_test() - 1.
+   * The code normalises ctr values to within this range,
+   * so there is no potential for bad initial values of ctr to cause issues.
+   */
+  ctr_initial_group =
+    crypto_rand_int(dirserv_reachability_modulo_per_test(DSV_STD));
+#endif
 
   if (set_value != DSV_STD) {
     ctr_initial_group = set_value;
@@ -2865,7 +2888,7 @@ dirserv_reachability_initial_group(int set_value_for_test)
 
 /** Helper function for dirserv_test_reachability().
  * Returns the gap between each group to be tested.
- * Defaults to 1.
+ * Defaults to 1, unless DIRSERV_PERMUTE_REACHABILITY is set.
  * Always returns the same value no matter how many times it's called.
  */
 uint8_t
@@ -2878,10 +2901,51 @@ dirserv_reachability_group_step(int set_value_for_testing)
     ctr_group_step = set_value_for_testing;
   }
 
+#if DIRSERV_PERMUTE_REACHABILITY
+
+  /* Initialise the step between reachability test groups to
+   * a random, relatively prime increment.
+   * This helps avoid situations where two authorities started at the same
+   * time do exactly the same tests from then on.
+   * (This is more of an issue in test networks.) */
+  static int cgs_init = 0;
+
   /* apply the set value for testing - can be set multiple times */
   if (set_value_for_testing != DSV_STD) {
     ctr_group_step = set_value_for_testing;
+    cgs_init = 1;
   }
+
+  if (PREDICT_UNLIKELY(!cgs_init)) {
+    /* We don't need cryptographically strong random numbers here.
+     * We could use tor_weak_random, but it needs initialisation.
+     * If we initialised it using a static seed, we'd just end up with another
+     * predictable sequence. But using crypto_seed_weak_rng() seems a waste
+     * to obtain two random values from tor_weak_random().
+     * So we just use crypto_rand_int() directly. */
+
+    /* ctr_increment must be between 1 and
+     * dirserv_reachability_modulo_per_test() - 1.
+     * It must also be relatively prime to
+     * dirserv_reachability_modulo_per_test(),
+     * as this ensures that the sequence covers all relays.
+     * Fortunately, when dirserv_reachability_modulo_per_test()
+     * is a power of 2, any odd number is relatively prime to it.
+     * If dirserv_reachability_modulo_per_test() changes to a larger value
+     * (can it change while running?), the old cycle could be too small to
+     * test the reachability of all the groups.
+     */
+    /* Get a number in the right range */
+    ctr_group_step = crypto_rand_int(
+                                  dirserv_reachability_modulo_per_test(DSV_STD)
+                                     );
+    /* Make it odd */
+    ctr_group_step = ctr_group_step | 0x01;
+
+    /* Only initialise this static varaible once */
+    cgs_init = 1;
+  }
+#endif
 
   /* Ensure it's not zero to avoid trapping on the modulus below */
   tor_assert(ctr_group_step > 0);
@@ -2973,6 +3037,9 @@ dirserv_single_reachability_test(time_t now, routerinfo_t *router)
  * DEFAULT_REACHABILITY_TEST_CYCLE_PERIOD seconds, increase the number of
  * relays we test per call proportionally, but never split them into fewer
  * than DIRSERV_MIN_REACHABILITY_GROUPS.
+ * If DIRSERV_PERMUTE_REACHABILITY is set, randomise the start and
+ * permute the order that we test the groups of relays, but still test
+ * each group exactly once each cycle.
  */
 void
 dirserv_test_reachability(time_t now)
@@ -2992,7 +3059,8 @@ dirserv_test_reachability(time_t now)
   int bridge_auth = authdir_mode_bridge(get_options());
 
   if (PREDICT_UNLIKELY(!ctr_init)) {
-    /* ctr will be initialised to the default of 0.*/
+    /* ctr will be initialised to the default of 0,
+     * unless DIRSERV_PERMUTE_REACHABILITY is set. */
     ctr = dirserv_reachability_initial_group(DSV_STD);
     ctr_init = 1;
   }

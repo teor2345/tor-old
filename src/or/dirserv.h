@@ -43,6 +43,11 @@
 #define DIRSERV_MIN_REACHABILITY_GROUPS REACHABILITY_MODULO_PER_TEST
 #endif
 
+/* Activate the code for bug #13928: Authority Reachability Permutation */
+#ifndef DIRSERV_PERMUTE_REACHABILITY
+#define DIRSERV_PERMUTE_REACHABILITY 1
+#endif
+
 /** Maximum length of an exit policy summary. */
 #define MAX_EXITPOLICY_SUMMARY_LEN 1000
 
