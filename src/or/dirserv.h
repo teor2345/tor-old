@@ -17,14 +17,14 @@
 /** What fraction (1 over this number) of the relay ID space do we
  * (as a directory authority) launch connections to at each reachability
  * test? */
-#define REACHABILITY_MODULO_PER_TEST 128
+#define DEFAULT_REACHABILITY_MODULO_PER_TEST 128
 
 /** How often (in seconds) do we launch reachability tests? */
 #define REACHABILITY_TEST_INTERVAL 10
 
 /** How many seconds apart are the reachability tests for a given relay? */
-#define REACHABILITY_TEST_CYCLE_PERIOD \
-  (REACHABILITY_TEST_INTERVAL*REACHABILITY_MODULO_PER_TEST)
+#define DEFAULT_REACHABILITY_TEST_CYCLE_PERIOD \
+  (REACHABILITY_TEST_INTERVAL*DEFAULT_REACHABILITY_MODULO_PER_TEST)
 
 /** Maximum length of an exit policy summary. */
 #define MAX_EXITPOLICY_SUMMARY_LEN 1000
@@ -76,10 +76,49 @@ int dirserv_get_routerdescs(smartlist_t *descs_out, const char *key,
 void dirserv_orconn_tls_done(const tor_addr_t *addr,
                              uint16_t or_port,
                              const char *digest_rcvd);
+
+#ifdef DIRSERV_PRIVATE
+
+/* Pass DSV_STD for standard functionality,
+ * or any other value to permanently set the
+ * function's output to that value. */
+#define DSV_STD (-1)
+
+/* Functions that can be mocked by passing them a set value,
+ * which they will always return from that point onwards.
+ * The mocking must be performed in this order:
+ *  - dirserv_reachability_modulo_per_test
+ * then either or both of:
+ *  - dirserv_reachability_initial_group
+ *  - dirserv_reachability_group_step
+ * Due to dependencies between the functions.
+ * There is no way to unmock these functions.
+ */
+
+/* Returns the number of groups to be tested in dirserv_test_reachability(). */
+uint8_t dirserv_reachability_modulo_per_test(int set_value_for_test);
+/* Returns the first group to be tested in dirserv_test_reachability(). */
+uint8_t dirserv_reachability_initial_group(int set_value_for_test);
+/* Returns the gap between each test group in dirserv_test_reachability(). */
+uint8_t dirserv_reachability_group_step(int set_value_for_test);
+
+/* How many seconds apart are the reachability tests for a given relay? */
+time_t dirserv_reachability_test_cycle_period(void);
+/* Increments the dirserv_test_reachability() counter. */
+uint8_t dirserv_reachability_increment_ctr(uint8_t ctr);
+/* Check if id_digest is in the dirserv_test_reachability() group for ctr. */
+int dirserv_reachability_id_is_in_group(const char *id_digest, uint8_t ctr);
+
+#endif
+
+/* Decide whether to test reachability on a router after its info changes. */
 int dirserv_should_launch_reachability_test(const routerinfo_t *ri,
                                             const routerinfo_t *ri_old);
+/* Performs a reachability test on the specified router. */
 void dirserv_single_reachability_test(time_t now, routerinfo_t *router);
+/* Perform reachability testing on the next group of relays. */
 void dirserv_test_reachability(time_t now);
+
 int authdir_wants_to_reject_router(routerinfo_t *ri, const char **msg,
                                    int complain,
                                    int *valid_out);

@@ -797,8 +797,8 @@ dirserv_set_router_is_running(routerinfo_t *router, time_t now)
      */
     time_t when = now;
     if (node->last_reachable &&
-        node->last_reachable + REACHABILITY_TEST_CYCLE_PERIOD < now)
-      when = node->last_reachable + REACHABILITY_TEST_CYCLE_PERIOD;
+        node->last_reachable + dirserv_reachability_test_cycle_period() < now)
+      when = node->last_reachable + dirserv_reachability_test_cycle_period();
     rep_hist_note_router_unreachable(router->cache_info.identity_digest, when);
   }
 
@@ -2768,6 +2768,131 @@ dirserv_should_launch_reachability_test(const routerinfo_t *ri,
   return 0;
 }
 
+/** Helper function for dirserv_test_reachability().
+ * Returns the number of groups to be tested.
+ * Defaults to DEFAULT_REACHABILITY_MODULO_PER_TEST.
+ */
+uint8_t
+dirserv_reachability_modulo_per_test(int set_value_for_test)
+{
+  uint8_t reachability_modulo = DEFAULT_REACHABILITY_MODULO_PER_TEST;
+
+  /* if we're passed any other value than DSV_STD, keep it */
+  static int set_value = DSV_STD;
+  if (set_value_for_test != DSV_STD) {
+    set_value = set_value_for_test;
+  }
+
+  if (set_value != DSV_STD) {
+    reachability_modulo = set_value;
+  }
+
+  /* ensure it's a power of two, and it is greater than 0 */
+  tor_assert(n_bits_set_u8(reachability_modulo) == 1);
+  /* ensure we're scaling up the number of tests per interval, not down */
+  tor_assert(reachability_modulo <= DEFAULT_REACHABILITY_MODULO_PER_TEST);
+
+  return reachability_modulo;
+}
+
+/* How many seconds elapse before we've tested the reachability
+ * of all relay groups? */
+time_t
+dirserv_reachability_test_cycle_period(void)
+{
+  return REACHABILITY_TEST_INTERVAL *
+           dirserv_reachability_modulo_per_test(DSV_STD);
+}
+
+/** Helper function for dirserv_test_reachability().
+ * Returns the first group to be tested once the authority starts up.
+ * Defaults to 0.
+ * Should only be called once to initialise the value of the group counter. */
+uint8_t
+dirserv_reachability_initial_group(int set_value_for_test)
+{
+  uint8_t ctr_initial_group = 0;
+
+  /* if we're passed any other value than DSV_STD, keep it */
+  static int set_value = DSV_STD;
+  if (set_value_for_test != DSV_STD) {
+    set_value = set_value_for_test;
+  }
+
+  if (set_value != DSV_STD) {
+    ctr_initial_group = set_value;
+  }
+
+  tor_assert(
+    ctr_initial_group < dirserv_reachability_modulo_per_test(DSV_STD)
+             );
+
+  return ctr_initial_group;
+}
+
+/** Helper function for dirserv_test_reachability().
+ * Returns the gap between each group to be tested.
+ * Defaults to 1.
+ * Always returns the same value no matter how many times it's called.
+ */
+uint8_t
+dirserv_reachability_group_step(int set_value_for_testing)
+{
+  static uint8_t ctr_group_step = 1;
+
+  /* apply the set value for testing - can be set multiple times */
+  if (set_value_for_testing != DSV_STD) {
+    ctr_group_step = set_value_for_testing;
+  }
+
+  /* apply the set value for testing - can be set multiple times */
+  if (set_value_for_testing != DSV_STD) {
+    ctr_group_step = set_value_for_testing;
+  }
+
+  /* Ensure it's not zero to avoid trapping on the modulus below */
+  tor_assert(ctr_group_step > 0);
+
+  /* Ensure it's relatively prime:
+   * That dirserv_reachability_modulo_per_test() is a power of 2,
+   * (that is, it has 1 and only 1 bit set) and... */
+  int modulo_bits_set =
+                  n_bits_set_u8(dirserv_reachability_modulo_per_test(DSV_STD));
+  tor_assert(modulo_bits_set == 1);
+  /* ...ctr_group_step does not divide it evenly, or is 1 */
+  int group_step_divides_modulo =
+        (dirserv_reachability_modulo_per_test(DSV_STD) % ctr_group_step == 0);
+  tor_assert(!group_step_divides_modulo || ctr_group_step == 1);
+
+  return ctr_group_step;
+}
+
+/** Helper function for dirserv_test_reachability().
+ * Increments the counter so that we can test the next group.
+ * Uses dirserv_reachability_group_step() and
+ * dirserv_reachability_modulo_per_test(). */
+uint8_t
+dirserv_reachability_increment_ctr(uint8_t ctr)
+{
+  /* increment ctr, avoiding overflow */
+  unsigned int nxtctr = (unsigned int)ctr +
+                        (unsigned int)dirserv_reachability_group_step(DSV_STD);
+
+  return nxtctr % dirserv_reachability_modulo_per_test(DSV_STD);
+}
+
+/** Helper function for dirserv_test_reachability().
+ * Checks if the relay id_digest is in the group corresponding to ctr */
+int
+dirserv_reachability_id_is_in_group(const char *id_digest, uint8_t ctr)
+{
+  /* test if the first byte of id_digest is in the
+   * dirserv_reachability_modulo_per_test() group corresponding to ctr */
+  uint8_t first_byte = (uint8_t)id_digest[0];
+  uint8_t dg_grp = first_byte % dirserv_reachability_modulo_per_test(DSV_STD);
+  return dg_grp == ctr;
+}
+
 /** Helper function for dirserv_test_reachability(). Start a TLS
  * connection to <b>router</b>, and annotate it with when we started
  * the test. */
@@ -2807,10 +2932,9 @@ dirserv_single_reachability_test(time_t now, routerinfo_t *router)
 
 /** Auth dir server only: load balance such that we only
  * try a few connections per call.
- *
  * The load balancing is such that if we get called once every ten
  * seconds, we will cycle through all the tests in
- * REACHABILITY_TEST_CYCLE_PERIOD seconds (a bit over 20 minutes).
+ * DEFAULT_REACHABILITY_TEST_CYCLE_PERIOD seconds (a bit over 20 minutes).
  */
 void
 dirserv_test_reachability(time_t now)
@@ -2825,8 +2949,15 @@ dirserv_test_reachability(time_t now)
    * wait til 0.2.0. -RD */
 //  time_t cutoff = now - ROUTER_MAX_AGE_TO_PUBLISH;
   routerlist_t *rl = router_get_routerlist();
-  static char ctr = 0;
+  static uint8_t ctr = 0;
+  static int ctr_init = 0;
   int bridge_auth = authdir_mode_bridge(get_options());
+
+  if (PREDICT_UNLIKELY(!ctr_init)) {
+    /* ctr will be initialised to the default of 0.*/
+    ctr = dirserv_reachability_initial_group(DSV_STD);
+    ctr_init = 1;
+  }
 
   SMARTLIST_FOREACH_BEGIN(rl->routers, routerinfo_t *, router) {
     const char *id_digest = router->cache_info.identity_digest;
@@ -2836,11 +2967,11 @@ dirserv_test_reachability(time_t now)
       continue; /* bridge authorities only test reachability on bridges */
 //    if (router->cache_info.published_on > cutoff)
 //      continue;
-    if ((((uint8_t)id_digest[0]) % REACHABILITY_MODULO_PER_TEST) == ctr) {
+    if (dirserv_reachability_id_is_in_group(id_digest, ctr)) {
       dirserv_single_reachability_test(now, router);
     }
   } SMARTLIST_FOREACH_END(router);
-  ctr = (ctr + 1) % REACHABILITY_MODULO_PER_TEST; /* increment ctr */
+  ctr = dirserv_reachability_increment_ctr(ctr);
 }
 
 /** Given a fingerprint <b>fp</b> which is either set if we're looking for a

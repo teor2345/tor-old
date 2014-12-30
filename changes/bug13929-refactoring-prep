@@ -1,0 +1,4 @@
+  o Minor refactoring (authorities):
+    - Refactor the dirserv_test_reachability() function.
+      Preparation for fixes and tests for bugs 13929 & 13928.
+      Patch by "teor".
