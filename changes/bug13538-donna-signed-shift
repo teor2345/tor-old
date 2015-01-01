@@ -1,0 +1,4 @@
+  o Minor bugfixes:
+    - Avoid signed left shift overflows in curve25519-donna arithmetic
+      (generic curve25519-donna.c only - c64 is not affected)
+      using unsigned bitwise operations. Fixes bug 13538.
