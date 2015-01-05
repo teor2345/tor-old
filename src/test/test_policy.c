@@ -388,6 +388,10 @@ test_policies_general(void *arg)
   addr_policy_list_free(policy5);
   addr_policy_list_free(policy6);
   addr_policy_list_free(policy7);
+  addr_policy_list_free(policy8);
+  addr_policy_list_free(policy9);
+  addr_policy_list_free(policy10);
+  addr_policy_list_free(policy11);
   addr_policy_list_free(policy12);
   tor_free(policy_str);
   if (sm) {
