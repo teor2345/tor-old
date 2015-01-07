@@ -32,6 +32,7 @@ src_test_test_SOURCES = \
 	src/test/test_dir.c \
 	src/test/test_checkdir.c \
 	src/test/test_entrynodes.c \
+	src/test/test_guardfraction.c \
 	src/test/test_extorport.c \
 	src/test/test_introduce.c \
 	src/test/test_logging.c \
@@ -53,6 +54,7 @@ src_test_test_SOURCES = \
 	src/test/test_policy.c \
 	src/test/test_status.c \
 	src/test/test_routerset.c \
+	src/test/test_helpers.c \
 	src/ext/tinytest.c
 
 src_test_test_CFLAGS = $(AM_CFLAGS) $(TEST_CFLAGS)
@@ -83,6 +85,7 @@ src_test_bench_LDADD = src/or/libtor.a src/common/libor.a \
 noinst_HEADERS+= \
 	src/test/fakechans.h \
 	src/test/test.h \
+	src/test/test_helpers.h \
 	src/test/test_descriptors.inc \
 	src/test/example_extrainfo.inc \
 	src/test/failing_routerdescs.inc \
