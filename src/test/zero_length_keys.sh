@@ -26,7 +26,12 @@ if [ $# -lt 1 ]; then
 fi
 
 export DATA_DIR=`mktemp -d -t tor_zero_length_keys`
-TOR="src/or/tor --hush --DisableNetwork 1 --ShutdownWaitLength 0 --ORPort 12345"
+# Use a tor path relative to the location of this script to support
+# out-of-tree builds
+# ORPort 12345 is never actually used by tor because DisableNetwork is set
+# Multiple tests can run concurrently without issues
+# Use ExitRelay 0 to silence warnings
+TOR="`dirname $0`/../or/tor --hush --DisableNetwork 1 --ShutdownWaitLength 0 --ORPort 12345 --ExitRelay 0"
 
 if [ -s "$DATA_DIR"/keys/secret_id_key -a -s "$DATA_DIR"/keys/secret_onion_key -a -s "$DATA_DIR"/keys/secret_onion_key_ntor ]; then
   echo "Failure: Previous tor keys present in tor data directory"
