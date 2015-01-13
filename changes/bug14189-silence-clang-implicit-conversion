@@ -1,0 +1,4 @@
+  o Minor bugfixes (cell queues):
+    - Silence implicit conversion warning on 32-bit platforms by casting
+      MaxMemInQueues to size_t. Check that it's a sane value before casting.
+      Fixes #14189. Patch by "teor".

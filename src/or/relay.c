@@ -2444,20 +2444,27 @@ static time_t last_time_under_memory_pressure = 0;
 STATIC int
 cell_queues_check_size(void)
 {
+  /* on 32-bit platforms, size_t is 32 bit, but MaxMemInQueues is uint64_t 
+   * so before casting, check the values are sane */
+  tor_assert(get_options()->MaxMemInQueues <= SIZE_T_MAX);
+  tor_assert(get_options()->MaxMemInQueues_low_threshold <= SIZE_T_MAX);
+  const size_t max_mem_in_qs = (size_t)get_options()->MaxMemInQueues;
+  const size_t max_mem_in_qs_low =
+    (size_t)get_options()->MaxMemInQueues_low_threshold;
   size_t alloc = cell_queues_get_total_allocation();
   alloc += buf_get_total_allocation();
   alloc += tor_zlib_get_total_allocation();
   const size_t rend_cache_total = rend_cache_get_total_allocation();
   alloc += rend_cache_total;
-  if (alloc >= get_options()->MaxMemInQueues_low_threshold) {
+  if (alloc >= max_mem_in_qs_low) {
     last_time_under_memory_pressure = approx_time();
-    if (alloc >= get_options()->MaxMemInQueues) {
+    if (alloc >= max_mem_in_qs) {
       /* If we're spending over 20% of the memory limit on hidden service
        * descriptors, free them until we're down to 10%.
        */
-      if (rend_cache_total > get_options()->MaxMemInQueues / 5) {
+      if (rend_cache_total > max_mem_in_qs / 5) {
         const size_t bytes_to_remove =
-          rend_cache_total - (size_t)(get_options()->MaxMemInQueues / 10);
+          (rend_cache_total - (max_mem_in_qs / 10));
         rend_cache_clean_v2_descs_as_dir(time(NULL), bytes_to_remove);
         alloc -= rend_cache_total;
         alloc += rend_cache_get_total_allocation();
