@@ -1,6 +1,6 @@
 /* Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2014, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 #define DIRSERV_PRIVATE
@@ -733,7 +733,7 @@ running_long_enough_to_decide_unreachable(void)
 }
 
 /** Each server needs to have passed a reachability test no more
- * than this number of seconds ago, or he is listed as down in
+ * than this number of seconds ago, or it is listed as down in
  * the directory. */
 #define REACHABLE_TIMEOUT (45*60)
 
@@ -2113,9 +2113,10 @@ set_routerstatus_from_routerinfo(routerstatus_t *rs,
     rs->ipv6_orport = ri->ipv6_orport;
   }
 
-  /* Iff we are in a testing network, use TestingDirAuthVoteExit to
-     give out Exit flags, and TestingDirAuthVoteGuard to
-     give out Guard flags. */
+  /* Iff we are in a testing network, use TestingDirAuthVoteExit,
+     TestingDirAuthVoteGuard, and TestingDirAuthVoteHSDir to
+     give out the Exit, Guard, and HSDir flags, respectively.
+     But don't set the corresponding node flags. */
   if (options->TestingTorNetwork) {
     if (routerset_contains_routerstatus(options->TestingDirAuthVoteExit,
                                         rs, 0)) {
@@ -2123,8 +2124,14 @@ set_routerstatus_from_routerinfo(routerstatus_t *rs,
     }
 
     if (routerset_contains_routerstatus(options->TestingDirAuthVoteGuard,
-                                      rs, 0)) {
+                                        rs, 0)) {
       rs->is_possible_guard = 1;
+    }
+
+    if (routerset_contains_routerstatus(options->TestingDirAuthVoteHSDir,
+                                        rs, 0)) {
+      /* TestingDirAuthVoteHSDir respects VoteOnHidServDirectoriesV2 */
+      rs->is_hs_dir = vote_on_hsdirs;
     }
   }
 }
@@ -2260,7 +2267,7 @@ int
 dirserv_read_measured_bandwidths(const char *from_file,
                                  smartlist_t *routerstatuses)
 {
-  char line[256];
+  char line[512];
   FILE *fp = tor_fopen_cloexec(from_file, "r");
   int applied_lines = 0;
   time_t file_time, now;
@@ -3196,7 +3203,7 @@ connection_dirserv_add_networkstatus_bytes_to_outbuf(dir_connection_t *conn)
         if (uncompressing && ! conn->zlib_state &&
             conn->fingerprint_stack &&
             smartlist_len(conn->fingerprint_stack)) {
-          conn->zlib_state = tor_zlib_new(0, ZLIB_METHOD);
+          conn->zlib_state = tor_zlib_new(0, ZLIB_METHOD, HIGH_COMPRESSION);
         }
       }
       if (r) return r;

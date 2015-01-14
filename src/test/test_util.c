@@ -1,6 +1,6 @@
 /* Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2014, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 #include "orconfig.h"
@@ -589,15 +589,17 @@ test_util_time(void *arg)
   i = parse_iso_time("2004-8-4 0:48:22", &t_res);
   tt_int_op(0,OP_EQ, i);
   tt_int_op(t_res,OP_EQ, (time_t)1091580502UL);
-  tt_int_op(-1,OP_EQ, parse_iso_time("2004-08-zz 99-99x99 GMT", &t_res));
-  tt_int_op(-1,OP_EQ, parse_iso_time("2011-03-32 00:00:00 GMT", &t_res));
-  tt_int_op(-1,OP_EQ, parse_iso_time("2011-03-30 24:00:00 GMT", &t_res));
-  tt_int_op(-1,OP_EQ, parse_iso_time("2011-03-30 23:60:00 GMT", &t_res));
-  tt_int_op(-1,OP_EQ, parse_iso_time("2011-03-30 23:59:62 GMT", &t_res));
-  tt_int_op(-1,OP_EQ, parse_iso_time("1969-03-30 23:59:59 GMT", &t_res));
-  tt_int_op(-1,OP_EQ, parse_iso_time("2011-00-30 23:59:59 GMT", &t_res));
+  tt_int_op(-1,OP_EQ, parse_iso_time("2004-08-zz 99-99x99", &t_res));
+  tt_int_op(-1,OP_EQ, parse_iso_time("2011-03-32 00:00:00", &t_res));
+  tt_int_op(-1,OP_EQ, parse_iso_time("2011-03-30 24:00:00", &t_res));
+  tt_int_op(-1,OP_EQ, parse_iso_time("2011-03-30 23:60:00", &t_res));
+  tt_int_op(-1,OP_EQ, parse_iso_time("2011-03-30 23:59:62", &t_res));
+  tt_int_op(-1,OP_EQ, parse_iso_time("1969-03-30 23:59:59", &t_res));
+  tt_int_op(-1,OP_EQ, parse_iso_time("2011-00-30 23:59:59", &t_res));
   tt_int_op(-1,OP_EQ, parse_iso_time("2147483647-08-29 14:00:00", &t_res));
   tt_int_op(-1,OP_EQ, parse_iso_time("2011-03-30 23:59", &t_res));
+  tt_int_op(-1,OP_EQ, parse_iso_time("2004-08-04 00:48:22.100", &t_res));
+  tt_int_op(-1,OP_EQ, parse_iso_time("2004-08-04 00:48:22XYZ", &t_res));
 
   /* Test tor_gettimeofday */
 
@@ -1820,7 +1822,7 @@ test_util_gzip(void *arg)
   tor_free(buf1);
   tor_free(buf2);
   tor_free(buf3);
-  state = tor_zlib_new(1, ZLIB_METHOD);
+  state = tor_zlib_new(1, ZLIB_METHOD, HIGH_COMPRESSION);
   tt_assert(state);
   cp1 = buf1 = tor_malloc(1024);
   len1 = 1024;
@@ -5060,7 +5062,7 @@ test_util_max_mem(void *arg)
   } else {
     /* You do not have a petabyte. */
 #if SIZEOF_SIZE_T == SIZEOF_UINT64_T
-    tt_uint_op(memory1, OP_LT, (U64_LITERAL(1)<<50));
+    tt_u64_op(memory1, OP_LT, (U64_LITERAL(1)<<50));
 #endif
   }
 

@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2014, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -11,6 +11,7 @@
 
 #define CONFIG_PRIVATE
 #include "or.h"
+#include "compat.h"
 #include "addressmap.h"
 #include "channel.h"
 #include "circuitbuild.h"
@@ -54,6 +55,16 @@
 
 #include "procmon.h"
 
+#ifdef HAVE_SYSTEMD
+#   if defined(__COVERITY__) && !defined(__INCLUDE_LEVEL__)
+/* Systemd's use of gcc's __INCLUDE_LEVEL__ extension macro appears to confuse
+ * Coverity. Here's a kludge to unconfuse it.
+ */
+#   define __INCLUDE_LEVEL__ 2
+#   endif
+#include <systemd/sd-daemon.h>
+#endif
+
 /* From main.c */
 extern int quiet_level;
 
@@ -64,7 +75,6 @@ static config_abbrev_t option_abbrevs_[] = {
   PLURAL(AuthDirBadExitCC),
   PLURAL(AuthDirInvalidCC),
   PLURAL(AuthDirRejectCC),
-  PLURAL(ExitNode),
   PLURAL(EntryNode),
   PLURAL(ExcludeNode),
   PLURAL(FirewallPort),
@@ -190,6 +200,8 @@ static config_var_t option_vars_[] = {
   V(ControlPortWriteToFile,      FILENAME, NULL),
   V(ControlSocket,               LINELIST, NULL),
   V(ControlSocketsGroupWritable, BOOL,     "0"),
+  V(SocksSocket,                 LINELIST, NULL),
+  V(SocksSocketsGroupWritable,   BOOL,     "0"),
   V(CookieAuthentication,        BOOL,     "0"),
   V(CookieAuthFileGroupReadable, BOOL,     "0"),
   V(CookieAuthFile,              STRING,   NULL),
@@ -228,6 +240,7 @@ static config_var_t option_vars_[] = {
   V(ExitPolicyRejectPrivate,     BOOL,     "1"),
   V(ExitPortStatistics,          BOOL,     "0"),
   V(ExtendAllowPrivateAddresses, BOOL,     "0"),
+  V(ExitRelay,                   AUTOBOOL, "auto"),
   VPORT(ExtORPort,               LINELIST, NULL),
   V(ExtORPortCookieAuthFile,     STRING,   NULL),
   V(ExtORPortCookieAuthFileGroupReadable, BOOL, "0"),
@@ -447,6 +460,7 @@ static config_var_t option_vars_[] = {
   V(TestingCertMaxDownloadTries, UINT, "8"),
   V(TestingDirAuthVoteExit, ROUTERSET, NULL),
   V(TestingDirAuthVoteGuard, ROUTERSET, NULL),
+  V(TestingDirAuthVoteHSDir, ROUTERSET, NULL),
   VAR("___UsingTestNetworkDefaults", BOOL, UsingTestNetworkDefaults_, "0"),
 
   { NULL, CONFIG_TYPE_OBSOLETE, 0, NULL }
@@ -495,6 +509,7 @@ static const config_var_t testing_tor_network_defaults[] = {
   V(TestingEnableCellStatsEvent, BOOL,     "1"),
   V(TestingEnableTbEmptyEvent,   BOOL,     "1"),
   VAR("___UsingTestNetworkDefaults", BOOL, UsingTestNetworkDefaults_, "1"),
+  V(RendPostPeriod,              INTERVAL, "2 minutes"),
 
   { NULL, CONFIG_TYPE_OBSOLETE, 0, NULL }
 };
@@ -1015,6 +1030,11 @@ options_act_reversible(const or_options_t *old_options, char **msg)
     start_daemon();
   }
 
+#ifdef HAVE_SYSTEMD
+  /* Our PID may have changed, inform supervisor */
+  sd_notifyf(0, "MAINPID=%ld\n", (long int)getpid());
+#endif
+
 #ifndef HAVE_SYS_UN_H
   if (options->ControlSocket || options->ControlSocketsGroupWritable) {
     *msg = tor_strdup("Unix domain sockets (ControlSocket) not supported "
@@ -1025,6 +1045,20 @@ options_act_reversible(const or_options_t *old_options, char **msg)
   if (options->ControlSocketsGroupWritable && !options->ControlSocket) {
     *msg = tor_strdup("Setting ControlSocketGroupWritable without setting"
                       "a ControlSocket makes no sense.");
+    goto rollback;
+  }
+#endif
+
+#ifndef HAVE_SYS_UN_H
+  if (options->SocksSocket || options->SocksSocketsGroupWritable) {
+    *msg = tor_strdup("Unix domain sockets (SocksSocket) not supported "
+                      "on this OS/with this build.");
+    goto rollback;
+  }
+#else
+  if (options->SocksSocketsGroupWritable && !options->SocksSocket) {
+    *msg = tor_strdup("Setting SocksSocketGroupWritable without setting"
+                      "a SocksSocket makes no sense.");
     goto rollback;
   }
 #endif
@@ -1832,7 +1866,7 @@ options_act(const or_options_t *old_options)
                  directory_fetches_dir_info_early(old_options)) ||
         !bool_eq(directory_fetches_dir_info_later(options),
                  directory_fetches_dir_info_later(old_options))) {
-      /* Make sure update_router_have_min_dir_info gets called. */
+      /* Make sure update_router_have_minimum_dir_info() gets called. */
       router_dir_info_changed();
       /* We might need to download a new consensus status later or sooner than
        * we had expected. */
@@ -2046,7 +2080,7 @@ print_usage(void)
   printf(
 "Copyright (c) 2001-2004, Roger Dingledine\n"
 "Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson\n"
-"Copyright (c) 2007-2014, The Tor Project, Inc.\n\n"
+"Copyright (c) 2007-2015, The Tor Project, Inc.\n\n"
 "tor -f <torrc> [args]\n"
 "See man page for options, or https://www.torproject.org/ for "
 "documentation.\n");
@@ -2086,7 +2120,33 @@ reset_last_resolved_addr(void)
 }
 
 /**
- * Use <b>options-\>Address</b> to guess our public IP address.
+ * Attempt getting our non-local (as judged by tor_addr_is_internal()
+ * function) IP address using following techniques, listed in
+ * order from best (most desirable, try first) to worst (least
+ * desirable, try if everything else fails).
+ *
+ * First, attempt using <b>options-\>Address</b> to get our
+ * non-local IP address.
+ *
+ * If <b>options-\>Address</b> represents a non-local IP address,
+ * consider it ours.
+ *
+ * If <b>options-\>Address</b> is a DNS name that resolves to
+ * a non-local IP address, consider this IP address ours.
+ *
+ * If <b>options-\>Address</b> is NULL, fall back to getting local
+ * hostname and using it in above-described ways to try and
+ * get our IP address.
+ *
+ * In case local hostname cannot be resolved to a non-local IP
+ * address, try getting an IP address of network interface
+ * in hopes it will be non-local one.
+ *
+ * Fail if one or more of the following is true:
+ *   - DNS name in <b>options-\>Address</b> cannot be resolved.
+ *   - <b>options-\>Address</b> is a local host address.
+ *   - Attempt to getting local hostname fails.
+ *   - Attempt to getting network interface address fails.
  *
  * Return 0 if all is well, or -1 if we can't find a suitable
  * public IP address.
@@ -2095,6 +2155,11 @@ reset_last_resolved_addr(void)
  *   - Put our public IP address (in host order) into *<b>addr_out</b>.
  *   - If <b>method_out</b> is non-NULL, set *<b>method_out</b> to a static
  *     string describing how we arrived at our answer.
+ *      - "CONFIGURED" - parsed from IP address string in
+ *        <b>options-\>Address</b>
+ *      - "RESOLVED" - resolved from DNS name in <b>options-\>Address</b>
+ *      - "GETHOSTNAME" - resolved from a local hostname.
+ *      - "INTERFACE" - retrieved from a network interface.
  *   - If <b>hostname_out</b> is non-NULL, and we resolved a hostname to
  *     get our address, set *<b>hostname_out</b> to a newly allocated string
  *     holding that hostname. (If we didn't get our address by resolving a
@@ -2133,7 +2198,7 @@ resolve_my_address(int warn_severity, const or_options_t *options,
     explicit_ip = 0; /* it's implicit */
     explicit_hostname = 0; /* it's implicit */
 
-    if (gethostname(hostname, sizeof(hostname)) < 0) {
+    if (tor_gethostname(hostname, sizeof(hostname)) < 0) {
       log_fn(warn_severity, LD_NET,"Error obtaining local hostname");
       return -1;
     }
@@ -2460,6 +2525,7 @@ compute_publishserverdescriptor(or_options_t *options)
 /** Lowest allowable value for RendPostPeriod; if this is too low, hidden
  * services can overload the directory system. */
 #define MIN_REND_POST_PERIOD (10*60)
+#define MIN_REND_POST_PERIOD_TESTING (5)
 
 /** Higest allowable value for PredictedPortsRelevanceTime; if this is
  * too high, our selection of exits will decrease for an extended
@@ -2879,6 +2945,7 @@ options_validate(or_options_t *old_options, or_options_t *options,
   options->MaxMemInQueues =
     compute_real_max_mem_in_queues(options->MaxMemInQueues_raw,
                                    server_mode(options));
+  options->MaxMemInQueues_low_threshold = (options->MaxMemInQueues / 4) * 3;
 
   options->AllowInvalid_ = 0;
 
@@ -2943,10 +3010,13 @@ options_validate(or_options_t *old_options, or_options_t *options,
     options->MinUptimeHidServDirectoryV2 = 0;
   }
 
-  if (options->RendPostPeriod < MIN_REND_POST_PERIOD) {
+  const int min_rendpostperiod =
+    options->TestingTorNetwork ?
+    MIN_REND_POST_PERIOD_TESTING : MIN_REND_POST_PERIOD;
+  if (options->RendPostPeriod < min_rendpostperiod) {
     log_warn(LD_CONFIG, "RendPostPeriod option is too short; "
-             "raising to %d seconds.", MIN_REND_POST_PERIOD);
-    options->RendPostPeriod = MIN_REND_POST_PERIOD;
+             "raising to %d seconds.", min_rendpostperiod);
+    options->RendPostPeriod = min_rendpostperiod;;
   }
 
   if (options->RendPostPeriod > MAX_DIR_PERIOD) {
@@ -3497,15 +3567,6 @@ options_validate(or_options_t *old_options, or_options_t *options,
                                  AF_INET6, 1, msg)<0)
     return -1;
 
-  if (options->AutomapHostsSuffixes) {
-    SMARTLIST_FOREACH(options->AutomapHostsSuffixes, char *, suf,
-    {
-      size_t len = strlen(suf);
-      if (len && suf[len-1] == '.')
-        suf[len-1] = '\0';
-    });
-  }
-
   if (options->TestingTorNetwork &&
       !(options->DirAuthorities ||
         (options->AlternateDirAuthority &&
@@ -3900,6 +3961,7 @@ options_transition_affects_descriptor(const or_options_t *old_options,
       !opt_streq(old_options->Nickname,new_options->Nickname) ||
       !opt_streq(old_options->Address,new_options->Address) ||
       !config_lines_eq(old_options->ExitPolicy,new_options->ExitPolicy) ||
+      old_options->ExitRelay != new_options->ExitRelay ||
       old_options->ExitPolicyRejectPrivate !=
         new_options->ExitPolicyRejectPrivate ||
       old_options->IPv6Exit != new_options->IPv6Exit ||
@@ -4115,17 +4177,24 @@ find_torrc_filename(config_line_t *cmd_arg,
   if (*using_default_fname) {
     /* didn't find one, try CONFDIR */
     const char *dflt = get_default_conf_file(defaults_file);
-    if (dflt && file_status(dflt) == FN_FILE) {
+    file_status_t st = file_status(dflt);
+    if (dflt && (st == FN_FILE || st == FN_EMPTY)) {
       fname = tor_strdup(dflt);
     } else {
 #ifndef _WIN32
       char *fn = NULL;
-      if (!defaults_file)
+      if (!defaults_file) {
         fn = expand_filename("~/.torrc");
-      if (fn && file_status(fn) == FN_FILE) {
-        fname = fn;
+      }
+      if (fn) {
+        file_status_t hmst = file_status(fn);
+        if (hmst == FN_FILE || hmst == FN_EMPTY) {
+          fname = fn;
+        } else {
+          tor_free(fn);
+          fname = tor_strdup(dflt);
+        }
       } else {
-        tor_free(fn);
         fname = tor_strdup(dflt);
       }
 #else
@@ -4161,7 +4230,8 @@ load_torrc_from_disk(config_line_t *cmd_arg, int defaults_file)
   *fname_var = fname;
 
   /* Open config file */
-  if (file_status(fname) != FN_FILE ||
+  file_status_t st = file_status(fname);
+  if (!(st == FN_FILE || st == FN_EMPTY) ||
       !(cf = read_file_to_str(fname,0,NULL))) {
     if (using_default_torrc == 1 || ignore_missing_torrc) {
       if (!defaults_file)
@@ -5980,22 +6050,87 @@ parse_port_config(smartlist_t *out,
 
 /** Parse a list of config_line_t for an AF_UNIX unix socket listener option
  * from <b>cfg</b> and add them to <b>out</b>.  No fancy options are
- * supported: the line contains nothing but the path to the AF_UNIX socket. */
+ * supported: the line contains nothing but the path to the AF_UNIX socket.
+ * We support a *Socket 0 syntax to explicitly disable if we enable by
+ * default.  To use this, pass a non-NULL list containing the default
+ * paths into this function as the 2nd parameter, and if no config lines at all
+ * are present they will be added to the output list.  If the only config line
+ * present is '0' the input list will be unmodified.
+ */
 static int
-parse_unix_socket_config(smartlist_t *out, const config_line_t *cfg,
-                         int listener_type)
+parse_unix_socket_config(smartlist_t *out, smartlist_t *defaults,
+                         const config_line_t *cfg, int listener_type)
 {
+  /* We can say things like SocksSocket 0 or ControlSocket 0 to explicitly
+   * disable this feature; use this to track if we've seen a disable line
+   */
+
+  int unix_socket_disable = 0;
+  size_t len;
+  smartlist_t *ports_to_add = NULL;
 
   if (!out)
     return 0;
 
+  ports_to_add = smartlist_new();
+
   for ( ; cfg; cfg = cfg->next) {
-    size_t len = strlen(cfg->value);
-    port_cfg_t *port = tor_malloc_zero(sizeof(port_cfg_t) + len + 1);
-    port->is_unix_addr = 1;
-    memcpy(port->unix_addr, cfg->value, len+1);
-    port->type = listener_type;
-    smartlist_add(out, port);
+    if (strcmp(cfg->value, "0") != 0) {
+      /* We have a non-disable; add it */
+      len = strlen(cfg->value);
+      port_cfg_t *port = tor_malloc_zero(sizeof(port_cfg_t) + len + 1);
+      port->is_unix_addr = 1;
+      memcpy(port->unix_addr, cfg->value, len+1);
+      port->type = listener_type;
+      if (listener_type == CONN_TYPE_AP_LISTENER) {
+        /* Some more bits to twiddle for this case
+         *
+         * XXX this should support parsing the same options
+         * parse_port_config() does, and probably that code should be
+         * factored out into a function we can call from here.  For
+         * now, some reasonable defaults.
+         */
+
+        port->ipv4_traffic = 1;
+        port->ipv6_traffic = 1;
+        port->cache_ipv4_answers = 1;
+        port->cache_ipv6_answers = 1;
+      }
+      smartlist_add(ports_to_add, port);
+    } else {
+      /* Keep track that we've seen a disable */
+      unix_socket_disable = 1;
+    }
+  }
+
+  if (unix_socket_disable) {
+    if (smartlist_len(ports_to_add) > 0) {
+      /* We saw a disable line and a path; bad news */
+      SMARTLIST_FOREACH(ports_to_add, port_cfg_t *, port, tor_free(port));
+      smartlist_free(ports_to_add);
+      return -1;
+    }
+    /* else we have a disable and nothing else, so add nothing to out */
+  } else {
+    /* No disable; do we have any ports to add that we parsed? */
+    if (smartlist_len(ports_to_add) > 0) {
+      SMARTLIST_FOREACH_BEGIN(ports_to_add, port_cfg_t *, port) {
+        smartlist_add(out, port);
+      } SMARTLIST_FOREACH_END(port);
+    } else if (defaults != NULL && smartlist_len(defaults) > 0) {
+      /* No, but we have some defaults to copy */
+      SMARTLIST_FOREACH_BEGIN(defaults, const port_cfg_t *, defport) {
+        tor_assert(defport->is_unix_addr);
+        tor_assert(defport->unix_addr);
+        len = sizeof(port_cfg_t) + strlen(defport->unix_addr) + 1;
+        port_cfg_t *port = tor_malloc_zero(len);
+        memcpy(port, defport, len);
+        smartlist_add(out, port);
+      } SMARTLIST_FOREACH_END(defport);
+    }
+
+    /* Free the temporary smartlist we used */
+    smartlist_free(ports_to_add);
   }
 
   return 0;
@@ -6089,10 +6224,17 @@ parse_ports(or_options_t *options, int validate_only,
                         "configuration");
       goto err;
     }
-    if (parse_unix_socket_config(ports,
+
+    if (parse_unix_socket_config(ports, NULL,
                                  options->ControlSocket,
                                  CONN_TYPE_CONTROL_LISTENER) < 0) {
       *msg = tor_strdup("Invalid ControlSocket configuration");
+      goto err;
+    }
+    if (parse_unix_socket_config(ports, NULL,
+                                 options->SocksSocket,
+                                 CONN_TYPE_AP_LISTENER) < 0) {
+      *msg = tor_strdup("Invalid SocksSocket configuration");
       goto err;
     }
   }
@@ -6137,6 +6279,8 @@ parse_ports(or_options_t *options, int validate_only,
   options->ORPort_set =
     !! count_real_listeners(ports, CONN_TYPE_OR_LISTENER);
   options->SocksPort_set =
+    !! count_real_listeners(ports, CONN_TYPE_AP_LISTENER);
+  options->SocksSocket_set =
     !! count_real_listeners(ports, CONN_TYPE_AP_LISTENER);
   options->TransPort_set =
     !! count_real_listeners(ports, CONN_TYPE_AP_TRANS_LISTENER);
@@ -6420,7 +6564,9 @@ write_configuration_file(const char *fname, const or_options_t *options)
   tor_assert(fname);
 
   switch (file_status(fname)) {
+    /* create backups of old config files, even if they're empty */
     case FN_FILE:
+    case FN_EMPTY:
       old_val = read_file_to_str(fname, 0, NULL);
       if (!old_val || strcmpstart(old_val, GENERATED_FILE_PREFIX)) {
         rename_old = 1;

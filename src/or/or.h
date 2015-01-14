@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2014, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -1701,6 +1701,9 @@ typedef struct entry_connection_t {
   /** For socks listeners: When we can automap an address to IPv4 or IPv6,
    * do we prefer IPv6? */
   unsigned int prefer_ipv6_virtaddr : 1;
+
+  /** Are we a socks SocksSocket listener? */
+  unsigned int is_socks_socket:1;
 
 } entry_connection_t;
 
@@ -3528,6 +3531,10 @@ typedef struct {
                                  * for control connections. */
 
   int ControlSocketsGroupWritable; /**< Boolean: Are control sockets g+rw? */
+  config_line_t *SocksSocket; /**< List of Unix Domain Sockets to listen on
+                                 * for SOCKS connections. */
+
+  int SocksSocketsGroupWritable; /**< Boolean: Are SOCKS sockets g+rw? */
   /** Ports to listen on for directory connections. */
   config_line_t *DirPort_lines;
   config_line_t *DNSPort_lines; /**< Ports to listen on for DNS requests. */
@@ -3537,6 +3544,8 @@ typedef struct {
   uint64_t MaxMemInQueues_raw;
   uint64_t MaxMemInQueues;/**< If we have more memory than this allocated
                             * for queues and buffers, run the OOM handler */
+  /** Above this value, consider ourselves low on RAM. */
+  uint64_t MaxMemInQueues_low_threshold;
 
   /** @name port booleans
    *
@@ -3548,6 +3557,7 @@ typedef struct {
    */
   unsigned int ORPort_set : 1;
   unsigned int SocksPort_set : 1;
+  unsigned int SocksSocket_set : 1;
   unsigned int TransPort_set : 1;
   unsigned int NATDPort_set : 1;
   unsigned int ControlPort_set : 1;
@@ -3673,8 +3683,9 @@ typedef struct {
                               * hostname ending with one of the suffixes in
                               * <b>AutomapHostsSuffixes</b>, map it to a
                               * virtual address. */
-  smartlist_t *AutomapHostsSuffixes; /**< List of suffixes for
-                                      * <b>AutomapHostsOnResolve</b>. */
+  /** List of suffixes for <b>AutomapHostsOnResolve</b>.  The special value
+   * "." means "match everything." */
+  smartlist_t *AutomapHostsSuffixes;
   int RendPostPeriod; /**< How often do we post each rendezvous service
                        * descriptor? Remember to publish them independently. */
   int KeepalivePeriod; /**< How often do we send padding cells to keep
@@ -4102,6 +4113,11 @@ typedef struct {
    * regardless of uptime and bandwidth. */
   routerset_t *TestingDirAuthVoteGuard;
 
+  /** Relays in a testing network which should be voted HSDir
+   * regardless of uptime and ORPort connectivity.
+   * Respects VoteOnHidServDirectoriesV2. */
+  routerset_t *TestingDirAuthVoteHSDir;
+
   /** Enable CONN_BW events.  Only altered on testing networks. */
   int TestingEnableConnBwEvent;
 
@@ -4268,6 +4284,14 @@ typedef struct {
    * when sending.
    */
   int SchedulerMaxFlushCells__;
+
+  /** Is this an exit node?  This is a tristate, where "1" means "yes, and use
+   * the default exit policy if none is given" and "0" means "no; exit policy
+   * is 'reject *'" and "auto" (-1) means "same as 1, but warn the user."
+   *
+   * XXXX Eventually, the default will be 0. */
+  int ExitRelay;
+
 } or_options_t;
 
 /** Persistent state for an onion router, as saved to disk. */
@@ -4939,6 +4963,8 @@ typedef struct rend_service_descriptor_t {
 typedef struct rend_cache_entry_t {
   size_t len; /**< Length of <b>desc</b> */
   time_t received; /**< When was the descriptor received? */
+  time_t last_served; /**< When did we last write this one to somebody?
+                       * (HSDir only) */
   char *desc; /**< Service descriptor */
   rend_service_descriptor_t *parsed; /**< Parsed value of 'desc' */
 } rend_cache_entry_t;

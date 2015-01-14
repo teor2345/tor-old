@@ -1,6 +1,6 @@
 /* Copyright (c) 2003-2004, Roger Dingledine
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2014, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -274,6 +274,7 @@ void format_local_iso_time(char *buf, time_t t);
 void format_iso_time(char *buf, time_t t);
 void format_iso_time_nospace(char *buf, time_t t);
 void format_iso_time_nospace_usec(char *buf, const struct timeval *tv);
+int parse_iso_time_(const char *cp, time_t *t, int strict);
 int parse_iso_time(const char *buf, time_t *t);
 int parse_http_time(const char *buf, struct tm *tm);
 int format_time_interval(char *out, size_t out_len, long interval);
@@ -341,7 +342,7 @@ enum stream_status get_string_from_pipe(FILE *stream, char *buf, size_t count);
 
 /** Return values from file_status(); see that function's documentation
  * for details. */
-typedef enum { FN_ERROR, FN_NOENT, FN_FILE, FN_DIR } file_status_t;
+typedef enum { FN_ERROR, FN_NOENT, FN_FILE, FN_DIR, FN_EMPTY } file_status_t;
 file_status_t file_status(const char *filename);
 
 /** Possible behaviors for check_private_dir() on encountering a nonexistent

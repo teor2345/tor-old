@@ -1,6 +1,6 @@
 /* Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2014, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 #include "orconfig.h"
@@ -844,6 +844,42 @@ test_dir_versions(void *arg)
   tt_int_op(4,OP_EQ, ver1.patchlevel);
   tt_int_op(VER_RELEASE,OP_EQ, ver1.status);
   tt_str_op("",OP_EQ, ver1.status_tag);
+
+  tt_int_op(0, OP_EQ, tor_version_parse("10.1", &ver1));
+  tt_int_op(10, OP_EQ, ver1.major);
+  tt_int_op(1, OP_EQ, ver1.minor);
+  tt_int_op(0, OP_EQ, ver1.micro);
+  tt_int_op(0, OP_EQ, ver1.patchlevel);
+  tt_int_op(VER_RELEASE, OP_EQ, ver1.status);
+  tt_str_op("", OP_EQ, ver1.status_tag);
+  tt_int_op(0, OP_EQ, tor_version_parse("5.99.999", &ver1));
+  tt_int_op(5, OP_EQ, ver1.major);
+  tt_int_op(99, OP_EQ, ver1.minor);
+  tt_int_op(999, OP_EQ, ver1.micro);
+  tt_int_op(0, OP_EQ, ver1.patchlevel);
+  tt_int_op(VER_RELEASE, OP_EQ, ver1.status);
+  tt_str_op("", OP_EQ, ver1.status_tag);
+  tt_int_op(0, OP_EQ, tor_version_parse("10.1-alpha", &ver1));
+  tt_int_op(10, OP_EQ, ver1.major);
+  tt_int_op(1, OP_EQ, ver1.minor);
+  tt_int_op(0, OP_EQ, ver1.micro);
+  tt_int_op(0, OP_EQ, ver1.patchlevel);
+  tt_int_op(VER_RELEASE, OP_EQ, ver1.status);
+  tt_str_op("alpha", OP_EQ, ver1.status_tag);
+  tt_int_op(0, OP_EQ, tor_version_parse("2.1.700-alpha", &ver1));
+  tt_int_op(2, OP_EQ, ver1.major);
+  tt_int_op(1, OP_EQ, ver1.minor);
+  tt_int_op(700, OP_EQ, ver1.micro);
+  tt_int_op(0, OP_EQ, ver1.patchlevel);
+  tt_int_op(VER_RELEASE, OP_EQ, ver1.status);
+  tt_str_op("alpha", OP_EQ, ver1.status_tag);
+  tt_int_op(0, OP_EQ, tor_version_parse("1.6.8-alpha-dev", &ver1));
+  tt_int_op(1, OP_EQ, ver1.major);
+  tt_int_op(6, OP_EQ, ver1.minor);
+  tt_int_op(8, OP_EQ, ver1.micro);
+  tt_int_op(0, OP_EQ, ver1.patchlevel);
+  tt_int_op(VER_RELEASE, OP_EQ, ver1.status);
+  tt_str_op("alpha-dev", OP_EQ, ver1.status_tag);
 
 #define tt_versionstatus_op(vs1, op, vs2)                               \
   tt_assert_test_type(vs1,vs2,#vs1" "#op" "#vs2,version_status_t,       \

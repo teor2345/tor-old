@@ -1,6 +1,6 @@
 /* Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2014, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 #define DIRVOTE_PRIVATE
@@ -2710,7 +2710,7 @@ dirvote_add_vote(const char *vote_body, const char **msg_out, int *status_out)
           goto discard;
         } else if (v->vote->published < vote->published) {
           log_notice(LD_DIR, "Replacing an older pending vote from this "
-                     "directory.");
+                     "directory (%s)", vi->address);
           cached_dir_decref(v->vote_body);
           networkstatus_vote_free(v->vote);
           v->vote_body = new_cached_dir(tor_strndup(vote_body,

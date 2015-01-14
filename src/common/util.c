@@ -1,6 +1,6 @@
 /* Copyright (c) 2003, Roger Dingledine
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2014, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -1752,15 +1752,18 @@ format_iso_time_nospace_usec(char *buf, const struct timeval *tv)
 
 /** Given an ISO-formatted UTC time value (after the epoch) in <b>cp</b>,
  * parse it and store its value in *<b>t</b>.  Return 0 on success, -1 on
- * failure.  Ignore extraneous stuff in <b>cp</b> separated by whitespace from
- * the end of the time string. */
+ * failure.  Ignore extraneous stuff in <b>cp</b> after the end of the time
+ * string, unless <b>strict</b> is set. */
 int
-parse_iso_time(const char *cp, time_t *t)
+parse_iso_time_(const char *cp, time_t *t, int strict)
 {
   struct tm st_tm;
   unsigned int year=0, month=0, day=0, hour=0, minute=0, second=0;
-  if (tor_sscanf(cp, "%u-%2u-%2u %2u:%2u:%2u", &year, &month,
-                &day, &hour, &minute, &second) < 6) {
+  int n_fields;
+  char extra_char;
+  n_fields = tor_sscanf(cp, "%u-%2u-%2u %2u:%2u:%2u%c", &year, &month,
+                        &day, &hour, &minute, &second, &extra_char);
+  if (strict ? (n_fields != 6) : (n_fields < 6)) {
     char *esc = esc_for_log(cp);
     log_warn(LD_GENERAL, "ISO time %s was unparseable", esc);
     tor_free(esc);
@@ -1787,6 +1790,16 @@ parse_iso_time(const char *cp, time_t *t)
     return -1;
   }
   return tor_timegm(&st_tm, t);
+}
+
+/** Given an ISO-formatted UTC time value (after the epoch) in <b>cp</b>,
+ * parse it and store its value in *<b>t</b>.  Return 0 on success, -1 on
+ * failure. Reject the string if any characters are present after the time.
+ */
+int
+parse_iso_time(const char *cp, time_t *t)
+{
+  return parse_iso_time_(cp, t, 1);
 }
 
 /** Given a <b>date</b> in one of the three formats allowed by HTTP (ugh),
@@ -2053,15 +2066,24 @@ clean_name_for_stat(char *name)
 #endif
 }
 
-/** Return FN_ERROR if filename can't be read, FN_NOENT if it doesn't
- * exist, FN_FILE if it is a regular file, or FN_DIR if it's a
- * directory.  On FN_ERROR, sets errno. */
+/** Return:
+ * FN_ERROR if filename can't be read, is NULL, or is zero-length,
+ * FN_NOENT if it doesn't exist,
+ * FN_FILE if it is a non-empty regular file, or a FIFO on unix-like systems,
+ * FN_EMPTY for zero-byte regular files,
+ * FN_DIR if it's a directory, and
+ * FN_ERROR for any other file type.
+ * On FN_ERROR and FN_NOENT, sets errno.  (errno is not set when FN_ERROR
+ * is returned due to an unhandled file type.) */
 file_status_t
 file_status(const char *fname)
 {
   struct stat st;
   char *f;
   int r;
+  if (!fname || strlen(fname) == 0) {
+    return FN_ERROR;
+  }
   f = tor_strdup(fname);
   clean_name_for_stat(f);
   log_debug(LD_FS, "stat()ing %s", f);
@@ -2073,16 +2095,23 @@ file_status(const char *fname)
     }
     return FN_ERROR;
   }
-  if (st.st_mode & S_IFDIR)
+  if (st.st_mode & S_IFDIR) {
     return FN_DIR;
-  else if (st.st_mode & S_IFREG)
-    return FN_FILE;
+  } else if (st.st_mode & S_IFREG) {
+    if (st.st_size > 0) {
+      return FN_FILE;
+    } else if (st.st_size == 0) {
+      return FN_EMPTY;
+    } else {
+      return FN_ERROR;
+    }
 #ifndef _WIN32
-  else if (st.st_mode & S_IFIFO)
+  } else if (st.st_mode & S_IFIFO) {
     return FN_FILE;
 #endif
-  else
+  } else {
     return FN_ERROR;
+  }
 }
 
 /** Check whether <b>dirname</b> exists and is private.  If yes return 0.  If
@@ -3001,7 +3030,7 @@ expand_filename(const char *filename)
       tor_free(username);
       rest = slash ? (slash+1) : "";
 #else
-      log_warn(LD_CONFIG, "Couldn't expend homedir on system without pwd.h");
+      log_warn(LD_CONFIG, "Couldn't expand homedir on system without pwd.h");
       return tor_strdup(filename);
 #endif
     }

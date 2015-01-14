@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2014, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -1333,6 +1333,13 @@ void
 sandbox_disable_getaddrinfo_cache(void)
 {
   sandbox_getaddrinfo_cache_disabled = 1;
+}
+
+void
+sandbox_freeaddrinfo(struct addrinfo *ai)
+{
+  if (sandbox_getaddrinfo_cache_disabled)
+    freeaddrinfo(ai);
 }
 
 int

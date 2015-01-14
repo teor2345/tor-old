@@ -1,9 +1,9 @@
 dnl Copyright (c) 2001-2004, Roger Dingledine
 dnl Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson
-dnl Copyright (c) 2007-2014, The Tor Project, Inc.
+dnl Copyright (c) 2007-2015, The Tor Project, Inc.
 dnl See LICENSE for licensing information
 
-AC_INIT([tor],[0.2.6.1-alpha-dev])
+AC_INIT([tor],[0.2.6.2-alpha-dev])
 AC_CONFIG_SRCDIR([src/or/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE
@@ -126,12 +126,23 @@ else
         [libsystemd-daemon],
         have_systemd=yes,
         have_systemd=no)
+    if test x$have_systemd=xno; then
+        AC_MSG_NOTICE([Okay, checking for systemd a different way...])
+        PKG_CHECK_MODULES(SYSTEMD,
+            [libsystemd],
+            have_systemd=yes,
+            have_systemd=no)
+    fi
 fi
 
 if test x$have_systemd = xyes; then
     AC_DEFINE(HAVE_SYSTEMD,1,[Have systemd])
-    TOR_SYSTEMD_LIBS="-lsystemd-daemon"
+    TOR_SYSTEMD_CFLAGS="${SYSTEMD_CFLAGS}"
+    TOR_SYSTEMD_LIBS="${SYSTEMD_LIBS}"
+    PKG_CHECK_MODULES(SYSTEMD209, [systemd >= 209],
+         [AC_DEFINE(HAVE_SYSTEMD_209,1,[Have systemd v209 or more])], [])
 fi
+AC_SUBST(TOR_SYSTEMD_CFLAGS)
 AC_SUBST(TOR_SYSTEMD_LIBS)
 
 if test x$enable_systemd = xyes -a x$have_systemd != xyes ; then
@@ -153,10 +164,6 @@ cpu workers lock up here, so I will disable threads.])
    esac
 fi
 
-ifdef([HAVE_SYSTEMD], [
-AC_SEARCH_LIBS([sd_watchdog_enabled], [systemd-daemon],
-    [AC_DEFINE(HAVE_SYSTEMD_209,1,[Have systemd v209 or more])], [])
-])
 
 case $host in
    *-*-solaris* )
@@ -1544,8 +1551,7 @@ if test "$GCC" = yes; then
   # accident waiting to happen.
   CFLAGS="$CFLAGS -Wall -fno-strict-aliasing"
 else
-  # Autoconf sets -g -O2 by default. Override optimization level
-  # for non-gcc compilers
+  # Override optimization level for non-gcc compilers
   CFLAGS="$CFLAGS -O"
   enable_gcc_warnings=no
   enable_gcc_warnings_advisory=no

@@ -294,7 +294,7 @@ GENERAL OPTIONS
 
 [[ControlSocket]] **ControlSocket** __Path__::
     Like ControlPort, but listens on a Unix domain socket, rather than a TCP
-    socket. (Unix and Unix-like systems only.)
+    socket. '0' disables ControlSocket (Unix and Unix-like systems only.)
 
 [[ControlSocketsGroupWritable]] **ControlSocketsGroupWritable** **0**|**1**::
     If this option is set to 0, don't allow the filesystem group to read and
@@ -482,6 +482,15 @@ GENERAL OPTIONS
     If defined, authenticate to the SOCKS 5 server using username and password
     in accordance to RFC 1929. Both username and password must be between 1 and
     255 characters.
+
+[[SocksSocket]] **SocksSocket** __Path__::
+    Like SocksPort, but listens on a Unix domain socket, rather than a TCP
+    socket.  '0' disables SocksSocket (Unix and Unix-like systems only.)
+
+[[SocksSocketsGroupWritable]] **SocksSocketsGroupWritable** **0**|**1**::
+    If this option is set to 0, don't allow the filesystem group to read and
+    write unix sockets (e.g. SocksSocket). If the option is set to 1, make
+    the SocksSocket socket readable and writable by the default GID. (Default: 0)
 
 [[KeepalivePeriod]] **KeepalivePeriod** __NUM__::
     To keep firewalls from expiring connections, send a padding keepalive cell
@@ -1469,6 +1478,19 @@ is non-zero):
     that it's an email address and/or generate a new address for this
     purpose.
 
+[[ExitRelay]] **ExitRelay** **0**|**1**|**auto**::
+    Tells Tor whether to run as an exit relay.  If Tor is running as a
+    non-bridge server, and ExitRelay is set to 1, then Tor allows traffic to
+    exit according to the ExitPolicy option (or the default ExitPolicy if
+    none is specified).
+ +
+    If ExitRelay is set to 0, no traffic is allowed to
+    exit, and the ExitPolicy option is ignored. +
+ +
+    If ExitRelay is set to "auto", then Tor behaves as if it were set to 1, but
+    warns the user if this would cause traffic to exit.  In a future version,
+    the default value will be 0. (Default: auto)
+
 [[ExitPolicy]] **ExitPolicy** __policy__,__policy__,__...__::
     Set an exit policy for this server. Each policy is of the form
     "**accept**|**reject** __ADDR__[/__MASK__][:__PORT__]". If /__MASK__ is
@@ -2032,6 +2054,11 @@ The following options are used to configure a hidden service.
     Store data files for a hidden service in DIRECTORY. Every hidden service
     must have a separate directory. You may use this option  multiple times to
     specify multiple services. DIRECTORY must be an existing directory.
+    (Note: in current versions of Tor, if DIRECTORY is a relative path,
+    it will be relative to current
+    working directory of Tor instance, not to its DataDirectory.  Do not
+    rely on this behavior; it is not guaranteed to remain the same in future
+    versions.)
 
 [[HiddenServicePort]] **HiddenServicePort** __VIRTPORT__ [__TARGET__]::
     Configure a virtual port VIRTPORT for a hidden service. You may use this
@@ -2226,6 +2253,15 @@ The following options are used for running a testing Tor network.
  +
     In order for this option to have any effect, **TestingTorNetwork**
     has to be set.
+
+[[TestingDirAuthVoteHSDir]] **TestingDirAuthVoteHSDir** __node__,__node__,__...__::
+    A list of identity fingerprints and country codes and
+    address patterns of nodes to vote HSDir for regardless of their
+    uptime and ORPort connectivity. See the **ExcludeNodes** option for more
+    information on how to specify nodes.
+ +
+    In order for this option to have any effect, **TestingTorNetwork**
+    and **VoteOnHidServDirectoriesV2** both have to be set.
 
 [[TestingEnableConnBwEvent]] **TestingEnableConnBwEvent** **0**|**1**::
     If this option is set, then Tor controllers may register for CONN_BW

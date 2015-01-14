@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2014, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -876,7 +876,8 @@ update_consensus_networkstatus_fetch_time_impl(time_t now, int flav)
     log_debug(LD_DIR,
               "fresh_until: %ld start: %ld "
               "dl_interval: %ld valid_until: %ld ",
-              c->fresh_until, start, dl_interval, c->valid_until);
+              (long)c->fresh_until, (long)start, dl_interval,
+              (long)c->valid_until);
     /* We must not try to replace c while it's still fresh: */
     tor_assert(c->fresh_until < start);
     /* We must download the next one before c is invalid: */

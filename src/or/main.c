@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2014, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -76,6 +76,12 @@
 #endif
 
 #ifdef HAVE_SYSTEMD
+#   if defined(__COVERITY__) && !defined(__INCLUDE_LEVEL__)
+/* Systemd's use of gcc's __INCLUDE_LEVEL__ extension macro appears to confuse
+ * Coverity. Here's a kludge to unconfuse it.
+ */
+#   define __INCLUDE_LEVEL__ 2
+#   endif
 #include <systemd/sd-daemon.h>
 #endif
 
@@ -384,6 +390,10 @@ connection_remove(connection_t *conn)
   log_debug(LD_NET,"removing socket %d (type %s), n_conns now %d",
             (int)conn->s, conn_type_to_string(conn->type),
             smartlist_len(connection_array));
+
+  if (conn->type == CONN_TYPE_AP && conn->socket_family == AF_UNIX) {
+    log_info(LD_NET, "Closing SOCKS SocksSocket connection");
+  }
 
   control_event_conn_bandwidth(conn);
 
@@ -1437,7 +1447,7 @@ run_scheduled_events(time_t now)
   if (time_to_clean_caches < now) {
     rep_history_clean(now - options->RephistTrackTime);
     rend_cache_clean(now);
-    rend_cache_clean_v2_descs_as_dir(now);
+    rend_cache_clean_v2_descs_as_dir(now, 0);
     microdesc_cache_rebuild(NULL, 0);
 #define CLEAN_CACHES_INTERVAL (30*60)
     time_to_clean_caches = now + CLEAN_CACHES_INTERVAL;
@@ -1770,7 +1780,9 @@ static periodic_timer_t *systemd_watchdog_timer = NULL;
 static void
 systemd_watchdog_callback(periodic_timer_t *timer, void *arg)
 {
-  sd_notify(1, "WATCHDOG=1");
+  (void)timer;
+  (void)arg;
+  sd_notify(0, "WATCHDOG=1");
 }
 #endif
 
@@ -2081,7 +2093,7 @@ do_main_loop(void)
 #endif
 
 #ifdef HAVE_SYSTEMD
-  log_notice(LD_GENERAL, "Signaling readyness to systemd");
+  log_notice(LD_GENERAL, "Signaling readiness to systemd");
   sd_notify(0, "READY=1");
 #endif
 
@@ -2163,6 +2175,9 @@ process_signal(uintptr_t sig)
         tor_cleanup();
         exit(0);
       }
+#ifdef HAVE_SYSTEMD
+      sd_notify(0, "STOPPING=1");
+#endif
       hibernate_begin_shutdown();
       break;
 #ifdef SIGPIPE
@@ -2182,11 +2197,17 @@ process_signal(uintptr_t sig)
       control_event_signal(sig);
       break;
     case SIGHUP:
+#ifdef HAVE_SYSTEMD
+      sd_notify(0, "RELOADING=1");
+#endif
       if (do_hup() < 0) {
         log_warn(LD_CONFIG,"Restart failed (config error?). Exiting.");
         tor_cleanup();
         exit(1);
       }
+#ifdef HAVE_SYSTEMD
+      sd_notify(0, "READY=1");
+#endif
       control_event_signal(sig);
       break;
 #ifdef SIGCHLD

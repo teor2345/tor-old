@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2014, The Tor Project, Inc. */
+ * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -1206,6 +1206,7 @@ router_reload_router_list_impl(desc_store_t *store)
 
   tor_free(fname);
   fname = get_datadir_fname_suffix(store->fname_base, ".new");
+  /* don't load empty files - we wouldn't get any data, even if we tried */
   if (file_status(fname) == FN_FILE)
     contents = read_file_to_str(fname, RFTS_BIN|RFTS_IGNORE_MISSING, &st);
   if (contents) {
