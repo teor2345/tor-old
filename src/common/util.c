@@ -533,10 +533,13 @@ round_int64_to_next_multiple_of(int64_t number, int64_t divisor)
 
 /** Transform a random value <b>p</b> from the uniform distribution in
  * [0.0, 1.0[ into a Laplace distributed value with location parameter
- * <b>mu</b> and scale parameter <b>b</b> in [-Inf, Inf[. */
-double
+ * <b>mu</b> and scale parameter <b>b</b>. Truncate the final result
+ * to be an integer in [INT64_MIN, INT64_MAX]. */
+int64_t
 sample_laplace_distribution(double mu, double b, double p)
 {
+  double result;
+
   tor_assert(p >= 0.0 && p < 1.0);
   /* This is the "inverse cumulative distribution function" from:
    * http://en.wikipedia.org/wiki/Laplace_distribution
@@ -556,9 +559,16 @@ sample_laplace_distribution(double mu, double b, double p)
   }
 
   /* When b * log_diff_p is Inf * zero, this will generate a +NaN or -NaN.
-   * This is converted to INT_MIN or INT_MAX.
+   * This is converted to INT64_MIN or INT64_MAX.
    * XXXX Should Inf * zero be defined as 0.0 instead? */
-  return mu - b * ((p > 0.5) ? 1.0 : -1.0) * log_diff_p;
+  result =  mu - b * (p > 0.5 ? 1.0 : -1.0) * log_diff_p;
+
+  if (result >= INT64_MAX)
+    return INT64_MAX;
+  else if (result <= INT64_MIN)
+    return INT64_MIN;
+  else
+    return (int64_t) result;
 }
 
 /** Add random noise between INT64_MIN and INT64_MAX coming from a
@@ -590,12 +600,10 @@ add_laplace_noise(int64_t signal, double random, double delta_f,
   /* cast to int64_t using tor_llround to avoid compiler complaints.
    * Changing from truncation to rounding would produce different results,
    * so we apply trunc() to the double value first. */
-  int64_t noise = tor_llround(
-                    trunc(
-                      sample_laplace_distribution(
+  int64_t noise = sample_laplace_distribution(
                         0.0, /* just add noise, no further signal */
                         b,
-                        random)));
+                        random);
 
   /* clip (signal + noise) to [INT64_MIN, INT64_MAX] */
   if (noise > 0 && INT64_MAX - noise < signal)

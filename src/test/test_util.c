@@ -4614,29 +4614,29 @@ test_util_round_to_next_multiple_of(void *arg)
 {
   (void)arg;
 
-  tt_assert(round_uint64_to_next_multiple_of(0,1) == 0);
-  tt_assert(round_uint64_to_next_multiple_of(0,7) == 0);
+  tt_u64_op(round_uint64_to_next_multiple_of(0,1), ==, 0);
+  tt_u64_op(round_uint64_to_next_multiple_of(0,7), ==, 0);
 
-  tt_assert(round_uint64_to_next_multiple_of(99,1) == 99);
-  tt_assert(round_uint64_to_next_multiple_of(99,7) == 105);
-  tt_assert(round_uint64_to_next_multiple_of(99,9) == 99);
+  tt_u64_op(round_uint64_to_next_multiple_of(99,1), ==, 99);
+  tt_u64_op(round_uint64_to_next_multiple_of(99,7), ==, 105);
+  tt_u64_op(round_uint64_to_next_multiple_of(99,9), ==, 99);
 
-  tt_assert(round_uint64_to_next_multiple_of(UINT64_MAX,2) ==
+  tt_i64_op(round_uint64_to_next_multiple_of(UINT64_MAX,2), ==,
             UINT64_MAX-UINT64_MAX%2);
 
-  tt_assert(round_int64_to_next_multiple_of(0,1) == 0);
-  tt_assert(round_int64_to_next_multiple_of(0,7) == 0);
+  tt_i64_op(round_int64_to_next_multiple_of(0,1), ==, 0);
+  tt_i64_op(round_int64_to_next_multiple_of(0,7), ==, 0);
 
-  tt_assert(round_int64_to_next_multiple_of(99,1) == 99);
-  tt_assert(round_int64_to_next_multiple_of(99,7) == 105);
-  tt_assert(round_int64_to_next_multiple_of(99,9) == 99);
+  tt_i64_op(round_int64_to_next_multiple_of(99,1), ==, 99);
+  tt_i64_op(round_int64_to_next_multiple_of(99,7), ==, 105);
+  tt_i64_op(round_int64_to_next_multiple_of(99,9), ==, 99);
 
-  tt_assert(round_int64_to_next_multiple_of(-99,1) == -99);
-  tt_assert(round_int64_to_next_multiple_of(-99,7) == -98);
-  tt_assert(round_int64_to_next_multiple_of(-99,9) == -99);
+  tt_i64_op(round_int64_to_next_multiple_of(-99,1), ==, -99);
+  tt_i64_op(round_int64_to_next_multiple_of(-99,7), ==, -98);
+  tt_i64_op(round_int64_to_next_multiple_of(-99,9), ==, -99);
 
-  tt_assert(round_int64_to_next_multiple_of(INT64_MIN,2) == INT64_MIN);
-  tt_assert(round_int64_to_next_multiple_of(INT64_MAX,2) ==
+  tt_i64_op(round_int64_to_next_multiple_of(INT64_MIN,2), ==, INT64_MIN);
+  tt_i64_op(round_int64_to_next_multiple_of(INT64_MAX,2), ==,
                                             INT64_MAX-INT64_MAX%2);
 
   tt_assert(round_uint32_to_next_multiple_of(0,1) == 0);
@@ -4677,25 +4677,25 @@ test_util_laplace(void *arg)
   const double delta_f = 15.0, epsilon = 0.3; /* b = 15.0 / 0.3 = 50.0 */
   (void)arg;
 
-  tt_assert(isinf(sample_laplace_distribution(mu, b, 0.0)));
-  test_feq(-69.88855213, sample_laplace_distribution(mu, b, 0.01));
-  test_feq(24.0, sample_laplace_distribution(mu, b, 0.5));
-  test_feq(24.48486498, sample_laplace_distribution(mu, b, 0.51));
-  test_feq(117.88855213, sample_laplace_distribution(mu, b, 0.99));
+  tt_i64_op(INT64_MIN, ==, sample_laplace_distribution(mu, b, 0.0));
+  tt_i64_op(-69, ==, sample_laplace_distribution(mu, b, 0.01));
+  tt_i64_op(24, ==, sample_laplace_distribution(mu, b, 0.5));
+  tt_i64_op(24, ==, sample_laplace_distribution(mu, b, 0.51));
+  tt_i64_op(117, ==, sample_laplace_distribution(mu, b, 0.99));
 
   /* >>> laplace.ppf([0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99],
    * ...             loc = 0, scale = 50)
    * array([         -inf,  -80.47189562,  -34.65735903,    0.        ,
    *          34.65735903,   80.47189562,  195.60115027])
    */
-  tt_assert(INT64_MIN + 20 ==
+  tt_i64_op(INT64_MIN + 20, ==,
             add_laplace_noise(20, 0.0, delta_f, epsilon));
-  tt_assert(-60 == add_laplace_noise(20, 0.1, delta_f, epsilon));
-  tt_assert(-14 == add_laplace_noise(20, 0.25, delta_f, epsilon));
-  tt_assert(20 == add_laplace_noise(20, 0.5, delta_f, epsilon));
-  tt_assert(54 == add_laplace_noise(20, 0.75, delta_f, epsilon));
-  tt_assert(100 == add_laplace_noise(20, 0.9, delta_f, epsilon));
-  tt_assert(215 == add_laplace_noise(20, 0.99, delta_f, epsilon));
+  tt_i64_op(-60, ==, add_laplace_noise(20, 0.1, delta_f, epsilon));
+  tt_i64_op(-14, ==, add_laplace_noise(20, 0.25, delta_f, epsilon));
+  tt_i64_op(20, ==, add_laplace_noise(20, 0.5, delta_f, epsilon));
+  tt_i64_op(54, ==, add_laplace_noise(20, 0.75, delta_f, epsilon));
+  tt_i64_op(100, ==, add_laplace_noise(20, 0.9, delta_f, epsilon));
+  tt_i64_op(215, ==, add_laplace_noise(20, 0.99, delta_f, epsilon));
 
   /* Test extreme values of signal with maximally negative values of noise
    * 1.0000000000000002 is the smallest number > 1
@@ -4884,6 +4884,7 @@ test_util_laplace(void *arg)
    * result is NaN -> Inf */
   tt_assert(INT64_MAX ==
             add_laplace_noise(0.0, 0.0, -0.0, 0.0))
+
  done:
   ;
 }
