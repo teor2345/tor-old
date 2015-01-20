@@ -6114,7 +6114,6 @@ parse_unix_socket_config(smartlist_t *out, smartlist_t *defaults,
       /* No, but we have some defaults to copy */
       SMARTLIST_FOREACH_BEGIN(defaults, const port_cfg_t *, defport) {
         tor_assert(defport->is_unix_addr);
-        tor_assert(defport->unix_addr);
         len = sizeof(port_cfg_t) + strlen(defport->unix_addr) + 1;
         port_cfg_t *port = tor_malloc_zero(len);
         memcpy(port, defport, len);
