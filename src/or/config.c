@@ -4045,7 +4045,10 @@ get_windows_conf_root(void)
 static const char *
 get_default_conf_file(int defaults_file)
 {
-#ifdef _WIN32
+#ifdef DISABLE_SYSTEM_TORRC
+  (void) defaults_file;
+  return NULL;
+#elif defined(_WIN32)
   if (defaults_file) {
     static char defaults_path[MAX_PATH+1];
     tor_snprintf(defaults_path, MAX_PATH, "%s\\torrc-defaults",
@@ -4183,17 +4186,17 @@ find_torrc_filename(config_line_t *cmd_arg,
       }
       if (fn) {
         file_status_t hmst = file_status(fn);
-        if (hmst == FN_FILE || hmst == FN_EMPTY) {
+        if (hmst == FN_FILE || hmst == FN_EMPTY || dflt == NULL) {
           fname = fn;
         } else {
           tor_free(fn);
           fname = tor_strdup(dflt);
         }
       } else {
-        fname = tor_strdup(dflt);
+        fname = dflt ? tor_strdup(dflt) : NULL;
       }
 #else
-      fname = tor_strdup(dflt);
+      fname = dflt ? tor_strdup(dflt) : NULL;
 #endif
     }
   }
@@ -4219,17 +4222,17 @@ load_torrc_from_disk(config_line_t *cmd_arg, int defaults_file)
   if (*fname_var == NULL) {
     fname = find_torrc_filename(cmd_arg, defaults_file,
                                 &using_default_torrc, &ignore_missing_torrc);
-    tor_assert(fname);
     tor_free(*fname_var);
     *fname_var = fname;
   } else {
     fname = *fname_var;
   }
-  log_debug(LD_CONFIG, "Opening config file \"%s\"", fname);
+  log_debug(LD_CONFIG, "Opening config file \"%s\"", fname?fname:"<NULL>");
 
   /* Open config file */
-  file_status_t st = file_status(fname);
-  if (!(st == FN_FILE || st == FN_EMPTY) ||
+  file_status_t st = fname ? file_status(fname) : FN_EMPTY;
+  if (fname == NULL ||
+      !(st == FN_FILE || st == FN_EMPTY) ||
       !(cf = read_file_to_str(fname,0,NULL))) {
     if (using_default_torrc == 1 || ignore_missing_torrc) {
       if (!defaults_file)
@@ -4518,7 +4521,7 @@ options_init_from_string(const char *cf_defaults, const char *cf,
   return err;
 }
 
-/** Return the location for our configuration file.
+/** Return the location for our configuration file.  May return NULL.
  */
 const char *
 get_torrc_fname(int defaults_fname)
@@ -5372,14 +5375,6 @@ parse_dir_authority_line(const char *line, dirinfo_type_t required_type,
              fingerprint, (int)strlen(fingerprint));
     goto err;
   }
-  if (!strcmp(fingerprint, "E623F7625FBE0C87820F11EC5F6D5377ED816294")) {
-    /* a known bad fingerprint. refuse to use it. We can remove this
-     * clause once Tor 0.1.2.17 is obsolete. */
-    log_warn(LD_CONFIG, "Dangerous dirserver line. To correct, erase your "
-             "torrc file (%s), or reinstall Tor and use the default torrc.",
-             get_torrc_fname(0));
-    goto err;
-  }
   if (base16_decode(digest, DIGEST_LEN, fingerprint, HEX_DIGEST_LEN)<0) {
     log_warn(LD_CONFIG, "Unable to decode DirAuthority key digest.");
     goto err;
@@ -5512,9 +5507,9 @@ static port_cfg_t *
 port_cfg_new(void)
 {
   port_cfg_t *cfg = tor_malloc_zero(sizeof(port_cfg_t));
-  cfg->ipv4_traffic = 1;
-  cfg->cache_ipv4_answers = 1;
-  cfg->prefer_ipv6_virtaddr = 1;
+  cfg->entry_cfg.ipv4_traffic = 1;
+  cfg->entry_cfg.cache_ipv4_answers = 1;
+  cfg->entry_cfg.prefer_ipv6_virtaddr = 1;
   return cfg;
 }
 
@@ -5721,10 +5716,10 @@ parse_port_config(smartlist_t *out,
       cfg->type = listener_type;
       cfg->port = mainport;
       tor_addr_make_unspec(&cfg->addr); /* Server ports default to 0.0.0.0 */
-      cfg->no_listen = 1;
-      cfg->bind_ipv4_only = 1;
-      cfg->ipv4_traffic = 1;
-      cfg->prefer_ipv6_virtaddr = 1;
+      cfg->server_cfg.no_listen = 1;
+      cfg->server_cfg.bind_ipv4_only = 1;
+      cfg->entry_cfg.ipv4_traffic = 1;
+      cfg->entry_cfg.prefer_ipv6_virtaddr = 1;
       smartlist_add(out, cfg);
     }
 
@@ -5741,9 +5736,9 @@ parse_port_config(smartlist_t *out,
         cfg->type = listener_type;
         cfg->port = port ? port : mainport;
         tor_addr_copy(&cfg->addr, &addr);
-        cfg->session_group = SESSION_GROUP_UNSET;
-        cfg->isolation_flags = ISO_DEFAULT;
-        cfg->no_advertise = 1;
+        cfg->entry_cfg.session_group = SESSION_GROUP_UNSET;
+        cfg->entry_cfg.isolation_flags = ISO_DEFAULT;
+        cfg->server_cfg.no_advertise = 1;
         smartlist_add(out, cfg);
       }
     }
@@ -5767,8 +5762,8 @@ parse_port_config(smartlist_t *out,
        cfg->type = listener_type;
        cfg->port = defaultport;
        tor_addr_parse(&cfg->addr, defaultaddr);
-       cfg->session_group = SESSION_GROUP_UNSET;
-       cfg->isolation_flags = ISO_DEFAULT;
+       cfg->entry_cfg.session_group = SESSION_GROUP_UNSET;
+       cfg->entry_cfg.isolation_flags = ISO_DEFAULT;
        smartlist_add(out, cfg);
     }
     return 0;
@@ -5998,24 +5993,24 @@ parse_port_config(smartlist_t *out,
       tor_addr_copy(&cfg->addr, &addr);
       cfg->port = port;
       cfg->type = listener_type;
-      cfg->isolation_flags = isolation;
-      cfg->session_group = sessiongroup;
-      cfg->no_advertise = no_advertise;
-      cfg->no_listen = no_listen;
-      cfg->all_addrs = all_addrs;
-      cfg->bind_ipv4_only = bind_ipv4_only;
-      cfg->bind_ipv6_only = bind_ipv6_only;
-      cfg->ipv4_traffic = ipv4_traffic;
-      cfg->ipv6_traffic = ipv6_traffic;
-      cfg->prefer_ipv6 = prefer_ipv6;
-      cfg->cache_ipv4_answers = cache_ipv4;
-      cfg->cache_ipv6_answers = cache_ipv6;
-      cfg->use_cached_ipv4_answers = use_cached_ipv4;
-      cfg->use_cached_ipv6_answers = use_cached_ipv6;
-      cfg->prefer_ipv6_virtaddr = prefer_ipv6_automap;
-      cfg->socks_prefer_no_auth = prefer_no_auth;
+      cfg->entry_cfg.isolation_flags = isolation;
+      cfg->entry_cfg.session_group = sessiongroup;
+      cfg->server_cfg.no_advertise = no_advertise;
+      cfg->server_cfg.no_listen = no_listen;
+      cfg->server_cfg.all_addrs = all_addrs;
+      cfg->server_cfg.bind_ipv4_only = bind_ipv4_only;
+      cfg->server_cfg.bind_ipv6_only = bind_ipv6_only;
+      cfg->entry_cfg.ipv4_traffic = ipv4_traffic;
+      cfg->entry_cfg.ipv6_traffic = ipv6_traffic;
+      cfg->entry_cfg.prefer_ipv6 = prefer_ipv6;
+      cfg->entry_cfg.cache_ipv4_answers = cache_ipv4;
+      cfg->entry_cfg.cache_ipv6_answers = cache_ipv6;
+      cfg->entry_cfg.use_cached_ipv4_answers = use_cached_ipv4;
+      cfg->entry_cfg.use_cached_ipv6_answers = use_cached_ipv6;
+      cfg->entry_cfg.prefer_ipv6_virtaddr = prefer_ipv6_automap;
+      cfg->entry_cfg.socks_prefer_no_auth = prefer_no_auth;
       if (! (isolation & ISO_SOCKSAUTH))
-        cfg->socks_prefer_no_auth = 1;
+        cfg->entry_cfg.socks_prefer_no_auth = 1;
 
       smartlist_add(out, cfg);
     }
@@ -6089,10 +6084,10 @@ parse_unix_socket_config(smartlist_t *out, smartlist_t *defaults,
          * now, some reasonable defaults.
          */
 
-        port->ipv4_traffic = 1;
-        port->ipv6_traffic = 1;
-        port->cache_ipv4_answers = 1;
-        port->cache_ipv6_answers = 1;
+        port->entry_cfg.ipv4_traffic = 1;
+        port->entry_cfg.ipv6_traffic = 1;
+        port->entry_cfg.cache_ipv4_answers = 0;
+        port->entry_cfg.cache_ipv6_answers = 0;
       }
       smartlist_add(ports_to_add, port);
     } else {
@@ -6142,7 +6137,7 @@ count_real_listeners(const smartlist_t *ports, int listenertype)
 {
   int n = 0;
   SMARTLIST_FOREACH_BEGIN(ports, port_cfg_t *, port) {
-    if (port->no_listen || port->is_unix_addr)
+    if (port->server_cfg.no_listen || port->is_unix_addr)
       continue;
     if (port->type != listenertype)
       continue;
@@ -6327,25 +6322,25 @@ check_server_ports(const smartlist_t *ports,
 
   SMARTLIST_FOREACH_BEGIN(ports, const port_cfg_t *, port) {
     if (port->type == CONN_TYPE_DIR_LISTENER) {
-      if (! port->no_advertise)
+      if (! port->server_cfg.no_advertise)
         ++n_dirport_advertised;
-      if (! port->no_listen)
+      if (! port->server_cfg.no_listen)
         ++n_dirport_listeners;
     } else if (port->type == CONN_TYPE_OR_LISTENER) {
-      if (! port->no_advertise) {
+      if (! port->server_cfg.no_advertise) {
         ++n_orport_advertised;
         if (tor_addr_family(&port->addr) == AF_INET ||
             (tor_addr_family(&port->addr) == AF_UNSPEC &&
-                !port->bind_ipv6_only))
+                !port->server_cfg.bind_ipv6_only))
           ++n_orport_advertised_ipv4;
       }
-      if (! port->no_listen)
+      if (! port->server_cfg.no_listen)
         ++n_orport_listeners;
     } else {
       continue;
     }
 #ifndef _WIN32
-    if (!port->no_listen && port->port < 1024)
+    if (!port->server_cfg.no_listen && port->port < 1024)
       ++n_low_port;
 #endif
   } SMARTLIST_FOREACH_END(port);
@@ -6423,7 +6418,7 @@ get_first_listener_addrport_string(int listener_type)
     return NULL;
 
   SMARTLIST_FOREACH_BEGIN(configured_ports, const port_cfg_t *, cfg) {
-    if (cfg->no_listen)
+    if (cfg->server_cfg.no_listen)
       continue;
 
     if (cfg->type == listener_type &&
@@ -6470,12 +6465,12 @@ get_first_advertised_port_by_type_af(int listener_type, int address_family)
     return 0;
   SMARTLIST_FOREACH_BEGIN(configured_ports, const port_cfg_t *, cfg) {
     if (cfg->type == listener_type &&
-        !cfg->no_advertise &&
+        !cfg->server_cfg.no_advertise &&
         (tor_addr_family(&cfg->addr) == address_family ||
          tor_addr_family(&cfg->addr) == AF_UNSPEC)) {
       if (tor_addr_family(&cfg->addr) != AF_UNSPEC ||
-          (address_family == AF_INET && !cfg->bind_ipv6_only) ||
-          (address_family == AF_INET6 && !cfg->bind_ipv4_only)) {
+          (address_family == AF_INET && !cfg->server_cfg.bind_ipv6_only) ||
+          (address_family == AF_INET6 && !cfg->server_cfg.bind_ipv4_only)) {
         return cfg->port;
       }
     }
@@ -6559,7 +6554,8 @@ write_configuration_file(const char *fname, const or_options_t *options)
   char *old_val=NULL, *new_val=NULL, *new_conf=NULL;
   int rename_old = 0, r;
 
-  tor_assert(fname);
+  if (!fname)
+    return -1;
 
   switch (file_status(fname)) {
     /* create backups of old config files, even if they're empty */

@@ -390,13 +390,35 @@ addressmap_rewrite(char *address, size_t maxlen,
       goto done;
     }
 
-    if (ent && ent->source == ADDRMAPSRC_DNS) {
-      sa_family_t f;
-      tor_addr_t tmp;
-      f = tor_addr_parse(&tmp, ent->new_address);
-      if (f == AF_INET && !(flags & AMR_FLAG_USE_IPV4_DNS))
-        goto done;
-      else if (f == AF_INET6 && !(flags & AMR_FLAG_USE_IPV6_DNS))
+    switch (ent->source) {
+      case ADDRMAPSRC_DNS:
+        {
+          sa_family_t f;
+          tor_addr_t tmp;
+          f = tor_addr_parse(&tmp, ent->new_address);
+          if (f == AF_INET && !(flags & AMR_FLAG_USE_IPV4_DNS))
+            goto done;
+          else if (f == AF_INET6 && !(flags & AMR_FLAG_USE_IPV6_DNS))
+            goto done;
+        }
+        break;
+      case ADDRMAPSRC_CONTROLLER:
+      case ADDRMAPSRC_TORRC:
+        if (!(flags & AMR_FLAG_USE_MAPADDRESS))
+          goto done;
+        break;
+      case ADDRMAPSRC_AUTOMAP:
+        if (!(flags & AMR_FLAG_USE_AUTOMAP))
+          goto done;
+        break;
+      case ADDRMAPSRC_TRACKEXIT:
+        if (!(flags & AMR_FLAG_USE_TRACKEXIT))
+          goto done;
+        break;
+      case ADDRMAPSRC_NONE:
+      default:
+        log_warn(LD_BUG, "Unknown addrmap source value %d. Ignoring it.",
+                 (int) ent->source);
         goto done;
     }
 
@@ -431,7 +453,7 @@ addressmap_rewrite(char *address, size_t maxlen,
   if (exit_source_out)
     *exit_source_out = exit_source;
   if (expires_out)
-    *expires_out = TIME_MAX;
+    *expires_out = expires;
   return (rewrites > 0);
 }
 
@@ -455,6 +477,8 @@ addressmap_rewrite_reverse(char *address, size_t maxlen, unsigned flags,
       return 0;
     else if (f == AF_INET6 && !(flags & AMR_FLAG_USE_IPV6_DNS))
       return 0;
+    /* FFFF we should reverse-map virtual addresses even if we haven't
+     * enabled DNS cacheing. */
   }
 
   tor_asprintf(&s, "REVERSE[%s]", address);
@@ -676,10 +700,10 @@ client_dns_set_addressmap(entry_connection_t *for_conn,
     return; /* If address was an IP address already, don't add a mapping. */
 
   if (tor_addr_family(val) == AF_INET) {
-    if (! for_conn->cache_ipv4_answers)
+    if (! for_conn->entry_cfg.cache_ipv4_answers)
       return;
   } else if (tor_addr_family(val) == AF_INET6) {
-    if (! for_conn->cache_ipv6_answers)
+    if (! for_conn->entry_cfg.cache_ipv6_answers)
       return;
   }
 
@@ -708,8 +732,8 @@ client_dns_set_reverse_addressmap(entry_connection_t *for_conn,
   {
     tor_addr_t tmp_addr;
     sa_family_t f = tor_addr_parse(&tmp_addr, address);
-    if ((f == AF_INET && ! for_conn->cache_ipv4_answers) ||
-        (f == AF_INET6 && ! for_conn->cache_ipv6_answers))
+    if ((f == AF_INET && ! for_conn->entry_cfg.cache_ipv4_answers) ||
+        (f == AF_INET6 && ! for_conn->entry_cfg.cache_ipv6_answers))
       return;
   }
   tor_asprintf(&s, "REVERSE[%s]", address);
@@ -980,6 +1004,8 @@ addressmap_register_virtual_address(int type, char *new_address)
   if (vent_needs_to_be_added)
     strmap_set(virtaddress_reversemap, new_address, vent);
   addressmap_register(*addrp, new_address, 2, ADDRMAPSRC_AUTOMAP, 0, 0);
+
+  /* FFFF register corresponding reverse mapping. */
 
 #if 0
   {

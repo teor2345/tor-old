@@ -1058,7 +1058,6 @@ rend_cache_store_v2_desc_as_dir(const char *desc)
     if (e && !strcmp(desc, e->desc)) {
       log_info(LD_REND, "We already have this service descriptor with desc "
                         "ID %s.", safe_str(desc_id_base32));
-      e->received = time(NULL);
       goto skip;
     }
     /* Store received descriptor. */
@@ -1075,7 +1074,6 @@ rend_cache_store_v2_desc_as_dir(const char *desc)
       rend_service_descriptor_free(e->parsed);
       tor_free(e->desc);
     }
-    e->received = time(NULL);
     e->parsed = parsed;
     e->desc = tor_strndup(current_desc, encoded_size);
     e->len = encoded_size;
@@ -1251,17 +1249,10 @@ rend_cache_store_v2_desc_as_client(const char *desc,
   /* Do we already have a newer descriptor? */
   tor_snprintf(key, sizeof(key), "2%s", service_id);
   e = (rend_cache_entry_t*) strmap_get_lc(rend_cache, key);
-  if (e && e->parsed->timestamp > parsed->timestamp) {
-    log_info(LD_REND, "We already have a newer service descriptor for "
+  if (e && e->parsed->timestamp >= parsed->timestamp) {
+    log_info(LD_REND, "We already have a new enough service descriptor for "
                       "service ID %s with the same desc ID and version.",
              safe_str_client(service_id));
-    goto okay;
-  }
-  /* Do we already have this descriptor? */
-  if (e && !strcmp(desc, e->desc)) {
-    log_info(LD_REND,"We already have this service descriptor %s.",
-             safe_str_client(service_id));
-    e->received = time(NULL);
     goto okay;
   }
   if (!e) {
@@ -1272,7 +1263,6 @@ rend_cache_store_v2_desc_as_client(const char *desc,
     rend_service_descriptor_free(e->parsed);
     tor_free(e->desc);
   }
-  e->received = time(NULL);
   e->parsed = parsed;
   e->desc = tor_malloc_zero(encoded_size + 1);
   strlcpy(e->desc, desc, encoded_size + 1);
