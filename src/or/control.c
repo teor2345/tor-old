@@ -1882,6 +1882,22 @@ circuit_describe_status_for_controller(origin_circuit_t *circ)
     smartlist_add_asprintf(descparts, "TIME_CREATED=%s", tbuf);
   }
 
+  // Show username and/or password if available.
+  if (circ->socks_username_len > 0) {
+    char* socks_username_escaped = esc_for_log_len(circ->socks_username,
+                                     (size_t) circ->socks_username_len);
+    smartlist_add_asprintf(descparts, "SOCKS_USERNAME=%s",
+                           socks_username_escaped);
+    tor_free(socks_username_escaped);
+  }
+  if (circ->socks_password_len > 0) {
+    char* socks_password_escaped = esc_for_log_len(circ->socks_password,
+                                     (size_t) circ->socks_password_len);
+    smartlist_add_asprintf(descparts, "SOCKS_PASSWORD=%s",
+                           socks_password_escaped);
+    tor_free(socks_password_escaped);
+  }
+
   rv = smartlist_join_strings(descparts, " ", 0, NULL);
 
   SMARTLIST_FOREACH(descparts, char *, cp, tor_free(cp));
@@ -2169,6 +2185,8 @@ static const getinfo_item_t getinfo_items[] = {
          "Brief summary of router status by nickname (v2 directory format)."),
   PREFIX("ns/purpose/", networkstatus,
          "Brief summary of router status by purpose (v2 directory format)."),
+  PREFIX("consensus/", networkstatus,
+         "Information about and from the ns consensus."),
   ITEM("network-status", dir,
        "Brief summary of router status (v1 directory format)"),
   ITEM("circuit-status", events, "List of current circuits originating here."),

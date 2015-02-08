@@ -68,6 +68,9 @@
 /* From main.c */
 extern int quiet_level;
 
+/* Prefix used to indicate a Unix socket in a FooPort configuration. */
+static const char unix_socket_prefix[] = "unix:";
+
 /** A list of abbreviations and aliases to map command-line options, obsolete
  * option names, or alternative option names, to their current values. */
 static config_abbrev_t option_abbrevs_[] = {
@@ -83,6 +86,7 @@ static config_abbrev_t option_abbrevs_[] = {
   PLURAL(HiddenServiceExcludeNode),
   PLURAL(NumCPU),
   PLURAL(RendNode),
+  PLURAL(RecommendedPackage),
   PLURAL(RendExcludeNode),
   PLURAL(StrictEntryNode),
   PLURAL(StrictExitNode),
@@ -200,7 +204,6 @@ static config_var_t option_vars_[] = {
   V(ControlPortWriteToFile,      FILENAME, NULL),
   V(ControlSocket,               LINELIST, NULL),
   V(ControlSocketsGroupWritable, BOOL,     "0"),
-  V(SocksSocket,                 LINELIST, NULL),
   V(SocksSocketsGroupWritable,   BOOL,     "0"),
   V(CookieAuthentication,        BOOL,     "0"),
   V(CookieAuthFileGroupReadable, BOOL,     "0"),
@@ -365,6 +368,7 @@ static config_var_t option_vars_[] = {
   V(RecommendedVersions,         LINELIST, NULL),
   V(RecommendedClientVersions,   LINELIST, NULL),
   V(RecommendedServerVersions,   LINELIST, NULL),
+  V(RecommendedPackages,         LINELIST, NULL),
   V(RefuseUnknownExits,          AUTOBOOL, "auto"),
   V(RejectPlaintextPorts,        CSV,      ""),
   V(RelayBandwidthBurst,         MEMUNIT,  "0"),
@@ -1050,20 +1054,6 @@ options_act_reversible(const or_options_t *old_options, char **msg)
   }
 #endif
 
-#ifndef HAVE_SYS_UN_H
-  if (options->SocksSocket || options->SocksSocketsGroupWritable) {
-    *msg = tor_strdup("Unix domain sockets (SocksSocket) not supported "
-                      "on this OS/with this build.");
-    goto rollback;
-  }
-#else
-  if (options->SocksSocketsGroupWritable && !options->SocksSocket) {
-    *msg = tor_strdup("Setting SocksSocketGroupWritable without setting"
-                      "a SocksSocket makes no sense.");
-    goto rollback;
-  }
-#endif
-
   if (running_tor) {
     int n_ports=0;
     /* We need to set the connection limit before we can open the listeners. */
@@ -1629,7 +1619,7 @@ options_act(const or_options_t *old_options)
   }
 
   if (parse_outbound_addresses(options, 0, &msg) < 0) {
-    log_warn(LD_BUG, "Failed parsing oubound bind addresses: %s", msg);
+    log_warn(LD_BUG, "Failed parsing outbound bind addresses: %s", msg);
     tor_free(msg);
     return -1;
   }
@@ -1730,7 +1720,7 @@ options_act(const or_options_t *old_options)
         if (have_completed_a_circuit() || !any_predicted_circuits(time(NULL)))
           inform_testing_reachability();
       }
-      cpuworkers_rotate();
+      cpuworkers_rotate_keyinfo();
       if (dns_reset())
         return -1;
     } else {
@@ -2753,6 +2743,13 @@ options_validate(or_options_t *old_options, or_options_t *options,
     COMPLAIN("You have asked to exclude certain relays from all positions "
              "in your circuits. Expect hidden services and other Tor "
              "features to be broken in unpredictable ways.");
+  }
+
+  for (cl = options->RecommendedPackages; cl; cl = cl->next) {
+    if (! validate_recommended_package_line(cl->value)) {
+      log_warn(LD_CONFIG, "Invalid RecommendedPackage line %s will be ignored",
+               escaped(cl->value));
+    }
   }
 
   if (options->AuthoritativeDir) {
@@ -4204,6 +4201,17 @@ find_torrc_filename(config_line_t *cmd_arg,
   return fname;
 }
 
+/** Read the torrc from standard input and return it as a string.
+ * Upon failure, return NULL.
+ */
+static char *
+load_torrc_from_stdin(void)
+{
+   size_t sz_out;
+
+   return read_file_to_str_until_eof(STDIN_FILENO,SIZE_MAX,&sz_out);
+}
+
 /** Load a configuration file from disk, setting torrc_fname or
  * torrc_defaults_fname if successful.
  *
@@ -4344,7 +4352,19 @@ options_init_from_torrc(int argc, char **argv)
     cf = tor_strdup("");
   } else {
     cf_defaults = load_torrc_from_disk(cmdline_only_options, 1);
-    cf = load_torrc_from_disk(cmdline_only_options, 0);
+
+    const config_line_t *f_line = config_line_find(cmdline_only_options,
+                                                   "-f");
+
+    const int read_torrc_from_stdin =
+    (f_line != NULL && strcmp(f_line->value, "-") == 0);
+
+    if (read_torrc_from_stdin) {
+      cf = load_torrc_from_stdin();
+    } else {
+      cf = load_torrc_from_disk(cmdline_only_options, 0);
+    }
+
     if (!cf) {
       if (config_line_find(cmdline_only_options, "--allow-missing-torrc")) {
         cf = tor_strdup("");
@@ -5620,6 +5640,55 @@ warn_nonlocal_controller_ports(smartlist_t *ports, unsigned forbid)
 #define CL_PORT_TAKES_HOSTNAMES (1u<<5)
 #define CL_PORT_IS_UNIXSOCKET (1u<<6)
 
+#ifdef HAVE_SYS_UN_H
+
+/** Parse the given <b>addrport</b> and set <b>path_out</b> if a Unix socket
+ * path is found. Return 0 on success. On error, a negative value is
+ * returned, -ENOENT if no Unix statement found, -EINVAL if the socket path
+ * is empty and -ENOSYS if AF_UNIX is not supported (see function in the
+ * #else statement below). */
+
+int
+config_parse_unix_port(const char *addrport, char **path_out)
+{
+  tor_assert(path_out);
+  tor_assert(addrport);
+
+  if (strcmpstart(addrport, unix_socket_prefix)) {
+    /* Not a Unix socket path. */
+    return -ENOENT;
+  }
+
+  if (strlen(addrport + strlen(unix_socket_prefix)) == 0) {
+    /* Empty socket path, not very usable. */
+    return -EINVAL;
+  }
+
+  *path_out = tor_strdup(addrport + strlen(unix_socket_prefix));
+  return 0;
+}
+
+#else /* defined(HAVE_SYS_UN_H) */
+
+int
+config_parse_unix_port(const char *addrport, char **path_out)
+{
+  tor_assert(path_out);
+  tor_assert(addrport);
+
+  if (strcmpstart(addrport, unix_socket_prefix)) {
+    /* Not a Unix socket path. */
+    return -ENOENT;
+  }
+
+  log_warn(LD_CONFIG,
+           "Port configuration %s is for an AF_UNIX socket, but we have no"
+           "support available on this platform",
+           escaped(addrport));
+  return -ENOSYS;
+}
+#endif /* defined(HAVE_SYS_UN_H) */
+
 /**
  * Parse port configuration for a single port type.
  *
@@ -5681,6 +5750,7 @@ parse_port_config(smartlist_t *out,
   const unsigned takes_hostnames = flags & CL_PORT_TAKES_HOSTNAMES;
   const unsigned is_unix_socket = flags & CL_PORT_IS_UNIXSOCKET;
   int got_zero_port=0, got_nonzero_port=0;
+  char *unix_socket_path = NULL;
 
   /* FooListenAddress is deprecated; let's make it work like it used to work,
    * though. */
@@ -5758,7 +5828,6 @@ parse_port_config(smartlist_t *out,
     return 0;
   } /* end if (listenaddrs) */
 
-
   /* No ListenAddress lines. If there's no FooPort, then maybe make a default
    * one. */
   if (! ports) {
@@ -5786,7 +5855,7 @@ parse_port_config(smartlist_t *out,
 
   for (; ports; ports = ports->next) {
     tor_addr_t addr;
-    int port;
+    int port, ret;
     int sessiongroup = SESSION_GROUP_UNSET;
     unsigned isolation = ISO_DEFAULT;
     int prefer_no_auth = 0;
@@ -5815,8 +5884,26 @@ parse_port_config(smartlist_t *out,
 
     /* Now parse the addr/port value */
     addrport = smartlist_get(elts, 0);
-    if (is_unix_socket) {
-      /* leave it as it is. */
+
+    /* Let's start to check if it's a Unix socket path. */
+    ret = config_parse_unix_port(addrport, &unix_socket_path);
+    if (ret < 0 && ret != -ENOENT) {
+      if (ret == -EINVAL) {
+        log_warn(LD_CONFIG, "Empty Unix socket path.");
+      }
+      goto err;
+    }
+
+    if (unix_socket_path &&
+        ! conn_listener_type_supports_af_unix(listener_type)) {
+      log_warn(LD_CONFIG, "%sPort does not support unix sockets", portname);
+      goto err;
+    }
+
+    if (unix_socket_path) {
+      port = 1;
+    } else if (is_unix_socket) {
+      unix_socket_path = tor_strdup(addrport);
       if (!strcmp(addrport, "0"))
         port = 0;
       else
@@ -6006,12 +6093,13 @@ parse_port_config(smartlist_t *out,
     }
 
     if (out && port) {
-      size_t namelen = is_unix_socket ? strlen(addrport) : 0;
+      size_t namelen = unix_socket_path ? strlen(unix_socket_path) : 0;
       port_cfg_t *cfg = port_cfg_new(namelen);
-      if (is_unix_socket) {
+      if (unix_socket_path) {
         tor_addr_make_unspec(&cfg->addr);
-        memcpy(cfg->unix_addr, addrport, strlen(addrport) + 1);
+        memcpy(cfg->unix_addr, unix_socket_path, namelen + 1);
         cfg->is_unix_addr = 1;
+        tor_free(unix_socket_path);
       } else {
         tor_addr_copy(&cfg->addr, &addr);
         cfg->port = port;
@@ -6161,13 +6249,6 @@ parse_ports(or_options_t *options, int validate_only,
       *msg = tor_strdup("Invalid ControlSocket configuration");
       goto err;
     }
-    if (parse_port_config(ports, options->SocksSocket, NULL,
-                          "SocksSocket",
-                          CONN_TYPE_AP_LISTENER, NULL, 0,
-                          CL_PORT_IS_UNIXSOCKET) < 0) {
-      *msg = tor_strdup("Invalid SocksSocket configuration");
-      goto err;
-    }
   }
   if (! options->ClientOnly) {
     if (parse_port_config(ports,
@@ -6210,8 +6291,6 @@ parse_ports(or_options_t *options, int validate_only,
   options->ORPort_set =
     !! count_real_listeners(ports, CONN_TYPE_OR_LISTENER);
   options->SocksPort_set =
-    !! count_real_listeners(ports, CONN_TYPE_AP_LISTENER);
-  options->SocksSocket_set =
     !! count_real_listeners(ports, CONN_TYPE_AP_LISTENER);
   options->TransPort_set =
     !! count_real_listeners(ports, CONN_TYPE_AP_TRANS_LISTENER);

@@ -29,7 +29,6 @@
 #include "connection_edge.h"
 #include "connection_or.h"
 #include "control.h"
-#include "cpuworker.h"
 #include "directory.h"
 #include "dirserv.h"
 #include "dns.h"
@@ -55,6 +54,11 @@
 
 #ifdef HAVE_PWD_H
 #include <pwd.h>
+#endif
+
+#ifdef HAVE_SYS_UN_H
+#include <sys/socket.h>
+#include <sys/un.h>
 #endif
 
 static connection_t *connection_listener_new(
@@ -130,7 +134,6 @@ conn_type_to_string(int type)
     case CONN_TYPE_AP: return "Socks";
     case CONN_TYPE_DIR_LISTENER: return "Directory listener";
     case CONN_TYPE_DIR: return "Directory";
-    case CONN_TYPE_CPUWORKER: return "CPU worker";
     case CONN_TYPE_CONTROL_LISTENER: return "Control listener";
     case CONN_TYPE_CONTROL: return "Control";
     case CONN_TYPE_EXT_OR: return "Extended OR";
@@ -213,12 +216,6 @@ conn_state_to_string(int type, int state)
         case DIR_CONN_STATE_SERVER_WRITING: return "writing";
       }
       break;
-    case CONN_TYPE_CPUWORKER:
-      switch (state) {
-        case CPUWORKER_STATE_IDLE: return "idle";
-        case CPUWORKER_STATE_BUSY_ONION: return "busy with onion";
-      }
-      break;
     case CONN_TYPE_CONTROL:
       switch (state) {
         case CONTROL_CONN_STATE_OPEN: return "open (protocol v1)";
@@ -248,7 +245,6 @@ connection_type_uses_bufferevent(connection_t *conn)
     case CONN_TYPE_CONTROL:
     case CONN_TYPE_OR:
     case CONN_TYPE_EXT_OR:
-    case CONN_TYPE_CPUWORKER:
       return 1;
     default:
       return 0;
@@ -453,6 +449,22 @@ connection_link_connections(connection_t *conn_a, connection_t *conn_b)
   conn_b->linked_conn = conn_a;
 }
 
+/** Return true iff the provided connection listener type supports AF_UNIX
+ * sockets. */
+int
+conn_listener_type_supports_af_unix(int type)
+{
+  /* For now only control ports or SOCKS ports can be Unix domain sockets
+   * and listeners at the same time */
+  switch (type) {
+    case CONN_TYPE_CONTROL_LISTENER:
+    case CONN_TYPE_AP_LISTENER:
+      return 1;
+    default:
+      return 0;
+  }
+}
+
 /** Deallocate memory used by <b>conn</b>. Deallocate its buffers if
  * necessary, close its socket if necessary, and mark the directory as dirty
  * if <b>conn</b> is an OR or OP connection.
@@ -520,8 +532,7 @@ connection_free_(connection_t *conn)
     if (conn->socket_family == AF_UNIX) {
       /* For now only control and SOCKS ports can be Unix domain sockets
        * and listeners at the same time */
-      tor_assert(conn->type == CONN_TYPE_CONTROL_LISTENER ||
-                 conn->type == CONN_TYPE_AP_LISTENER);
+      tor_assert(conn_listener_type_supports_af_unix(conn->type));
 
       if (unlink(conn->address) < 0 && errno != ENOENT) {
         log_warn(LD_NET, "Could not unlink %s: %s", conn->address,
@@ -1176,17 +1187,13 @@ connection_listener_new(const struct sockaddr *listensockaddr,
     }
 #ifdef HAVE_SYS_UN_H
   /*
-   * AF_UNIX generic setup stuff (this covers both CONN_TYPE_CONTROL_LISTENER
-   * and CONN_TYPE_AP_LISTENER cases)
+   * AF_UNIX generic setup stuff
    */
   } else if (listensockaddr->sa_family == AF_UNIX) {
     /* We want to start reading for both AF_UNIX cases */
     start_reading = 1;
 
-    /* For now only control ports or SOCKS ports can be Unix domain sockets
-     * and listeners at the same time */
-    tor_assert(type == CONN_TYPE_CONTROL_LISTENER ||
-               type == CONN_TYPE_AP_LISTENER);
+    tor_assert(conn_listener_type_supports_af_unix(type));
 
     if (check_location_for_unix_socket(options, address,
           (type == CONN_TYPE_CONTROL_LISTENER) ?
@@ -1500,7 +1507,7 @@ connection_handle_listener_read(connection_t *conn, int new_type)
     if (new_type == CONN_TYPE_AP && conn->socket_family == AF_UNIX) {
       newconn->port = 0;
       newconn->address = tor_strdup(conn->address);
-      log_info(LD_NET, "New SOCKS SocksSocket connection opened");
+      log_info(LD_NET, "New SOCKS AF_UNIX connection opened");
     }
     if (new_type == CONN_TYPE_CONTROL) {
       log_notice(LD_CONTROL, "New control connection opened from %s.",
@@ -1594,6 +1601,96 @@ connection_init_accepted_conn(connection_t *conn,
   return 0;
 }
 
+static int
+connection_connect_sockaddr(connection_t *conn,
+                            const struct sockaddr *sa,
+                            socklen_t sa_len,
+                            const struct sockaddr *bindaddr,
+                            socklen_t bindaddr_len,
+                            int *socket_error)
+{
+  tor_socket_t s;
+  int inprogress = 0;
+  const or_options_t *options = get_options();
+  int protocol_family;
+
+  tor_assert(conn);
+  tor_assert(sa);
+  tor_assert(socket_error);
+
+  if (get_n_open_sockets() >= get_options()->ConnLimit_-1) {
+    warn_too_many_conns();
+    *socket_error = SOCK_ERRNO(ENOBUFS);
+    return -1;
+  }
+
+  protocol_family = sa->sa_family;
+
+  if (get_options()->DisableNetwork) {
+    /* We should never even try to connect anyplace if DisableNetwork is set.
+     * Warn if we do, and refuse to make the connection. */
+    static ratelim_t disablenet_violated = RATELIM_INIT(30*60);
+    *socket_error = SOCK_ERRNO(ENETUNREACH);
+    log_fn_ratelim(&disablenet_violated, LOG_WARN, LD_BUG,
+                   "Tried to open a socket with DisableNetwork set.");
+    tor_fragile_assert();
+    return -1;
+  }
+
+  s = tor_open_socket_nonblocking(protocol_family, SOCK_STREAM, 0);
+  if (! SOCKET_OK(s)) {
+    *socket_error = tor_socket_errno(-1);
+    log_warn(LD_NET,"Error creating network socket: %s",
+             tor_socket_strerror(*socket_error));
+    return -1;
+  }
+
+  if (make_socket_reuseable(s) < 0) {
+    log_warn(LD_NET, "Error setting SO_REUSEADDR flag on new connection: %s",
+             tor_socket_strerror(errno));
+  }
+
+  if (bindaddr && bind(s, bindaddr, bindaddr_len) < 0) {
+    *socket_error = tor_socket_errno(s);
+    log_warn(LD_NET,"Error binding network socket: %s",
+             tor_socket_strerror(*socket_error));
+    tor_close_socket(s);
+    return -1;
+  }
+
+  tor_assert(options);
+  if (options->ConstrainedSockets)
+    set_constrained_socket_buffers(s, (int)options->ConstrainedSockSize);
+
+  if (connect(s, sa, sa_len) < 0) {
+    int e = tor_socket_errno(s);
+    if (!ERRNO_IS_CONN_EINPROGRESS(e)) {
+      /* yuck. kill it. */
+      *socket_error = e;
+      log_info(LD_NET,
+               "connect() to socket failed: %s",
+               tor_socket_strerror(e));
+      tor_close_socket(s);
+      return -1;
+    } else {
+      inprogress = 1;
+    }
+  }
+
+  /* it succeeded. we're connected. */
+  log_fn(inprogress ? LOG_DEBUG : LOG_INFO, LD_NET,
+         "Connection to socket %s (sock "TOR_SOCKET_T_FORMAT").",
+         inprogress ? "in progress" : "established", s);
+  conn->s = s;
+  if (connection_add_connecting(conn) < 0) {
+    /* no space, forget it */
+    *socket_error = SOCK_ERRNO(ENOBUFS);
+    return -1;
+  }
+
+  return inprogress ? 0 : 1;
+}
+
 /** Take conn, make a nonblocking socket; try to connect to
  * addr:port (they arrive in *host order*). If fail, return -1 and if
  * applicable put your best guess about errno into *<b>socket_error</b>.
@@ -1607,48 +1704,18 @@ int
 connection_connect(connection_t *conn, const char *address,
                    const tor_addr_t *addr, uint16_t port, int *socket_error)
 {
-  tor_socket_t s;
-  int inprogress = 0;
   struct sockaddr_storage addrbuf;
+  struct sockaddr_storage bind_addr_ss;
+  struct sockaddr *bind_addr = NULL;
   struct sockaddr *dest_addr;
-  int dest_addr_len;
+  int dest_addr_len, bind_addr_len = 0;
   const or_options_t *options = get_options();
   int protocol_family;
-
-  if (get_n_open_sockets() >= get_options()->ConnLimit_-1) {
-    warn_too_many_conns();
-    *socket_error = SOCK_ERRNO(ENOBUFS);
-    return -1;
-  }
 
   if (tor_addr_family(addr) == AF_INET6)
     protocol_family = PF_INET6;
   else
     protocol_family = PF_INET;
-
-  if (get_options()->DisableNetwork) {
-    /* We should never even try to connect anyplace if DisableNetwork is set.
-     * Warn if we do, and refuse to make the connection. */
-    static ratelim_t disablenet_violated = RATELIM_INIT(30*60);
-    *socket_error = SOCK_ERRNO(ENETUNREACH);
-    log_fn_ratelim(&disablenet_violated, LOG_WARN, LD_BUG,
-                   "Tried to open a socket with DisableNetwork set.");
-    tor_fragile_assert();
-    return -1;
-  }
-
-  s = tor_open_socket_nonblocking(protocol_family,SOCK_STREAM,IPPROTO_TCP);
-  if (! SOCKET_OK(s)) {
-    *socket_error = tor_socket_errno(-1);
-    log_warn(LD_NET,"Error creating network socket: %s",
-             tor_socket_strerror(*socket_error));
-    return -1;
-  }
-
-  if (make_socket_reuseable(s) < 0) {
-    log_warn(LD_NET, "Error setting SO_REUSEADDR flag on new connection: %s",
-             tor_socket_strerror(errno));
-  }
 
   if (!tor_addr_is_loopback(addr)) {
     const tor_addr_t *ext_addr = NULL;
@@ -1659,32 +1726,19 @@ connection_connect(connection_t *conn, const char *address,
              !tor_addr_is_null(&options->OutboundBindAddressIPv6_))
       ext_addr = &options->OutboundBindAddressIPv6_;
     if (ext_addr) {
-      struct sockaddr_storage ext_addr_sa;
-      socklen_t ext_addr_len = 0;
-      memset(&ext_addr_sa, 0, sizeof(ext_addr_sa));
-      ext_addr_len = tor_addr_to_sockaddr(ext_addr, 0,
-                                          (struct sockaddr *) &ext_addr_sa,
-                                          sizeof(ext_addr_sa));
-      if (ext_addr_len == 0) {
+      memset(&bind_addr_ss, 0, sizeof(bind_addr_ss));
+      bind_addr_len = tor_addr_to_sockaddr(ext_addr, 0,
+                                           (struct sockaddr *) &bind_addr_ss,
+                                           sizeof(bind_addr_ss));
+      if (bind_addr_len == 0) {
         log_warn(LD_NET,
                  "Error converting OutboundBindAddress %s into sockaddr. "
                  "Ignoring.", fmt_and_decorate_addr(ext_addr));
       } else {
-        if (bind(s, (struct sockaddr *) &ext_addr_sa, ext_addr_len) < 0) {
-          *socket_error = tor_socket_errno(s);
-          log_warn(LD_NET,"Error binding network socket to %s: %s",
-                   fmt_and_decorate_addr(ext_addr),
-                   tor_socket_strerror(*socket_error));
-          tor_close_socket(s);
-          return -1;
-        }
+        bind_addr = (struct sockaddr *)&bind_addr_ss;
       }
     }
   }
-
-  tor_assert(options);
-  if (options->ConstrainedSockets)
-    set_constrained_socket_buffers(s, (int)options->ConstrainedSockSize);
 
   memset(&addrbuf,0,sizeof(addrbuf));
   dest_addr = (struct sockaddr*) &addrbuf;
@@ -1694,35 +1748,50 @@ connection_connect(connection_t *conn, const char *address,
   log_debug(LD_NET, "Connecting to %s:%u.",
             escaped_safe_str_client(address), port);
 
-  if (connect(s, dest_addr, (socklen_t)dest_addr_len) < 0) {
-    int e = tor_socket_errno(s);
-    if (!ERRNO_IS_CONN_EINPROGRESS(e)) {
-      /* yuck. kill it. */
-      *socket_error = e;
-      log_info(LD_NET,
-               "connect() to %s:%u failed: %s",
-               escaped_safe_str_client(address),
-               port, tor_socket_strerror(e));
-      tor_close_socket(s);
-      return -1;
-    } else {
-      inprogress = 1;
-    }
-  }
+  return connection_connect_sockaddr(conn, dest_addr, dest_addr_len,
+                                     bind_addr, bind_addr_len, socket_error);
+}
 
-  /* it succeeded. we're connected. */
-  log_fn(inprogress?LOG_DEBUG:LOG_INFO, LD_NET,
-         "Connection to %s:%u %s (sock "TOR_SOCKET_T_FORMAT").",
-         escaped_safe_str_client(address),
-         port, inprogress?"in progress":"established", s);
-  conn->s = s;
-  if (connection_add_connecting(conn) < 0) {
-    /* no space, forget it */
-    *socket_error = SOCK_ERRNO(ENOBUFS);
+#ifdef HAVE_SYS_UN_H
+
+/** Take conn, make a nonblocking socket; try to connect to
+ * an AF_UNIX socket at socket_path. If fail, return -1 and if applicable
+ * put your best guess about errno into *<b>socket_error</b>. Else assign s
+ * to conn-\>s: if connected return 1, if EAGAIN return 0.
+ *
+ * On success, add conn to the list of polled connections.
+ */
+int
+connection_connect_unix(connection_t *conn, const char *socket_path,
+                        int *socket_error)
+{
+  struct sockaddr_un dest_addr;
+
+  tor_assert(socket_path);
+
+  /* Check that we'll be able to fit it into dest_addr later */
+  if (strlen(socket_path) + 1 > sizeof(dest_addr.sun_path)) {
+    log_warn(LD_NET,
+             "Path %s is too long for an AF_UNIX socket\n",
+             escaped_safe_str_client(socket_path));
+    *socket_error = SOCK_ERRNO(ENAMETOOLONG);
     return -1;
   }
-  return inprogress ? 0 : 1;
+
+  memset(&dest_addr, 0, sizeof(dest_addr));
+  dest_addr.sun_family = AF_UNIX;
+  strlcpy(dest_addr.sun_path, socket_path, sizeof(dest_addr.sun_path));
+
+  log_debug(LD_NET,
+            "Connecting to AF_UNIX socket at %s.",
+            escaped_safe_str_client(socket_path));
+
+  return connection_connect_sockaddr(conn,
+                       (struct sockaddr *)&dest_addr, sizeof(dest_addr),
+                       NULL, 0, socket_error);
 }
+
+#endif /* defined(HAVE_SYS_UN_H) */
 
 /** Convert state number to string representation for logging purposes.
  */
@@ -2417,7 +2486,6 @@ connection_mark_all_noncontrol_connections(void)
     if (conn->marked_for_close)
       continue;
     switch (conn->type) {
-      case CONN_TYPE_CPUWORKER:
       case CONN_TYPE_CONTROL_LISTENER:
       case CONN_TYPE_CONTROL:
         break;
@@ -4511,8 +4579,6 @@ connection_process_inbuf(connection_t *conn, int package_partial)
                                            package_partial);
     case CONN_TYPE_DIR:
       return connection_dir_process_inbuf(TO_DIR_CONN(conn));
-    case CONN_TYPE_CPUWORKER:
-      return connection_cpu_process_inbuf(conn);
     case CONN_TYPE_CONTROL:
       return connection_control_process_inbuf(TO_CONTROL_CONN(conn));
     default:
@@ -4572,8 +4638,6 @@ connection_finished_flushing(connection_t *conn)
       return connection_edge_finished_flushing(TO_EDGE_CONN(conn));
     case CONN_TYPE_DIR:
       return connection_dir_finished_flushing(TO_DIR_CONN(conn));
-    case CONN_TYPE_CPUWORKER:
-      return connection_cpu_finished_flushing(conn);
     case CONN_TYPE_CONTROL:
       return connection_control_finished_flushing(TO_CONTROL_CONN(conn));
     default:
@@ -4629,8 +4693,6 @@ connection_reached_eof(connection_t *conn)
       return connection_edge_reached_eof(TO_EDGE_CONN(conn));
     case CONN_TYPE_DIR:
       return connection_dir_reached_eof(TO_DIR_CONN(conn));
-    case CONN_TYPE_CPUWORKER:
-      return connection_cpu_reached_eof(conn);
     case CONN_TYPE_CONTROL:
       return connection_control_reached_eof(TO_CONTROL_CONN(conn));
     default:
@@ -4836,10 +4898,6 @@ assert_connection_ok(connection_t *conn, time_t now)
       tor_assert(conn->purpose >= DIR_PURPOSE_MIN_);
       tor_assert(conn->purpose <= DIR_PURPOSE_MAX_);
       break;
-    case CONN_TYPE_CPUWORKER:
-      tor_assert(conn->state >= CPUWORKER_STATE_MIN_);
-      tor_assert(conn->state <= CPUWORKER_STATE_MAX_);
-      break;
     case CONN_TYPE_CONTROL:
       tor_assert(conn->state >= CONTROL_CONN_STATE_MIN_);
       tor_assert(conn->state <= CONTROL_CONN_STATE_MAX_);
@@ -4940,9 +4998,7 @@ proxy_type_to_string(int proxy_type)
 }
 
 /** Call connection_free_() on every connection in our array, and release all
- * storage held by connection.c. This is used by cpuworkers and dnsworkers
- * when they fork, so they don't keep resources held open (especially
- * sockets).
+ * storage held by connection.c.
  *
  * Don't do the checks in connection_free(), because they will
  * fail.

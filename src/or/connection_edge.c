@@ -67,6 +67,10 @@
 #define TRANS_PF
 #endif
 
+#ifdef IP_TRANSPARENT
+#define TRANS_TPROXY
+#endif
+
 #define SOCKS4_GRANTED          90
 #define SOCKS4_REJECT           91
 
@@ -1583,7 +1587,7 @@ get_pf_socket(void)
 }
 #endif
 
-#if defined(TRANS_NETFILTER) || defined(TRANS_PF)
+#if defined(TRANS_NETFILTER) || defined(TRANS_PF) || defined(TRANS_TPROXY)
 /** Try fill in the address of <b>req</b> from the socket configured
  * with <b>conn</b>. */
 static int
@@ -1593,6 +1597,18 @@ destination_from_socket(entry_connection_t *conn, socks_request_t *req)
   socklen_t orig_dst_len = sizeof(orig_dst);
   tor_addr_t addr;
   int rv;
+
+#ifdef TRANS_TRPOXY
+  if (options->TransProxyType_parsed == TPT_TPROXY) {
+    if (getsockname(ENTRY_TO_CONN(conn)->s, (struct sockaddr*)&orig_dst,
+                    &orig_dst_len) < 0) {
+      int e = tor_socket_errno(ENTRY_TO_CONN(conn)->s);
+      log_warn(LD_NET, "getsockname() failed: %s", tor_socket_strerror(e));
+      return -1;
+    }
+    goto done;
+  }
+#endif
 
 #ifdef TRANS_NETFILTER
   switch (ENTRY_TO_CONN(conn)->socket_family) {
@@ -1619,6 +1635,7 @@ destination_from_socket(entry_connection_t *conn, socks_request_t *req)
     log_warn(LD_NET, "getsockopt() failed: %s", tor_socket_strerror(e));
     return -1;
   }
+  goto done;
 #elif defined(TRANS_PF)
   if (getsockname(ENTRY_TO_CONN(conn)->s, (struct sockaddr*)&orig_dst,
                   &orig_dst_len) < 0) {
@@ -1626,6 +1643,7 @@ destination_from_socket(entry_connection_t *conn, socks_request_t *req)
     log_warn(LD_NET, "getsockname() failed: %s", tor_socket_strerror(e));
     return -1;
   }
+  goto done;
 #else
   (void)conn;
   (void)req;
@@ -1633,6 +1651,7 @@ destination_from_socket(entry_connection_t *conn, socks_request_t *req)
   return -1;
 #endif
 
+ done:
   tor_addr_from_sockaddr(&addr, (struct sockaddr*)&orig_dst, &req->port);
   tor_addr_to_str(req->address, &addr, sizeof(req->address), 1);
 
@@ -2940,7 +2959,7 @@ connection_exit_connect(edge_connection_t *edge_conn)
   const tor_addr_t *addr;
   uint16_t port;
   connection_t *conn = TO_CONN(edge_conn);
-  int socket_error = 0;
+  int socket_error = 0, result;
 
   if ( (!connection_edge_is_rendezvous_stream(edge_conn) &&
         router_compare_to_my_exit_policy(&edge_conn->base_.addr,
@@ -2955,14 +2974,36 @@ connection_exit_connect(edge_connection_t *edge_conn)
     return;
   }
 
-  addr = &conn->addr;
-  port = conn->port;
+#ifdef HAVE_SYS_UN_H
+  if (conn->socket_family != AF_UNIX) {
+#else
+  {
+#endif /* defined(HAVE_SYS_UN_H) */
+    addr = &conn->addr;
+    port = conn->port;
 
-  if (tor_addr_family(addr) == AF_INET6)
-    conn->socket_family = AF_INET6;
+    if (tor_addr_family(addr) == AF_INET6)
+      conn->socket_family = AF_INET6;
 
-  log_debug(LD_EXIT,"about to try connecting");
-  switch (connection_connect(conn, conn->address, addr, port, &socket_error)) {
+    log_debug(LD_EXIT, "about to try connecting");
+    result = connection_connect(conn, conn->address,
+                                addr, port, &socket_error);
+#ifdef HAVE_SYS_UN_H
+  } else {
+    /*
+     * In the AF_UNIX case, we expect to have already had conn->port = 1,
+     * tor_addr_make_unspec(conn->addr) (cf. the way we mark in the incoming
+     * case in connection_handle_listener_read()), and conn->address should
+     * have the socket path to connect to.
+     */
+    tor_assert(conn->address && strlen(conn->address) > 0);
+
+    log_debug(LD_EXIT, "about to try connecting");
+    result = connection_connect_unix(conn, conn->address, &socket_error);
+#endif /* defined(HAVE_SYS_UN_H) */
+  }
+
+  switch (result) {
     case -1: {
       int reason = errno_to_stream_end_reason(socket_error);
       connection_edge_end(edge_conn, reason);

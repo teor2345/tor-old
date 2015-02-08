@@ -227,7 +227,11 @@ STATIC void scale_array_elements_to_u64(u64_dbl_t *entries, int n_entries,
 MOCK_DECL(int, router_descriptor_is_older_than, (const routerinfo_t *router,
                                                  int seconds));
 MOCK_DECL(STATIC was_router_added_t, extrainfo_insert,
-          (routerlist_t *rl, extrainfo_t *ei));
+          (routerlist_t *rl, extrainfo_t *ei, int warn_if_incompatible));
+
+MOCK_DECL(STATIC void, initiate_descriptor_downloads,
+          (const routerstatus_t *source, int purpose, smartlist_t *digests,
+           int lo, int hi, int pds_flags));
 
 #endif
 

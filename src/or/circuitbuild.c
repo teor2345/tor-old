@@ -551,9 +551,13 @@ circuit_handle_first_hop(origin_circuit_t *circ)
  * open and get them to send their create cells forward.
  *
  * Status is 1 if connect succeeded, or 0 if connect failed.
+ *
+ * Close_origin_circuits is 1 if we should close all the origin circuits
+ * through this channel, or 0 otherwise.  (This happens when we want to retry
+ * an older guard.)
  */
 void
-circuit_n_chan_done(channel_t *chan, int status)
+circuit_n_chan_done(channel_t *chan, int status, int close_origin_circuits)
 {
   smartlist_t *pending_circs;
   int err_reason = 0;
@@ -588,6 +592,11 @@ circuit_n_chan_done(channel_t *chan, int status)
       }
       if (!status) { /* chan failed; close circ */
         log_info(LD_CIRC,"Channel failed; closing circ.");
+        circuit_mark_for_close(circ, END_CIRC_REASON_CHANNEL_CLOSED);
+        continue;
+      }
+      if (close_origin_circuits && CIRCUIT_IS_ORIGIN(circ)) {
+        log_info(LD_CIRC,"Channel deprecated for origin circs; closing circ.");
         circuit_mark_for_close(circ, END_CIRC_REASON_CHANNEL_CLOSED);
         continue;
       }
@@ -1242,8 +1251,10 @@ circuit_finish_handshake(origin_circuit_t *circ,
   crypt_path_t *hop;
   int rv;
 
-  if ((rv = pathbias_count_build_attempt(circ)) < 0)
+  if ((rv = pathbias_count_build_attempt(circ)) < 0) {
+    log_warn(LD_CIRC, "pathbias_count_build_attempt failed: %d", rv);
     return rv;
+  }
 
   if (circ->cpath->state == CPATH_STATE_AWAITING_KEYS) {
     hop = circ->cpath;
@@ -1257,12 +1268,15 @@ circuit_finish_handshake(origin_circuit_t *circ,
   tor_assert(hop->state == CPATH_STATE_AWAITING_KEYS);
 
   {
+    const char *msg = NULL;
     if (onion_skin_client_handshake(hop->handshake_state.tag,
                                     &hop->handshake_state,
                                     reply->reply, reply->handshake_len,
                                     (uint8_t*)keys, sizeof(keys),
-                                    (uint8_t*)hop->rend_circ_nonce) < 0) {
-      log_warn(LD_CIRC,"onion_skin_client_handshake failed.");
+                                    (uint8_t*)hop->rend_circ_nonce,
+                                    &msg) < 0) {
+      if (msg)
+        log_warn(LD_CIRC,"onion_skin_client_handshake failed: %s", msg);
       return -END_CIRC_REASON_TORPROTOCOL;
     }
   }

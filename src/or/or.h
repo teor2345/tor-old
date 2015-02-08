@@ -213,8 +213,7 @@ typedef enum {
 #define CONN_TYPE_DIR_LISTENER 8
 /** Type for HTTP connections to the directory server. */
 #define CONN_TYPE_DIR 9
-/** Connection from the main process to a CPU worker process. */
-#define CONN_TYPE_CPUWORKER 10
+/* Type 10 is unused. */
 /** Type for listening for connections from user interface process. */
 #define CONN_TYPE_CONTROL_LISTENER 11
 /** Type for connections from user interface process. */
@@ -275,17 +274,6 @@ typedef enum {
 
 /** State for any listener connection. */
 #define LISTENER_STATE_READY 0
-
-#define CPUWORKER_STATE_MIN_ 1
-/** State for a connection to a cpuworker process that's idle. */
-#define CPUWORKER_STATE_IDLE 1
-/** State for a connection to a cpuworker process that's processing a
- * handshake. */
-#define CPUWORKER_STATE_BUSY_ONION 2
-#define CPUWORKER_STATE_MAX_ 2
-
-#define CPUWORKER_TASK_ONION CPUWORKER_STATE_BUSY_ONION
-#define CPUWORKER_TASK_SHUTDOWN 255
 
 #define OR_CONN_STATE_MIN_ 1
 /** State for a connection to an OR: waiting for connect() to finish. */
@@ -2429,6 +2417,9 @@ typedef struct networkstatus_t {
   /** Vote only: what methods is this voter willing to use? */
   smartlist_t *supported_methods;
 
+  /** List of 'package' lines describing hashes of downloadable packages */
+  smartlist_t *package_lines;
+
   /** How long does this vote/consensus claim that authorities take to
    * distribute their votes to one another? */
   int vote_seconds;
@@ -2707,8 +2698,14 @@ typedef struct {
   time_t expiry_time;
 } cpath_build_state_t;
 
+/** "magic" value for an origin_circuit_t */
 #define ORIGIN_CIRCUIT_MAGIC 0x35315243u
+/** "magic" value for an or_circuit_t */
 #define OR_CIRCUIT_MAGIC 0x98ABC04Fu
+/** "magic" value for a circuit that would have been freed by circuit_free,
+ * but which we're keeping around until a cpuworker reply arrives.  See
+ * circuit_free() for more documentation. */
+#define DEAD_CIRCUIT_MAGIC 0xdeadc14c
 
 struct create_cell_t;
 
@@ -3128,6 +3125,9 @@ typedef struct or_circuit_t {
   /** Pointer to an entry on the onion queue, if this circuit is waiting for a
    * chance to give an onionskin to a cpuworker. Used only in onion.c */
   struct onion_queue_t *onionqueue_entry;
+  /** Pointer to a workqueue entry, if this circuit has given an onionskin to
+   * a cpuworker and is waiting for a response. Used only in cpuworker.c */
+  struct workqueue_entry_s *workqueue_entry;
 
   /** The circuit_id used in the previous (backward) hop of this circuit. */
   circid_t p_circ_id;
@@ -3436,6 +3436,7 @@ typedef struct {
   config_line_t *RecommendedVersions;
   config_line_t *RecommendedClientVersions;
   config_line_t *RecommendedServerVersions;
+  config_line_t *RecommendedPackages;
   /** Whether dirservers allow router descriptors with private IPs. */
   int DirAllowPrivateAddresses;
   /** Whether routers accept EXTEND cells to routers with private IPs. */
@@ -3466,9 +3467,6 @@ typedef struct {
                                  * for control connections. */
 
   int ControlSocketsGroupWritable; /**< Boolean: Are control sockets g+rw? */
-  config_line_t *SocksSocket; /**< List of Unix Domain Sockets to listen on
-                                 * for SOCKS connections. */
-
   int SocksSocketsGroupWritable; /**< Boolean: Are SOCKS sockets g+rw? */
   /** Ports to listen on for directory connections. */
   config_line_t *DirPort_lines;
@@ -3492,7 +3490,6 @@ typedef struct {
    */
   unsigned int ORPort_set : 1;
   unsigned int SocksPort_set : 1;
-  unsigned int SocksSocket_set : 1;
   unsigned int TransPort_set : 1;
   unsigned int NATDPort_set : 1;
   unsigned int ControlPort_set : 1;
@@ -4964,14 +4961,13 @@ typedef struct dir_server_t {
  * or extrainfo documents.
  *
  * Passed to router_pick_directory_server (et al)
- *
- * [XXXX NOTE: This option is only implemented for pick_trusteddirserver,
- *  not pick_directory_server.  If we make it work on pick_directory_server
- *  too, we could conservatively make it only prevent multiple fetches to
- *  the same authority, or we could aggressively make it prevent multiple
- *  fetches to _any_ single directory server.]
  */
 #define PDS_NO_EXISTING_SERVERDESC_FETCH (1<<3)
+/** Flag to indicate that we should not use any directory authority to which
+ * we have an existing directory connection for downloading microdescs.
+ *
+ * Passed to router_pick_directory_server (et al)
+ */
 #define PDS_NO_EXISTING_MICRODESC_FETCH (1<<4)
 
 /** This node is to be chosen as a directory guard, so don't choose any

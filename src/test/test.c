@@ -3,10 +3,6 @@
  * Copyright (c) 2007-2015, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
-/* Ordinarily defined in tor_main.c; this bit is just here to provide one
- * since we're not linking to tor_main.c */
-const char tor_git_revision[] = "";
-
 /**
  * \file test.c
  * \brief Unit tests for many pieces of the lower level Tor modules.
@@ -67,171 +63,6 @@ double fabs(double x);
 #include "crypto_curve25519.h"
 #include "onion_ntor.h"
 
-#ifdef USE_DMALLOC
-#include <dmalloc.h>
-#include <openssl/crypto.h>
-#include "main.h"
-#endif
-
-/** Set to true if any unit test has failed.  Mostly, this is set by the macros
- * in test.h */
-int have_failed = 0;
-
-/** Temporary directory (set up by setup_directory) under which we store all
- * our files during testing. */
-static char temp_dir[256];
-#ifdef _WIN32
-#define pid_t int
-#endif
-static pid_t temp_dir_setup_in_pid = 0;
-
-/** Select and create the temporary directory we'll use to run our unit tests.
- * Store it in <b>temp_dir</b>.  Exit immediately if we can't create it.
- * idempotent. */
-static void
-setup_directory(void)
-{
-  static int is_setup = 0;
-  int r;
-  char rnd[256], rnd32[256];
-  if (is_setup) return;
-
-/* Due to base32 limitation needs to be a multiple of 5. */
-#define RAND_PATH_BYTES 5
-  crypto_rand(rnd, RAND_PATH_BYTES);
-  base32_encode(rnd32, sizeof(rnd32), rnd, RAND_PATH_BYTES);
-
-#ifdef _WIN32
-  {
-    char buf[MAX_PATH];
-    const char *tmp = buf;
-    const char *extra_backslash = "";
-    /* If this fails, we're probably screwed anyway */
-    if (!GetTempPathA(sizeof(buf),buf))
-      tmp = "c:\\windows\\temp\\";
-    if (strcmpend(tmp, "\\")) {
-      /* According to MSDN, it should be impossible for GetTempPath to give us
-       * an answer that doesn't end with \.  But let's make sure. */
-      extra_backslash = "\\";
-    }
-    tor_snprintf(temp_dir, sizeof(temp_dir),
-                 "%s%stor_test_%d_%s", tmp, extra_backslash,
-                 (int)getpid(), rnd32);
-    r = mkdir(temp_dir);
-  }
-#else
-  tor_snprintf(temp_dir, sizeof(temp_dir), "/tmp/tor_test_%d_%s",
-               (int) getpid(), rnd32);
-  r = mkdir(temp_dir, 0700);
-  if (!r) {
-    /* undo sticky bit so tests don't get confused. */
-    r = chown(temp_dir, getuid(), getgid());
-  }
-#endif
-  if (r) {
-    fprintf(stderr, "Can't create directory %s:", temp_dir);
-    perror("");
-    exit(1);
-  }
-  is_setup = 1;
-  temp_dir_setup_in_pid = getpid();
-}
-
-/** Return a filename relative to our testing temporary directory */
-const char *
-get_fname(const char *name)
-{
-  static char buf[1024];
-  setup_directory();
-  if (!name)
-    return temp_dir;
-  tor_snprintf(buf,sizeof(buf),"%s/%s",temp_dir,name);
-  return buf;
-}
-
-/* Remove a directory and all of its subdirectories */
-static void
-rm_rf(const char *dir)
-{
-  struct stat st;
-  smartlist_t *elements;
-
-  elements = tor_listdir(dir);
-  if (elements) {
-    SMARTLIST_FOREACH_BEGIN(elements, const char *, cp) {
-         char *tmp = NULL;
-         tor_asprintf(&tmp, "%s"PATH_SEPARATOR"%s", dir, cp);
-         if (0 == stat(tmp,&st) && (st.st_mode & S_IFDIR)) {
-           rm_rf(tmp);
-         } else {
-           if (unlink(tmp)) {
-             fprintf(stderr, "Error removing %s: %s\n", tmp, strerror(errno));
-           }
-         }
-         tor_free(tmp);
-    } SMARTLIST_FOREACH_END(cp);
-    SMARTLIST_FOREACH(elements, char *, cp, tor_free(cp));
-    smartlist_free(elements);
-  }
-  if (rmdir(dir))
-    fprintf(stderr, "Error removing directory %s: %s\n", dir, strerror(errno));
-}
-
-/** Remove all files stored under the temporary directory, and the directory
- * itself.  Called by atexit(). */
-static void
-remove_directory(void)
-{
-  if (getpid() != temp_dir_setup_in_pid) {
-    /* Only clean out the tempdir when the main process is exiting. */
-    return;
-  }
-
-  rm_rf(temp_dir);
-}
-
-/** Define this if unit tests spend too much time generating public keys*/
-#undef CACHE_GENERATED_KEYS
-
-static crypto_pk_t *pregen_keys[5] = {NULL, NULL, NULL, NULL, NULL};
-#define N_PREGEN_KEYS ARRAY_LENGTH(pregen_keys)
-
-/** Generate and return a new keypair for use in unit tests.  If we're using
- * the key cache optimization, we might reuse keys: we only guarantee that
- * keys made with distinct values for <b>idx</b> are different.  The value of
- * <b>idx</b> must be at least 0, and less than N_PREGEN_KEYS. */
-crypto_pk_t *
-pk_generate(int idx)
-{
-#ifdef CACHE_GENERATED_KEYS
-  tor_assert(idx < N_PREGEN_KEYS);
-  if (! pregen_keys[idx]) {
-    pregen_keys[idx] = crypto_pk_new();
-    tor_assert(!crypto_pk_generate_key(pregen_keys[idx]));
-  }
-  return crypto_pk_dup_key(pregen_keys[idx]);
-#else
-  crypto_pk_t *result;
-  (void) idx;
-  result = crypto_pk_new();
-  tor_assert(!crypto_pk_generate_key(result));
-  return result;
-#endif
-}
-
-/** Free all storage used for the cached key optimization. */
-static void
-free_pregenerated_keys(void)
-{
-  unsigned idx;
-  for (idx = 0; idx < N_PREGEN_KEYS; ++idx) {
-    if (pregen_keys[idx]) {
-      crypto_pk_free(pregen_keys[idx]);
-      pregen_keys[idx] = NULL;
-    }
-  }
-}
-
 /** Run unit tests for the onion handshake code. */
 static void
 test_onion_handshake(void *arg)
@@ -275,7 +106,8 @@ test_onion_handshake(void *arg)
 
     /* client handshake 2 */
     memset(c_keys, 0, 40);
-    tt_assert(! onion_skin_TAP_client_handshake(c_dh, s_buf, c_keys, 40));
+    tt_assert(! onion_skin_TAP_client_handshake(c_dh, s_buf, c_keys,
+                                                40, NULL));
 
     tt_mem_op(c_keys,OP_EQ, s_keys, 40);
     memset(s_buf, 0, 40);
@@ -348,18 +180,18 @@ test_bad_onion_handshake(void *arg)
   /* Client: Case 1: The server sent back junk. */
   s_buf[64] ^= 33;
   tt_int_op(-1, OP_EQ,
-            onion_skin_TAP_client_handshake(c_dh, s_buf, c_keys, 40));
+            onion_skin_TAP_client_handshake(c_dh, s_buf, c_keys, 40, NULL));
   s_buf[64] ^= 33;
 
   /* Let the client finish; make sure it can. */
   tt_int_op(0, OP_EQ,
-            onion_skin_TAP_client_handshake(c_dh, s_buf, c_keys, 40));
+            onion_skin_TAP_client_handshake(c_dh, s_buf, c_keys, 40, NULL));
   tt_mem_op(s_keys,OP_EQ, c_keys, 40);
 
   /* Client: Case 2: The server sent back a degenerate DH. */
   memset(s_buf, 0, sizeof(s_buf));
   tt_int_op(-1, OP_EQ,
-            onion_skin_TAP_client_handshake(c_dh, s_buf, c_keys, 40));
+            onion_skin_TAP_client_handshake(c_dh, s_buf, c_keys, 40, NULL));
 
  done:
   crypto_dh_free(c_dh);
@@ -408,7 +240,7 @@ test_ntor_handshake(void *arg)
   /* client handshake 2 */
   memset(c_keys, 0, 40);
   tt_int_op(0, OP_EQ, onion_skin_ntor_client_handshake(c_state, s_buf,
-                                                    c_keys, 400));
+                                                       c_keys, 400, NULL));
 
   tt_mem_op(c_keys,OP_EQ, s_keys, 400);
   memset(s_buf, 0, 40);
@@ -611,6 +443,14 @@ test_circuit_timeout(void *arg)
     tt_assert(circuit_build_times_network_check_live(&final));
 
     circuit_build_times_count_timeout(&final, 1);
+
+    /* Ensure return value for degenerate cases are clamped correctly */
+    initial.alpha = INT32_MAX;
+    tt_assert(circuit_build_times_calculate_timeout(&initial, .99999999) <=
+              INT32_MAX);
+    initial.alpha = 0;
+    tt_assert(circuit_build_times_calculate_timeout(&initial, .5) <=
+              INT32_MAX);
   }
 
  done:
@@ -1277,165 +1117,88 @@ static struct testcase_t test_array[] = {
   END_OF_TESTCASES
 };
 
-extern struct testcase_t addr_tests[];
-extern struct testcase_t buffer_tests[];
-extern struct testcase_t crypto_tests[];
-extern struct testcase_t container_tests[];
-extern struct testcase_t util_tests[];
-extern struct testcase_t dir_tests[];
-extern struct testcase_t checkdir_tests[];
-extern struct testcase_t microdesc_tests[];
-extern struct testcase_t pt_tests[];
-extern struct testcase_t config_tests[];
-extern struct testcase_t introduce_tests[];
-extern struct testcase_t replaycache_tests[];
-extern struct testcase_t relaycell_tests[];
-extern struct testcase_t cell_format_tests[];
-extern struct testcase_t circuitlist_tests[];
-extern struct testcase_t circuitmux_tests[];
-extern struct testcase_t cell_queue_tests[];
-extern struct testcase_t options_tests[];
-extern struct testcase_t socks_tests[];
-extern struct testcase_t entrynodes_tests[];
-extern struct testcase_t extorport_tests[];
-extern struct testcase_t controller_event_tests[];
-extern struct testcase_t logging_tests[];
-extern struct testcase_t hs_tests[];
-extern struct testcase_t nodelist_tests[];
-extern struct testcase_t routerkeys_tests[];
-extern struct testcase_t oom_tests[];
 extern struct testcase_t accounting_tests[];
-extern struct testcase_t policy_tests[];
-extern struct testcase_t status_tests[];
-extern struct testcase_t routerset_tests[];
-extern struct testcase_t router_tests[];
+extern struct testcase_t addr_tests[];
+extern struct testcase_t address_tests[];
+extern struct testcase_t buffer_tests[];
+extern struct testcase_t cell_format_tests[];
+extern struct testcase_t cell_queue_tests[];
 extern struct testcase_t channel_tests[];
 extern struct testcase_t channeltls_tests[];
-extern struct testcase_t relay_tests[];
-extern struct testcase_t scheduler_tests[];
+extern struct testcase_t checkdir_tests[];
+extern struct testcase_t circuitlist_tests[];
+extern struct testcase_t circuitmux_tests[];
+extern struct testcase_t config_tests[];
+extern struct testcase_t container_tests[];
+extern struct testcase_t controller_event_tests[];
+extern struct testcase_t crypto_tests[];
+extern struct testcase_t dir_tests[];
 extern struct testcase_t entryconn_tests[];
+extern struct testcase_t entrynodes_tests[];
+extern struct testcase_t extorport_tests[];
+extern struct testcase_t hs_tests[];
+extern struct testcase_t introduce_tests[];
+extern struct testcase_t logging_tests[];
+extern struct testcase_t microdesc_tests[];
+extern struct testcase_t nodelist_tests[];
+extern struct testcase_t oom_tests[];
+extern struct testcase_t options_tests[];
+extern struct testcase_t policy_tests[];
+extern struct testcase_t pt_tests[];
+extern struct testcase_t relay_tests[];
+extern struct testcase_t relaycell_tests[];
+extern struct testcase_t replaycache_tests[];
+extern struct testcase_t router_tests[];
+extern struct testcase_t routerkeys_tests[];
+extern struct testcase_t routerlist_tests[];
+extern struct testcase_t routerset_tests[];
+extern struct testcase_t scheduler_tests[];
+extern struct testcase_t socks_tests[];
+extern struct testcase_t status_tests[];
+extern struct testcase_t thread_tests[];
+extern struct testcase_t util_tests[];
 
-static struct testgroup_t testgroups[] = {
+struct testgroup_t testgroups[] = {
   { "", test_array },
-  { "buffer/", buffer_tests },
-  { "socks/", socks_tests },
+  { "accounting/", accounting_tests },
   { "addr/", addr_tests },
-  { "crypto/", crypto_tests },
-  { "container/", container_tests },
-  { "util/", util_tests },
-  { "util/logging/", logging_tests },
+  { "address/", address_tests },
+  { "buffer/", buffer_tests },
   { "cellfmt/", cell_format_tests },
   { "cellqueue/", cell_queue_tests },
-  { "dir/", dir_tests },
-  { "checkdir/", checkdir_tests },
-  { "dir/md/", microdesc_tests },
-  { "pt/", pt_tests },
-  { "config/", config_tests },
-  { "replaycache/", replaycache_tests },
-  { "relaycell/", relaycell_tests },
-  { "introduce/", introduce_tests },
-  { "circuitlist/", circuitlist_tests },
-  { "circuitmux/", circuitmux_tests },
-  { "options/", options_tests },
-  { "entrynodes/", entrynodes_tests },
-  { "entryconn/", entryconn_tests },
-  { "extorport/", extorport_tests },
-  { "control/", controller_event_tests },
-  { "hs/", hs_tests },
-  { "nodelist/", nodelist_tests },
-  { "routerkeys/", routerkeys_tests },
-  { "oom/", oom_tests },
-  { "accounting/", accounting_tests },
-  { "policy/" , policy_tests },
-  { "status/" , status_tests },
-  { "routerset/" , routerset_tests },
   { "channel/", channel_tests },
   { "channeltls/", channeltls_tests },
+  { "checkdir/", checkdir_tests },
+  { "circuitlist/", circuitlist_tests },
+  { "circuitmux/", circuitmux_tests },
+  { "config/", config_tests },
+  { "container/", container_tests },
+  { "control/", controller_event_tests },
+  { "crypto/", crypto_tests },
+  { "dir/", dir_tests },
+  { "dir/md/", microdesc_tests },
+  { "entryconn/", entryconn_tests },
+  { "entrynodes/", entrynodes_tests },
+  { "extorport/", extorport_tests },
+  { "hs/", hs_tests },
+  { "introduce/", introduce_tests },
+  { "nodelist/", nodelist_tests },
+  { "oom/", oom_tests },
+  { "options/", options_tests },
+  { "policy/" , policy_tests },
+  { "pt/", pt_tests },
   { "relay/" , relay_tests },
+  { "relaycell/", relaycell_tests },
+  { "replaycache/", replaycache_tests },
+  { "routerkeys/", routerkeys_tests },
+  { "routerlist/", routerlist_tests },
+  { "routerset/" , routerset_tests },
   { "scheduler/", scheduler_tests },
+  { "socks/", socks_tests },
+  { "status/" , status_tests },
+  { "util/", util_tests },
+  { "util/logging/", logging_tests },
+  { "util/thread/", thread_tests },
   END_OF_GROUPS
 };
-
-/** Main entry point for unit test code: parse the command line, and run
- * some unit tests. */
-int
-main(int c, const char **v)
-{
-  or_options_t *options;
-  char *errmsg = NULL;
-  int i, i_out;
-  int loglevel = LOG_ERR;
-  int accel_crypto = 0;
-
-#ifdef USE_DMALLOC
-  {
-    int r = CRYPTO_set_mem_ex_functions(tor_malloc_, tor_realloc_, tor_free_);
-    tor_assert(r);
-  }
-#endif
-
-  update_approx_time(time(NULL));
-  options = options_new();
-  tor_threads_init();
-  init_logging(1);
-  configure_backtrace_handler(get_version());
-
-  for (i_out = i = 1; i < c; ++i) {
-    if (!strcmp(v[i], "--warn")) {
-      loglevel = LOG_WARN;
-    } else if (!strcmp(v[i], "--notice")) {
-      loglevel = LOG_NOTICE;
-    } else if (!strcmp(v[i], "--info")) {
-      loglevel = LOG_INFO;
-    } else if (!strcmp(v[i], "--debug")) {
-      loglevel = LOG_DEBUG;
-    } else if (!strcmp(v[i], "--accel")) {
-      accel_crypto = 1;
-    } else {
-      v[i_out++] = v[i];
-    }
-  }
-  c = i_out;
-
-  {
-    log_severity_list_t s;
-    memset(&s, 0, sizeof(s));
-    set_log_severity_config(loglevel, LOG_ERR, &s);
-    add_stream_log(&s, "", fileno(stdout));
-  }
-
-  options->command = CMD_RUN_UNITTESTS;
-  if (crypto_global_init(accel_crypto, NULL, NULL)) {
-    printf("Can't initialize crypto subsystem; exiting.\n");
-    return 1;
-  }
-  crypto_set_tls_dh_prime(NULL);
-  crypto_seed_rng(1);
-  rep_hist_init();
-  network_init();
-  setup_directory();
-  options_init(options);
-  options->DataDirectory = tor_strdup(temp_dir);
-  options->EntryStatistics = 1;
-  if (set_options(options, &errmsg) < 0) {
-    printf("Failed to set initial options: %s\n", errmsg);
-    tor_free(errmsg);
-    return 1;
-  }
-
-  atexit(remove_directory);
-
-  have_failed = (tinytest_main(c, v, testgroups) != 0);
-
-  free_pregenerated_keys();
-#ifdef USE_DMALLOC
-  tor_free_all(0);
-  dmalloc_log_unfreed();
-#endif
-
-  if (have_failed)
-    return 1;
-  else
-    return 0;
-}
 
