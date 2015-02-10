@@ -415,6 +415,7 @@ static config_var_t option_vars_[] = {
   V(UseBridges,                  BOOL,     "0"),
   V(UseEntryGuards,              BOOL,     "1"),
   V(UseEntryGuardsAsDirGuards,   BOOL,     "1"),
+  V(UseGuardFraction,            AUTOBOOL, "auto"),
   V(UseMicrodescriptors,         AUTOBOOL, "auto"),
   V(UseNTorHandshake,            AUTOBOOL, "1"),
   V(User,                        STRING,   NULL),
@@ -432,6 +433,7 @@ static config_var_t option_vars_[] = {
   V(V3AuthNIntervalsValid,       UINT,     "3"),
   V(V3AuthUseLegacyKey,          BOOL,     "0"),
   V(V3BandwidthsFile,            FILENAME, NULL),
+  V(GuardfractionFile,           FILENAME, NULL),
   VAR("VersioningAuthoritativeDirectory",BOOL,VersioningAuthoritativeDir, "0"),
   V(VirtualAddrNetworkIPv4,      STRING,   "127.192.0.0/10"),
   V(VirtualAddrNetworkIPv6,      STRING,   "[FE80::]/10"),
@@ -2783,6 +2785,16 @@ options_validate(or_options_t *old_options, or_options_t *options,
     /* If we have a v3bandwidthsfile and it's broken, complain on startup */
     if (options->V3BandwidthsFile && !old_options) {
       dirserv_read_measured_bandwidths(options->V3BandwidthsFile, NULL);
+    }
+    /* same for guardfraction file */
+    if (options->GuardfractionFile && !old_options) {
+      file_status_t fs = file_status(options->GuardfractionFile);
+      if (fs == FN_FILE) {
+        dirserv_read_guardfraction_file(options->GuardfractionFile, NULL);
+      } else { /* path is not a file. or it's an empty file. */
+        COMPLAIN("GuardfractionFile is not a proper file. Disabling.");
+        options->GuardfractionFile = NULL;
+      }
     }
   }
 

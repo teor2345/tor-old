@@ -86,6 +86,10 @@
  * MIN_METHOD_TO_CLIP_UNMEASURED_BW */
 #define DEFAULT_MAX_UNMEASURED_BW_KB 20
 
+/** Lowest consensus method where authorities may include
+ * GuardFraction information in microdescriptors. */
+#define MIN_METHOD_FOR_GUARDFRACTION 21
+
 void dirvote_free_all(void);
 
 /* vote manipulation */
