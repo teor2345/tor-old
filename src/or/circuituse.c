@@ -845,12 +845,14 @@ circuit_log_ancient_one_hop_circuits(int age)
     }
 
     log_notice(LD_HEARTBEAT, "  #%d created at %s. %s, %s. %s for close. "
+               "Package window: %d. "
                "%s for new conns. %s.",
                ocirc_sl_idx,
                created,
                circuit_state_to_string(circ->state),
                circuit_purpose_to_string(circ->purpose),
                circ->marked_for_close ? "Marked" : "Not marked",
+               circ->package_window,
                ocirc->unusable_for_new_conns ? "Not usable" : "usable",
                dirty);
     tor_free(dirty);
@@ -866,12 +868,18 @@ circuit_log_ancient_one_hop_circuits(int age)
 
       log_notice(LD_HEARTBEAT, "     Stream#%d created at %s. "
                  "%s conn in state %s. "
+                 "It is %slinked and %sreading from a linked connection %p. "
+                 "Package window %d. "
                  "%s for close (%s:%d). Hold-open is %sset. "
                  "Has %ssent RELAY_END. %s on circuit.",
                  stream_num,
                  stream_created,
                  conn_type_to_string(c->type),
                  conn_state_to_string(c->type, c->state),
+                 c->linked ? "" : "not ",
+                 c->reading_from_linked_conn ? "": "not",
+                 c->linked_conn,
+                 conn->package_window,
                  c->marked_for_close ? "Marked" : "Not marked",
                  c->marked_for_close_file ? c->marked_for_close_file : "--",
                  c->marked_for_close,
@@ -1677,6 +1685,7 @@ circuit_launch_by_extend_info(uint8_t purpose,
   origin_circuit_t *circ;
   int onehop_tunnel = (flags & CIRCLAUNCH_ONEHOP_TUNNEL) != 0;
   int have_path = have_enough_path_info(! (flags & CIRCLAUNCH_IS_INTERNAL) );
+  int need_specific_rp = 0;
 
   if (!onehop_tunnel && (!router_have_minimum_dir_info() || !have_path)) {
     log_debug(LD_CIRC,"Haven't %s yet; canceling "
@@ -1687,8 +1696,17 @@ circuit_launch_by_extend_info(uint8_t purpose,
     return NULL;
   }
 
+  /* If Tor2webRendezvousPoints is enabled and we are dealing with an
+     RP circuit, we want a specific RP node so we shouldn't canibalize
+     an already existing circuit. */
+  if (get_options()->Tor2webRendezvousPoints &&
+      purpose == CIRCUIT_PURPOSE_C_ESTABLISH_REND) {
+    need_specific_rp = 1;
+  }
+
   if ((extend_info || purpose != CIRCUIT_PURPOSE_C_GENERAL) &&
-      purpose != CIRCUIT_PURPOSE_TESTING && !onehop_tunnel) {
+      purpose != CIRCUIT_PURPOSE_TESTING &&
+      !onehop_tunnel && !need_specific_rp) {
     /* see if there are appropriate circs available to cannibalize. */
     /* XXX if we're planning to add a hop, perhaps we want to look for
      * internal circs rather than exit circs? -RD */
@@ -2018,11 +2036,13 @@ circuit_get_open_circ_or_launch(entry_connection_t *conn,
     else
       new_circ_purpose = desired_circuit_purpose;
 
+#ifdef ENABLE_TOR2WEB_MODE
     if (options->Tor2webMode &&
         (new_circ_purpose == CIRCUIT_PURPOSE_C_ESTABLISH_REND ||
          new_circ_purpose == CIRCUIT_PURPOSE_C_INTRODUCING)) {
       want_onehop = 1;
     }
+#endif
 
     {
       int flags = CIRCLAUNCH_NEED_CAPACITY;

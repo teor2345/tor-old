@@ -80,6 +80,7 @@ static config_abbrev_t option_abbrevs_[] = {
   PLURAL(AuthDirRejectCC),
   PLURAL(EntryNode),
   PLURAL(ExcludeNode),
+  PLURAL(Tor2webRendezvousPoint),
   PLURAL(FirewallPort),
   PLURAL(LongLivedPort),
   PLURAL(HiddenServiceNode),
@@ -404,6 +405,7 @@ static config_var_t option_vars_[] = {
   V(TestSocks,                   BOOL,     "0"),
   V(TokenBucketRefillInterval,   MSEC_INTERVAL, "100 msec"),
   V(Tor2webMode,                 BOOL,     "0"),
+  V(Tor2webRendezvousPoints,      ROUTERSET, NULL),
   V(TLSECGroup,                  STRING,   NULL),
   V(TrackHostExits,              CSV,      NULL),
   V(TrackHostExitsExpire,        INTERVAL, "30 minutes"),
@@ -415,6 +417,7 @@ static config_var_t option_vars_[] = {
   V(UseBridges,                  BOOL,     "0"),
   V(UseEntryGuards,              BOOL,     "1"),
   V(UseEntryGuardsAsDirGuards,   BOOL,     "1"),
+  V(UseGuardFraction,            AUTOBOOL, "auto"),
   V(UseMicrodescriptors,         AUTOBOOL, "auto"),
   V(UseNTorHandshake,            AUTOBOOL, "1"),
   V(User,                        STRING,   NULL),
@@ -432,6 +435,7 @@ static config_var_t option_vars_[] = {
   V(V3AuthNIntervalsValid,       UINT,     "3"),
   V(V3AuthUseLegacyKey,          BOOL,     "0"),
   V(V3BandwidthsFile,            FILENAME, NULL),
+  V(GuardfractionFile,           FILENAME, NULL),
   VAR("VersioningAuthoritativeDirectory",BOOL,VersioningAuthoritativeDir, "0"),
   V(VirtualAddrNetworkIPv4,      STRING,   "127.192.0.0/10"),
   V(VirtualAddrNetworkIPv6,      STRING,   "[FE80::]/10"),
@@ -871,7 +875,7 @@ add_default_trusted_dir_authorities(dirinfo_type_t type)
       "171.25.193.9:443 BD6A 8292 55CB 08E6 6FBE 7D37 4836 3586 E46B 3810",
     "Faravahar orport=443 "
       "v3ident=EFCBE720AB3A82B99F9E953CD5BF50F7EEFC7B97 "
-      "154.35.32.5:80 CF6D 0AAF B385 BE71 B8E1 11FC 5CFF 4B47 9237 33BC",
+      "154.35.175.225:80 CF6D 0AAF B385 BE71 B8E1 11FC 5CFF 4B47 9237 33BC",
     "longclaw orport=443 "
       "v3ident=23D15D965BC35114467363C165C4F724B64B4F66 "
       "199.254.238.52:80 74A9 1064 6BCE EFBC D2E8 74FC 1DC9 9743 0F96 8145",
@@ -1262,7 +1266,8 @@ options_need_geoip_info(const or_options_t *options, const char **reason_out)
     routerset_needs_geoip(options->EntryNodes) ||
     routerset_needs_geoip(options->ExitNodes) ||
     routerset_needs_geoip(options->ExcludeExitNodes) ||
-    routerset_needs_geoip(options->ExcludeNodes);
+    routerset_needs_geoip(options->ExcludeNodes) ||
+    routerset_needs_geoip(options->Tor2webRendezvousPoints);
 
   if (routerset_usage && reason_out) {
     *reason_out = "We've been configured to use (or avoid) nodes in certain "
@@ -1395,7 +1400,7 @@ options_act(const or_options_t *old_options)
     log_err(LD_CONFIG, "This copy of Tor was not compiled to run in "
             "'tor2web mode'. It cannot be run with the Tor2webMode torrc "
             "option enabled. To enable Tor2webMode recompile with the "
-            "--enable-tor2webmode option.");
+            "--enable-tor2web-mode option.");
     return -1;
   }
 #endif
@@ -1651,6 +1656,8 @@ options_act(const or_options_t *old_options)
                          options->ExcludeExitNodes) ||
         !routerset_equal(old_options->EntryNodes, options->EntryNodes) ||
         !routerset_equal(old_options->ExitNodes, options->ExitNodes) ||
+        !routerset_equal(old_options->Tor2webRendezvousPoints,
+                         options->Tor2webRendezvousPoints) ||
         options->StrictNodes != old_options->StrictNodes) {
       log_info(LD_CIRC,
                "Changed to using entry guards or bridges, or changed "
@@ -1716,6 +1723,7 @@ options_act(const or_options_t *old_options)
                "Worker-related options changed. Rotating workers.");
 
       if (server_mode(options) && !server_mode(old_options)) {
+        cpu_init();
         ip_address_changed(0);
         if (have_completed_a_circuit() || !any_predicted_circuits(time(NULL)))
           inform_testing_reachability();
@@ -2784,6 +2792,10 @@ options_validate(or_options_t *old_options, or_options_t *options,
     if (options->V3BandwidthsFile && !old_options) {
       dirserv_read_measured_bandwidths(options->V3BandwidthsFile, NULL);
     }
+    /* same for guardfraction file */
+    if (options->GuardfractionFile && !old_options) {
+      dirserv_read_guardfraction_file(options->GuardfractionFile, NULL);
+    }
   }
 
   if (options->AuthoritativeDir && !options->DirPort_set)
@@ -3025,6 +3037,7 @@ options_validate(or_options_t *old_options, or_options_t *options,
     options->PredictedPortsRelevanceTime = MAX_PREDICTED_CIRCS_RELEVANCE;
   }
 
+#ifdef ENABLE_TOR2WEB_MODE
   if (options->Tor2webMode && options->LearnCircuitBuildTimeout) {
     /* LearnCircuitBuildTimeout and Tor2webMode are incompatible in
      * two ways:
@@ -3055,6 +3068,11 @@ options_validate(or_options_t *old_options, or_options_t *options,
     log_notice(LD_CONFIG,
                "Tor2WebMode is enabled; disabling UseEntryGuards.");
     options->UseEntryGuards = 0;
+  }
+#endif
+
+  if (options->Tor2webRendezvousPoints && !options->Tor2webMode) {
+    REJECT("Tor2webRendezvousPoints cannot be set without Tor2webMode.");
   }
 
   if (!(options->UseEntryGuards) &&
@@ -3180,29 +3198,34 @@ options_validate(or_options_t *old_options, or_options_t *options,
     options->RelayBandwidthRate = options->RelayBandwidthBurst;
 
   if (server_mode(options)) {
-    if (options->BandwidthRate < ROUTER_REQUIRED_MIN_BANDWIDTH) {
+    const unsigned required_min_bw =
+      public_server_mode(options) ?
+       RELAY_REQUIRED_MIN_BANDWIDTH : BRIDGE_REQUIRED_MIN_BANDWIDTH;
+    const char * const optbridge =
+      public_server_mode(options) ? "" : "bridge ";
+    if (options->BandwidthRate < required_min_bw) {
       tor_asprintf(msg,
                        "BandwidthRate is set to %d bytes/second. "
-                       "For servers, it must be at least %d.",
-                       (int)options->BandwidthRate,
-                       ROUTER_REQUIRED_MIN_BANDWIDTH);
+                       "For %sservers, it must be at least %u.",
+                       (int)options->BandwidthRate, optbridge,
+                       required_min_bw);
       return -1;
     } else if (options->MaxAdvertisedBandwidth <
-               ROUTER_REQUIRED_MIN_BANDWIDTH/2) {
+               required_min_bw/2) {
       tor_asprintf(msg,
                        "MaxAdvertisedBandwidth is set to %d bytes/second. "
-                       "For servers, it must be at least %d.",
-                       (int)options->MaxAdvertisedBandwidth,
-                       ROUTER_REQUIRED_MIN_BANDWIDTH/2);
+                       "For %sservers, it must be at least %u.",
+                       (int)options->MaxAdvertisedBandwidth, optbridge,
+                       required_min_bw/2);
       return -1;
     }
     if (options->RelayBandwidthRate &&
-      options->RelayBandwidthRate < ROUTER_REQUIRED_MIN_BANDWIDTH) {
+      options->RelayBandwidthRate < required_min_bw) {
       tor_asprintf(msg,
                        "RelayBandwidthRate is set to %d bytes/second. "
-                       "For servers, it must be at least %d.",
-                       (int)options->RelayBandwidthRate,
-                       ROUTER_REQUIRED_MIN_BANDWIDTH);
+                       "For %sservers, it must be at least %u.",
+                       (int)options->RelayBandwidthRate, optbridge,
+                       required_min_bw);
       return -1;
     }
   }
@@ -6150,6 +6173,7 @@ parse_port_config(smartlist_t *out,
  err:
   SMARTLIST_FOREACH(elts, char *, cp, tor_free(cp));
   smartlist_free(elts);
+  tor_free(unix_socket_path);
   return retval;
 }
 

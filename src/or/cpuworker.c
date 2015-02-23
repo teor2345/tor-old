@@ -71,7 +71,8 @@ replyqueue_process_cb(evutil_socket_t sock, short events, void *arg)
   replyqueue_process(rq);
 }
 
-/** Initialize the cpuworker subsystem.
+/** Initialize the cpuworker subsystem. It is OK to call this more than once
+ * during Tor's lifetime.
  */
 void
 cpu_init(void)
@@ -358,8 +359,7 @@ cpuworker_onion_handshake_replyfn(void *work_)
     log_debug(LD_OR,
               "decoding onionskin failed. "
               "(Old key or bad software.) Closing.");
-    if (circ)
-      circuit_mark_for_close(TO_CIRCUIT(circ), END_CIRC_REASON_TORPROTOCOL);
+    circuit_mark_for_close(TO_CIRCUIT(circ), END_CIRC_REASON_TORPROTOCOL);
     goto done_processing;
   }
 
@@ -556,8 +556,8 @@ cpuworker_cancel_circ_handshake(or_circuit_t *circ)
     tor_free(job);
     tor_assert(total_pending_tasks > 0);
     --total_pending_tasks;
+    /* if (!job), this is done in cpuworker_onion_handshake_replyfn. */
+    circ->workqueue_entry = NULL;
   }
-
-  circ->workqueue_entry = NULL;
 }
 

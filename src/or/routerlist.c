@@ -449,6 +449,19 @@ trusted_dirs_flush_certs_to_disk(void)
   trusted_dir_servers_certs_changed = 0;
 }
 
+static int
+compare_certs_by_pubdates(const void **_a, const void **_b)
+{
+  const authority_cert_t *cert1 = *_a, *cert2=*_b;
+
+  if (cert1->cache_info.published_on < cert2->cache_info.published_on)
+    return -1;
+  else if (cert1->cache_info.published_on >  cert2->cache_info.published_on)
+    return 1;
+  else
+    return 0;
+}
+
 /** Remove all expired v3 authority certificates that have been superseded for
  * more than 48 hours or, if not expired, that were published more than 7 days
  * before being superseded. (If the most recent cert was published more than 48
@@ -459,38 +472,44 @@ trusted_dirs_remove_old_certs(void)
 {
   time_t now = time(NULL);
 #define DEAD_CERT_LIFETIME (2*24*60*60)
-#define OLD_CERT_LIFETIME (7*24*60*60)
+#define SUPERSEDED_CERT_LIFETIME (2*24*60*60)
   if (!trusted_dir_certs)
     return;
 
   DIGESTMAP_FOREACH(trusted_dir_certs, key, cert_list_t *, cl) {
-    authority_cert_t *newest = NULL;
-    SMARTLIST_FOREACH(cl->certs, authority_cert_t *, cert,
-          if (!newest || (cert->cache_info.published_on >
-                          newest->cache_info.published_on))
-            newest = cert);
-    if (newest) {
-      const time_t newest_published = newest->cache_info.published_on;
-      SMARTLIST_FOREACH_BEGIN(cl->certs, authority_cert_t *, cert) {
-        int expired;
-        time_t cert_published;
-        if (newest == cert)
-          continue;
-        /* resolve spurious clang shallow analysis null pointer errors */
-        tor_assert(cert);
-        expired = now > cert->expires;
-        cert_published = cert->cache_info.published_on;
-        /* Store expired certs for 48 hours after a newer arrives;
+    /* Sort the list from first-published to last-published */
+    smartlist_sort(cl->certs, compare_certs_by_pubdates);
+
+    SMARTLIST_FOREACH_BEGIN(cl->certs, authority_cert_t *, cert) {
+      if (cert_sl_idx == smartlist_len(cl->certs) - 1) {
+        /* This is the most recently published cert.  Keep it. */
+        continue;
+      }
+      authority_cert_t *next_cert = smartlist_get(cl->certs, cert_sl_idx+1);
+      const time_t next_cert_published = next_cert->cache_info.published_on;
+      if (next_cert_published > now) {
+        /* All later certs are published in the future. Keep everything
+         * we didn't discard. */
+        break;
+      }
+      int should_remove = 0;
+      if (cert->expires + DEAD_CERT_LIFETIME < now) {
+        /* Certificate has been expired for at least DEAD_CERT_LIFETIME.
+         * Remove it. */
+        should_remove = 1;
+      } else if (next_cert_published + SUPERSEDED_CERT_LIFETIME < now) {
+        /* Certificate has been superseded for OLD_CERT_LIFETIME.
+         * Remove it.
          */
-        if (expired ?
-            (newest_published + DEAD_CERT_LIFETIME < now) :
-            (cert_published + OLD_CERT_LIFETIME < newest_published)) {
-          SMARTLIST_DEL_CURRENT(cl->certs, cert);
-          authority_cert_free(cert);
-          trusted_dir_servers_certs_changed = 1;
-        }
-      } SMARTLIST_FOREACH_END(cert);
-    }
+        should_remove = 1;
+      }
+      if (should_remove) {
+        SMARTLIST_DEL_CURRENT_KEEPORDER(cl->certs, cert);
+        authority_cert_free(cert);
+        trusted_dir_servers_certs_changed = 1;
+      }
+    } SMARTLIST_FOREACH_END(cert);
+
   } DIGESTMAP_FOREACH_END;
 #undef DEAD_CERT_LIFETIME
 #undef OLD_CERT_LIFETIME
@@ -1775,7 +1794,7 @@ routerlist_add_node_and_family(smartlist_t *sl, const routerinfo_t *router)
 /** Add every suitable node from our nodelist to <b>sl</b>, so that
  * we can pick a node for a circuit.
  */
-static void
+void
 router_add_running_nodes_to_smartlist(smartlist_t *sl, int allow_invalid,
                                       int need_uptime, int need_capacity,
                                       int need_guard, int need_desc)
@@ -2003,6 +2022,7 @@ compute_weighted_bandwidths(const smartlist_t *sl,
   double Wg = -1, Wm = -1, We = -1, Wd = -1;
   double Wgb = -1, Wmb = -1, Web = -1, Wdb = -1;
   uint64_t weighted_bw = 0;
+  guardfraction_bandwidth_t guardfraction_bw;
   u64_dbl_t *bandwidths;
 
   /* Can't choose exit and guard at same time */
@@ -2092,6 +2112,8 @@ compute_weighted_bandwidths(const smartlist_t *sl,
   SMARTLIST_FOREACH_BEGIN(sl, const node_t *, node) {
     int is_exit = 0, is_guard = 0, is_dir = 0, this_bw = 0;
     double weight = 1;
+    double weight_without_guard_flag = 0; /* Used for guardfraction */
+    double final_weight = 0;
     is_exit = node->is_exit && ! node->is_bad_exit;
     is_guard = node->is_possible_guard;
     is_dir = node_is_dir(node);
@@ -2119,8 +2141,10 @@ compute_weighted_bandwidths(const smartlist_t *sl,
 
     if (is_guard && is_exit) {
       weight = (is_dir ? Wdb*Wd : Wd);
+      weight_without_guard_flag = (is_dir ? Web*We : We);
     } else if (is_guard) {
       weight = (is_dir ? Wgb*Wg : Wg);
+      weight_without_guard_flag = (is_dir ? Wmb*Wm : Wm);
     } else if (is_exit) {
       weight = (is_dir ? Web*We : We);
     } else { // middle
@@ -2132,8 +2156,43 @@ compute_weighted_bandwidths(const smartlist_t *sl,
       this_bw = 0;
     if (weight < 0.0)
       weight = 0.0;
+    if (weight_without_guard_flag < 0.0)
+      weight_without_guard_flag = 0.0;
 
-    bandwidths[node_sl_idx].dbl = weight*this_bw + 0.5;
+    /* If guardfraction information is available in the consensus, we
+     * want to calculate this router's bandwidth according to its
+     * guardfraction. Quoting from proposal236:
+     *
+     *    Let Wpf denote the weight from the 'bandwidth-weights' line a
+     *    client would apply to N for position p if it had the guard
+     *    flag, Wpn the weight if it did not have the guard flag, and B the
+     *    measured bandwidth of N in the consensus.  Then instead of choosing
+     *    N for position p proportionally to Wpf*B or Wpn*B, clients should
+     *    choose N proportionally to F*Wpf*B + (1-F)*Wpn*B.
+     */
+    if (node->rs && node->rs->has_guardfraction && rule != WEIGHT_FOR_GUARD) {
+      /* XXX The assert should actually check for is_guard. However,
+       * that crashes dirauths because of #13297. This should be
+       * equivalent: */
+      tor_assert(node->rs->is_possible_guard);
+
+      guard_get_guardfraction_bandwidth(&guardfraction_bw,
+                                        this_bw,
+                                        node->rs->guardfraction_percentage);
+
+      /* Calculate final_weight = F*Wpf*B + (1-F)*Wpn*B */
+      final_weight =
+        guardfraction_bw.guard_bw * weight +
+        guardfraction_bw.non_guard_bw * weight_without_guard_flag;
+
+      log_debug(LD_GENERAL, "%s: Guardfraction weight %f instead of %f (%s)",
+                node->rs->nickname, final_weight, weight*this_bw,
+                bandwidth_weight_rule_to_string(rule));
+    } else { /* no guardfraction information. calculate the weight normally. */
+      final_weight = weight*this_bw;
+    }
+
+    bandwidths[node_sl_idx].dbl = final_weight + 0.5;
   } SMARTLIST_FOREACH_END(node);
 
   log_debug(LD_CIRC, "Generated weighted bandwidths for rule %s based "
@@ -2800,6 +2859,7 @@ extrainfo_insert,(routerlist_t *rl, extrainfo_t *ei, int warn_if_incompatible))
   signed_descriptor_t *sd =
     sdmap_get(rl->desc_by_eid_map, ei->cache_info.signed_descriptor_digest);
   extrainfo_t *ei_tmp;
+  const int severity = warn_if_incompatible ? LOG_WARN : LOG_INFO;
 
   {
     extrainfo_t *ei_generated = router_get_my_extrainfo();
@@ -2811,15 +2871,37 @@ extrainfo_insert,(routerlist_t *rl, extrainfo_t *ei, int warn_if_incompatible))
     r = ROUTER_NOT_IN_CONSENSUS;
     goto done;
   }
+  if (! sd) {
+    /* The extrainfo router doesn't have a known routerdesc to attach it to.
+     * This just won't work. */;
+    static ratelim_t no_sd_ratelim = RATELIM_INIT(1800);
+    r = ROUTER_BAD_EI;
+    log_fn_ratelim(&no_sd_ratelim, severity, LD_BUG,
+                   "No entry found in extrainfo map.");
+    goto done;
+  }
+  if (tor_memneq(ei->cache_info.signed_descriptor_digest,
+                 sd->extra_info_digest, DIGEST_LEN)) {
+    static ratelim_t digest_mismatch_ratelim = RATELIM_INIT(1800);
+    /* The sd we got from the map doesn't match the digest we used to look
+     * it up. This makes no sense. */
+    r = ROUTER_BAD_EI;
+    log_fn_ratelim(&digest_mismatch_ratelim, severity, LD_BUG,
+                     "Mismatch in digest in extrainfo map.");
+    goto done;
+  }
   if (routerinfo_incompatible_with_extrainfo(ri, ei, sd,
                                              &compatibility_error_msg)) {
-    const int severity = warn_if_incompatible ? LOG_WARN : LOG_INFO;
+    char d1[HEX_DIGEST_LEN+1], d2[HEX_DIGEST_LEN+1];
     r = (ri->cache_info.extrainfo_is_bogus) ?
       ROUTER_BAD_EI : ROUTER_NOT_IN_CONSENSUS;
 
+    base16_encode(d1, sizeof(d1), ri->cache_info.identity_digest, DIGEST_LEN);
+    base16_encode(d2, sizeof(d2), ei->cache_info.identity_digest, DIGEST_LEN);
+
     log_fn(severity,LD_DIR,
-           "router info incompatible with extra info (reason: %s)",
-           compatibility_error_msg);
+           "router info incompatible with extra info (ri id: %s, ei id %s, "
+           "reason: %s)", d1, d2, compatibility_error_msg);
 
     goto done;
   }
@@ -4597,7 +4679,7 @@ update_extrainfo_downloads(time_t now)
   smartlist_t *wanted;
   digestmap_t *pending;
   int old_routers, i, max_dl_per_req;
-  int n_no_ei = 0, n_pending = 0, n_have = 0, n_delay = 0;
+  int n_no_ei = 0, n_pending = 0, n_have = 0, n_delay = 0, n_bogus[2] = {0,0};
   if (! options->DownloadExtraInfo)
     return;
   if (should_delay_dir_fetches(options, NULL))
@@ -4642,14 +4724,47 @@ update_extrainfo_downloads(time_t now)
         ++n_pending;
         continue;
       }
+
+      const signed_descriptor_t *sd2 = router_get_by_extrainfo_digest(d);
+      if (sd2 != sd) {
+        if (sd2 != NULL) {
+          char d1[HEX_DIGEST_LEN+1], d2[HEX_DIGEST_LEN+1];
+          char d3[HEX_DIGEST_LEN+1], d4[HEX_DIGEST_LEN+1];
+          base16_encode(d1, sizeof(d1), sd->identity_digest, DIGEST_LEN);
+          base16_encode(d2, sizeof(d2), sd2->identity_digest, DIGEST_LEN);
+          base16_encode(d3, sizeof(d3), d, DIGEST_LEN);
+          base16_encode(d4, sizeof(d3), sd2->extra_info_digest, DIGEST_LEN);
+
+          log_info(LD_DIR, "Found an entry in %s with mismatched "
+                   "router_get_by_extrainfo_digest() value. This has ID %s "
+                   "but the entry in the map has ID %s. This has EI digest "
+                   "%s and the entry in the map has EI digest %s.",
+                   old_routers?"old_routers":"routers",
+                   d1, d2, d3, d4);
+        } else {
+          char d1[HEX_DIGEST_LEN+1], d2[HEX_DIGEST_LEN+1];
+          base16_encode(d1, sizeof(d1), sd->identity_digest, DIGEST_LEN);
+          base16_encode(d2, sizeof(d2), d, DIGEST_LEN);
+
+          log_info(LD_DIR, "Found an entry in %s with NULL "
+                   "router_get_by_extrainfo_digest() value. This has ID %s "
+                   "and EI digest %s.",
+                   old_routers?"old_routers":"routers",
+                   d1, d2);
+        }
+        ++n_bogus[old_routers];
+        continue;
+      }
       smartlist_add(wanted, d);
     }
   }
   digestmap_free(pending, NULL);
 
   log_info(LD_DIR, "Extrainfo download status: %d router with no ei, %d "
-           "with present ei, %d delaying, %d pending, %d downloadable.",
-           n_no_ei, n_have, n_delay, n_pending, smartlist_len(wanted));
+           "with present ei, %d delaying, %d pending, %d downloadable, %d "
+           "bogus in routers, %d bogus in old_routers",
+           n_no_ei, n_have, n_delay, n_pending, smartlist_len(wanted),
+           n_bogus[0], n_bogus[1]);
 
   smartlist_shuffle(wanted);
 

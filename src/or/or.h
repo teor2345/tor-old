@@ -2145,6 +2145,12 @@ typedef struct routerstatus_t {
 
   uint32_t bandwidth_kb; /**< Bandwidth (capacity) of the router as reported in
                        * the vote/consensus, in kilobytes/sec. */
+
+  /** The consensus has guardfraction information for this router. */
+  unsigned int has_guardfraction:1;
+  /** The guardfraction value of this router. */
+  uint32_t guardfraction_percentage;
+
   char *exitsummary; /**< exit policy summary -
                       * XXX weasel: this probably should not stay a string. */
 
@@ -3126,7 +3132,8 @@ typedef struct or_circuit_t {
    * chance to give an onionskin to a cpuworker. Used only in onion.c */
   struct onion_queue_t *onionqueue_entry;
   /** Pointer to a workqueue entry, if this circuit has given an onionskin to
-   * a cpuworker and is waiting for a response. Used only in cpuworker.c */
+   * a cpuworker and is waiting for a response. Used to decide whether it is
+   * safe to free a circuit or if it is still in use by a cpuworker. */
   struct workqueue_entry_s *workqueue_entry;
 
   /** The circuit_id used in the previous (backward) hop of this circuit. */
@@ -3566,6 +3573,9 @@ typedef struct {
    * circuits.) */
   int Tor2webMode;
 
+  /** A routerset that should be used when picking RPs for HS circuits. */
+  routerset_t *Tor2webRendezvousPoints;
+
   /** Close hidden service client circuits immediately when they reach
    * the normal circuit-build timeout, even if they have already sent
    * an INTRODUCE1 cell on its way to the service. */
@@ -3812,6 +3822,12 @@ typedef struct {
   int NumEntryGuards; /**< How many entry guards do we try to establish? */
   int UseEntryGuardsAsDirGuards; /** Boolean: Do we try to get directory info
                                   * from a smallish number of fixed nodes? */
+
+  /** If 1, we use any guardfraction information we see in the
+   * consensus.  If 0, we don't.  If -1, let the consensus parameter
+   * decide. */
+  int UseGuardFraction;
+
   int NumDirectoryGuards; /**< How many dir guards do we try to establish?
                            * If 0, use value from NumEntryGuards. */
   int RephistTrackTime; /**< How many seconds do we keep rephist info? */
@@ -3946,6 +3962,9 @@ typedef struct {
 
   /** Location of bandwidth measurement file */
   char *V3BandwidthsFile;
+
+  /** Location of guardfraction file */
+  char *GuardfractionFile;
 
   /** Authority only: key=value pairs that we add to our networkstatus
    * consensus vote on the 'params' line. */
@@ -4937,7 +4956,8 @@ typedef struct dir_server_t {
                                **/
 } dir_server_t;
 
-#define ROUTER_REQUIRED_MIN_BANDWIDTH (20*1024)
+#define RELAY_REQUIRED_MIN_BANDWIDTH (75*1024)
+#define BRIDGE_REQUIRED_MIN_BANDWIDTH (50*1024)
 
 #define ROUTER_MAX_DECLARED_BANDWIDTH INT32_MAX
 

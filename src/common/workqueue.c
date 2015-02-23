@@ -363,20 +363,24 @@ threadpool_queue_update(threadpool_t *pool,
 static int
 threadpool_start_threads(threadpool_t *pool, int n)
 {
+  if (n < 0)
+    return -1;
+
   tor_mutex_acquire(&pool->lock);
 
   if (pool->n_threads < n)
-    pool->threads = tor_realloc(pool->threads, sizeof(workerthread_t*)*n);
+    pool->threads = tor_reallocarray(pool->threads,
+                                     sizeof(workerthread_t*), n);
 
   while (pool->n_threads < n) {
     void *state = pool->new_thread_state_fn(pool->new_thread_state_arg);
     workerthread_t *thr = workerthread_new(state, pool, pool->reply_queue);
-    thr->index = pool->n_threads;
 
     if (!thr) {
       tor_mutex_release(&pool->lock);
       return -1;
     }
+    thr->index = pool->n_threads;
     pool->threads[pool->n_threads++] = thr;
   }
   tor_mutex_release(&pool->lock);
@@ -410,6 +414,7 @@ threadpool_new(int n_threads,
   pool->reply_queue = replyqueue;
 
   if (threadpool_start_threads(pool, n_threads) < 0) {
+    tor_cond_uninit(&pool->condition);
     tor_mutex_uninit(&pool->lock);
     tor_free(pool);
     return NULL;

@@ -3,7 +3,7 @@ dnl Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson
 dnl Copyright (c) 2007-2015, The Tor Project, Inc.
 dnl See LICENSE for licensing information
 
-AC_INIT([tor],[0.2.6.2-alpha-dev])
+AC_INIT([tor],[0.2.6.3-alpha-dev])
 AC_CONFIG_SRCDIR([src/or/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE
@@ -25,10 +25,6 @@ fi
 CPPFLAGS="$CPPFLAGS -I\${top_srcdir}/src/common"
 
 #XXXX020 We should make these enabled or not, before 0.2.0.x-final
-AC_ARG_ENABLE(buf-freelists,
-   AS_HELP_STRING(--enable-buf-freelists, enable freelists for buffer RAM))
-AC_ARG_ENABLE(mempools,
-   AS_HELP_STRING(--enable-mempools, enable mempools for relay cells))
 AC_ARG_ENABLE(openbsd-malloc,
    AS_HELP_STRING(--enable-openbsd-malloc, Use malloc code from openbsd.  Linux only))
 AC_ARG_ENABLE(instrument-downloads,
@@ -156,22 +152,6 @@ if test x$enable_systemd = xyes -a x$have_systemd != xyes ; then
     AC_MSG_ERROR([Explicitly requested systemd support, but systemd not found])
 fi
 
-AC_ARG_ENABLE(threads,
-     AS_HELP_STRING(--disable-threads, disable multi-threading support))
-
-if test x$enable_threads = x; then
-   case $host in
-    *-*-solaris* )
-     # Don't try multithreading on solaris -- cpuworkers seem to lock.
-     AC_MSG_NOTICE([You are running Solaris; Sometimes threading makes
-cpu workers lock up here, so I will disable threads.])
-     enable_threads="no";;
-    *)
-     enable_threads="yes";;
-   esac
-fi
-
-
 case $host in
    *-*-solaris* )
      AC_DEFINE(_REENTRANT, 1, [Define on some platforms to activate x_r() functions in time.h])
@@ -261,7 +241,7 @@ AM_CONDITIONAL(MINIUPNPC, test x$upnp = xtrue)
 AM_PROG_CC_C_O
 AC_PROG_CC_C99
 
-AC_ARG_VAR(PYTHON)
+AC_ARG_VAR([PYTHON], [path to Python binary])
 AC_CHECK_PROGS(PYTHON, [python python2 python2.7 python3 python3.3])
 if test "x$PYTHON" = "x"; then
   AC_MSG_WARN([Python unavailable; some tests will not be run.])
@@ -400,9 +380,8 @@ fi
 AC_SEARCH_LIBS(pthread_create, [pthread])
 AC_SEARCH_LIBS(pthread_detach, [pthread])
 
-AM_CONDITIONAL(THREADS_WIN32, test "$enable_threads" = "yes" && test "$bwin32" = "true")
-AM_CONDITIONAL(THREADS_PTHREADS, test "$enable_threads" = "yes" && test "$bwin32" = "false")
-AM_CONDITIONAL(THREADS_NONE, test "$enable_threads" != "yes")
+AM_CONDITIONAL(THREADS_WIN32, test "$bwin32" = "true")
+AM_CONDITIONAL(THREADS_PTHREADS, test "$bwin32" = "false")
 
 dnl -------------------------------------------------------------------
 dnl Check for functions before libevent, since libevent-1.2 apparently
