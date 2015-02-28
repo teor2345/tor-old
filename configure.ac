@@ -3,7 +3,7 @@ dnl Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson
 dnl Copyright (c) 2007-2015, The Tor Project, Inc.
 dnl See LICENSE for licensing information
 
-AC_INIT([tor],[0.2.6.3-alpha-dev])
+AC_INIT([tor],[0.2.7.0-alpha-dev])
 AC_CONFIG_SRCDIR([src/or/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE
@@ -57,17 +57,6 @@ fi
 if test "$enable_system_torrc" = "no"; then
   AC_DEFINE(DISABLE_SYSTEM_TORRC, 1,
             [Defined if we're not going to look for a torrc in SYSCONF])
-fi
-
-if test x$enable_buf_freelists = xyes; then
-  AC_DEFINE(ENABLE_BUF_FREELISTS, 1,
-            [Defined if we try to use freelists for buffer RAM chunks])
-fi
-
-AM_CONDITIONAL(USE_MEMPOOLS, test x$enable_mempools = xyes)
-if test x$enable_mempools = xyes; then
-  AC_DEFINE(ENABLE_MEMPOOLS, 1,
-            [Defined if we try to use mempools for cells being relayed])
 fi
 
 AM_CONDITIONAL(USE_OPENBSD_MALLOC, test x$enable_openbsd_malloc = xyes)
