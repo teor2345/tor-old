@@ -225,7 +225,7 @@ static config_var_t option_vars_[] = {
   V(DisableDebuggerAttachment,   BOOL,     "1"),
   V(DisableIOCP,                 BOOL,     "1"),
   OBSOLETE("DisableV2DirectoryInfo_"),
-  V(DynamicDHGroups,             BOOL,     "0"),
+  OBSOLETE("DynamicDHGroups"),
   VPORT(DNSPort,                     LINELIST, NULL),
   V(DNSListenAddress,            LINELIST, NULL),
   V(DownloadExtraInfo,           BOOL,     "0"),
@@ -1318,10 +1318,6 @@ options_transition_requires_fresh_tls_context(const or_options_t *old_options,
   if (!old_options)
     return 0;
 
-  if ((old_options->DynamicDHGroups != new_options->DynamicDHGroups)) {
-    return 1;
-  }
-
   if (!opt_streq(old_options->TLSECGroup, new_options->TLSECGroup))
     return 1;
 
@@ -1501,24 +1497,6 @@ options_act(const or_options_t *old_options)
   if (options->RunAsDaemon) {
     /* We may be calling this for the n'th time (on SIGHUP), but it's safe. */
     finish_daemon(options->DataDirectory);
-  }
-
-  /* If needed, generate a new TLS DH prime according to the current torrc. */
-  if (server_mode(options) && options->DynamicDHGroups) {
-    char *keydir = get_datadir_fname("keys");
-    if (check_private_dir(keydir, CPD_CREATE, options->User)) {
-      tor_free(keydir);
-      return -1;
-    }
-    tor_free(keydir);
-
-    if (!old_options || !old_options->DynamicDHGroups) {
-      char *fname = get_datadir_fname2("keys", "dynamic_dh_params");
-      crypto_set_tls_dh_prime(fname);
-      tor_free(fname);
-    }
-  } else { /* clients don't need a dynamic DH prime. */
-    crypto_set_tls_dh_prime(NULL);
   }
 
   /* We want to reinit keys as needed before we do much of anything else:
@@ -1909,7 +1887,6 @@ static const struct {
   { "-h",                     0 },
   { "--help",                 0 },
   { "--list-torrc-options",   0 },
-  { "--digests",              0 },
   { "--nt-service",           0 },
   { "-nt-service",            0 },
   { NULL, 0 },
@@ -4383,13 +4360,6 @@ options_init_from_torrc(int argc, char **argv)
 
   if (config_line_find(cmdline_only_options, "--version")) {
     printf("Tor version %s.\n",get_version());
-    exit(0);
-  }
-
-  if (config_line_find(cmdline_only_options, "--digests")) {
-    printf("Tor version %s.\n",get_version());
-    printf("%s", libor_get_digests());
-    printf("%s", tor_get_digests());
     exit(0);
   }
 

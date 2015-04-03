@@ -475,12 +475,15 @@ struct process_handle_t {
   /** One of the PROCESS_STATUS_* values */
   int status;
 #ifdef _WIN32
+  HANDLE stdin_pipe;
   HANDLE stdout_pipe;
   HANDLE stderr_pipe;
   PROCESS_INFORMATION pid;
 #else
+  int stdin_pipe;
   int stdout_pipe;
   int stderr_pipe;
+  FILE *stdin_handle;
   FILE *stdout_handle;
   FILE *stderr_handle;
   pid_t pid;
@@ -570,8 +573,6 @@ STATIC int format_helper_exit_status(unsigned char child_state,
 #endif
 
 #endif
-
-const char *libor_get_digests(void);
 
 #define ARRAY_LENGTH(x) ((sizeof(x)) / sizeof(x[0]))
 
