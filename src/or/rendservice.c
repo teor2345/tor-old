@@ -90,7 +90,7 @@ typedef struct rend_service_port_config_t {
 #define MAX_INTRO_CIRCS_PER_PERIOD 10
 /** How many times will a hidden service operator attempt to connect to
  * a requested rendezvous point before giving up? */
-#define MAX_REND_FAILURES 8
+#define MAX_REND_FAILURES 1
 /** How many seconds should we spend trying to connect to a requested
  * rendezvous point before giving up? */
 #define MAX_REND_TIMEOUT 30
@@ -1934,6 +1934,16 @@ rend_service_parse_intro_for_v2(
       tor_asprintf(err_msg_out,
                    "error decoding onion key in version %d "
                    "INTRODUCE%d cell",
+                   intro->version,
+                   (intro->type));
+    }
+
+    goto err;
+  }
+  if (128 != crypto_pk_keysize(extend_info->onion_key)) {
+    if (err_msg_out) {
+      tor_asprintf(err_msg_out,
+                   "invalid onion key size in version %d INTRODUCE%d cell",
                    intro->version,
                    (intro->type));
     }
