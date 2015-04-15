@@ -2585,7 +2585,8 @@ test_config_adding_dir_servers(void *arg)
       /* trusted_dir_servers */
       const smartlist_t *dir_servers = router_get_trusted_dir_servers();
       /* (No D0), (No B1), Default Bridge Authorities, A2 */
-      tt_assert(smartlist_len(dir_servers) == 1 + n_default_alt_bridge_authority);
+      tt_assert(smartlist_len(dir_servers) ==
+                1 + n_default_alt_bridge_authority);
 
       /* (No DirAuthorities) - D0 - dir_port: 60090 */
       int found_D0 = 0;
@@ -2738,7 +2739,8 @@ test_config_adding_dir_servers(void *arg)
       const smartlist_t *dir_servers = router_get_trusted_dir_servers();
       /* (No D0), (No B1), Default Bridge Authorities, A2,
        * No Default or Custom Fallback Directories */
-      tt_assert(smartlist_len(dir_servers) == 1 + n_default_alt_bridge_authority);
+      tt_assert(smartlist_len(dir_servers) ==
+                1 + n_default_alt_bridge_authority);
 
       /* (No DirAuthorities) - D0 - dir_port: 60090 */
       int found_D0 = 0;
@@ -2867,7 +2869,7 @@ test_config_adding_dir_servers(void *arg)
           are all NULL, but FallbackDir is set)
   */
 
-  /* Case 1: 0001 - DirAuthorities, AlternateBridgeAuthority 
+  /* Case 1: 0001 - DirAuthorities, AlternateBridgeAuthority
     & AlternateDirAuthority Not Set, FallbackDir Set */
   {
     /* clear fallback dirs counter */
