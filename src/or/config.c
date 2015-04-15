@@ -998,8 +998,9 @@ consider_adding_dir_servers(const or_options_t *options,
       /* Only add the default fallback directories when the DirAuthorities,
        * AlternateDirAuthority, and FallbackDir directory config options
        * are set to their defaults. */
-      if (!options->FallbackDir)
+      if (!options->FallbackDir) {
         add_default_fallback_dir_servers();
+      }
     }
     /* if type == NO_DIRINFO, we don't want to add any of the
      * default authorities, because we've replaced them all */

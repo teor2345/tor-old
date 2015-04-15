@@ -1,4 +1,4 @@
-  o Minor bugfixes (configuration):
+  o Minor bugfixes (configuration, unit tests):
     - Only add the default fallback directories when the DirAuthorities,
       AlternateDirAuthority, and FallbackDir directory config options
       are set to their defaults.
