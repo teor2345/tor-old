@@ -254,6 +254,9 @@ int crypto_seed_rng(int startup);
 MOCK_DECL(int,crypto_rand,(char *to, size_t n));
 int crypto_strongest_rand(uint8_t *out, size_t out_len);
 int crypto_rand_int(unsigned int max);
+int crypto_rand_int_range(unsigned int min, unsigned int max);
+uint64_t crypto_rand_uint64_range(uint64_t min, uint64_t max);
+time_t crypto_rand_time_range(time_t min, time_t max);
 uint64_t crypto_rand_uint64(uint64_t max);
 double crypto_rand_double(void);
 struct tor_weak_rng_t;
@@ -267,7 +270,10 @@ struct smartlist_t;
 void *smartlist_choose(const struct smartlist_t *sl);
 void smartlist_shuffle(struct smartlist_t *sl);
 
-int base64_encode(char *dest, size_t destlen, const char *src, size_t srclen);
+#define BASE64_ENCODE_MULTILINE 1
+size_t base64_encode_size(size_t srclen, int flags);
+int base64_encode(char *dest, size_t destlen, const char *src, size_t srclen,
+                  int flags);
 int base64_decode(char *dest, size_t destlen, const char *src, size_t srclen);
 /** Characters that can appear (case-insensitively) in a base32 encoding. */
 #define BASE32_CHARS "abcdefghijklmnopqrstuvwxyz234567"

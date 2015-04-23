@@ -683,7 +683,9 @@ router_initialize_tls_context(void)
   if (!lifetime) { /* we should guess a good ssl cert lifetime */
 
     /* choose between 5 and 365 days, and round to the day */
-    lifetime = 5*24*3600 + crypto_rand_int(361*24*3600);
+    unsigned int five_days = 5*24*3600;
+    unsigned int one_year = 365*24*3600;
+    lifetime = crypto_rand_int_range(five_days, one_year);
     lifetime -= lifetime % (24*3600);
 
     if (crypto_rand_int(2)) {
@@ -2453,7 +2455,7 @@ router_dump_router_to_string(routerinfo_t *router,
     char kbuf[128];
     base64_encode(kbuf, sizeof(kbuf),
                   (const char *)router->onion_curve25519_pkey->public_key,
-                  CURVE25519_PUBKEY_LEN);
+                  CURVE25519_PUBKEY_LEN, BASE64_ENCODE_MULTILINE);
     smartlist_add_asprintf(chunks, "ntor-onion-key %s", kbuf);
   }
 
