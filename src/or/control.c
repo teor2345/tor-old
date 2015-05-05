@@ -36,17 +36,14 @@
 #include "networkstatus.h"
 #include "nodelist.h"
 #include "policies.h"
-#include "rendcommon.h"
-#include "rendservice.h"
 #include "reasons.h"
 #include "rendclient.h"
 #include "rendcommon.h"
+#include "rendservice.h"
 #include "rephist.h"
 #include "router.h"
 #include "routerlist.h"
 #include "routerparse.h"
-#include "rendclient.h"
-#include "rendcommon.h"
 
 #ifndef _WIN32
 #include <pwd.h>
@@ -170,6 +167,8 @@ static int handle_control_usefeature(control_connection_t *conn,
                                      const char *body);
 static int handle_control_hsfetch(control_connection_t *conn, uint32_t len,
                                   const char *body);
+static int handle_control_hspost(control_connection_t *conn, uint32_t len,
+                                 const char *body);
 static int handle_control_add_onion(control_connection_t *conn, uint32_t len,
                                     const char *body);
 static int handle_control_del_onion(control_connection_t *conn, uint32_t len,
@@ -1740,7 +1739,7 @@ getinfo_helper_dir(control_connection_t *control_conn,
       return -1;
     }
 
-    if (rend_cache_lookup_entry(question, -1, &e) > 0) {
+    if (!rend_cache_lookup_entry(question, -1, &e)) {
       /* Descriptor found in cache */
       *answer = tor_strdup(e->desc);
     } else {
@@ -3389,25 +3388,21 @@ handle_control_hsfetch(control_connection_t *conn, uint32_t len,
     }
   }
 
-  rend_query = tor_malloc_zero(sizeof(*rend_query));
+  rend_query = rend_data_client_create(hsaddress, desc_id, NULL,
+                                       REND_NO_AUTH);
+  if (rend_query == NULL) {
+    connection_printf_to_buf(conn, "551 Error creating the HS query\r\n");
+    goto done;
+  }
 
-  if (hsaddress) {
-    strncpy(rend_query->onion_address, hsaddress,
-            sizeof(rend_query->onion_address));
-  } else if (desc_id) {
-    /* Using a descriptor ID, we force the user to provide at least one
-     * hsdir server using the SERVER= option. */
-    if (!hsdirs || !smartlist_len(hsdirs)) {
+  /* Using a descriptor ID, we force the user to provide at least one
+   * hsdir server using the SERVER= option. */
+  if (desc_id && (!hsdirs || !smartlist_len(hsdirs))) {
       connection_printf_to_buf(conn, "512 %s option is required\r\n",
                                opt_server);
       goto done;
-    }
-    memcpy(rend_query->descriptor_id, desc_id,
-           sizeof(rend_query->descriptor_id));
-  } else {
-    /* We can't get in here because of the first argument check. */
-    tor_assert(0);
   }
+
   /* We are about to trigger HSDir fetch so send the OK now because after
    * that 650 event(s) are possible so better to have the 250 OK before them
    * to avoid out of order replies. */
@@ -3418,13 +3413,108 @@ handle_control_hsfetch(control_connection_t *conn, uint32_t len,
    * always send a fetch command. */
   rend_client_fetch_v2_desc(rend_query, hsdirs);
 
-done:
+ done:
   SMARTLIST_FOREACH(args, char *, cp, tor_free(cp));
   smartlist_free(args);
   /* Contains data pointer that we don't own thus no cleanup. */
   smartlist_free(hsdirs);
-  tor_free(rend_query);
-exit:
+  rend_data_free(rend_query);
+ exit:
+  return 0;
+}
+
+/** Implementation for the HSPOST command. */
+static int
+handle_control_hspost(control_connection_t *conn,
+                      uint32_t len,
+                      const char *body)
+{
+  static const char *opt_server = "SERVER=";
+  smartlist_t *args = smartlist_new();
+  smartlist_t *hs_dirs = NULL;
+  const char *encoded_desc = body;
+  size_t encoded_desc_len = len;
+
+  char *cp = memchr(body, '\n', len);
+  char *argline = tor_strndup(body, cp-body);
+
+  /* If any SERVER= options were specified, try parse the options line */
+  if (!strcasecmpstart(argline, opt_server)) {
+    /* encoded_desc begins after a newline character */
+    cp = cp + 1;
+    encoded_desc = cp;
+    encoded_desc_len = len-(cp-body);
+
+    smartlist_split_string(args, argline, " ",
+                           SPLIT_SKIP_SPACE|SPLIT_IGNORE_BLANK, 0);
+    SMARTLIST_FOREACH_BEGIN(args, const char *, arg) {
+      if (!strcasecmpstart(arg, opt_server)) {
+        const char *server = arg + strlen(opt_server);
+        const node_t *node = node_get_by_hex_id(server);
+
+        if (!node) {
+          connection_printf_to_buf(conn, "552 Server \"%s\" not found\r\n",
+                                   server);
+          goto done;
+        }
+        if (!node->rs->is_hs_dir) {
+          connection_printf_to_buf(conn, "552 Server \"%s\" is not a HSDir"
+                                         "\r\n", server);
+          goto done;
+        }
+        /* Valid server, add it to our local list. */
+        if (!hs_dirs)
+          hs_dirs = smartlist_new();
+        smartlist_add(hs_dirs, node->rs);
+      } else {
+        connection_printf_to_buf(conn, "512 Unexpected argument \"%s\"\r\n",
+                                 arg);
+        goto done;
+      }
+    } SMARTLIST_FOREACH_END(arg);
+  }
+
+  /* Read the dot encoded descriptor, and parse it. */
+  rend_encoded_v2_service_descriptor_t *desc =
+      tor_malloc_zero(sizeof(rend_encoded_v2_service_descriptor_t));
+  read_escaped_data(encoded_desc, encoded_desc_len, &desc->desc_str);
+
+  rend_service_descriptor_t *parsed = NULL;
+  char *intro_content = NULL;
+  size_t intro_size;
+  size_t encoded_size;
+  const char *next_desc;
+  if (!rend_parse_v2_service_descriptor(&parsed, desc->desc_id, &intro_content,
+                                        &intro_size, &encoded_size,
+                                        &next_desc, desc->desc_str, 1)) {
+    /* Post the descriptor. */
+    char serviceid[REND_SERVICE_ID_LEN_BASE32+1];
+    if (!rend_get_service_id(parsed->pk, serviceid)) {
+      smartlist_t *descs = smartlist_new();
+      smartlist_add(descs, desc);
+
+      /* We are about to trigger HS descriptor upload so send the OK now
+       * because after that 650 event(s) are possible so better to have the
+       * 250 OK before them to avoid out of order replies. */
+      send_control_done(conn);
+
+      /* Trigger the descriptor upload */
+      directory_post_to_hs_dir(parsed, descs, hs_dirs, serviceid, 0);
+      smartlist_free(descs);
+    }
+
+    rend_service_descriptor_free(parsed);
+  } else {
+    connection_printf_to_buf(conn, "554 Invalid descriptor\r\n");
+  }
+
+  tor_free(intro_content);
+  rend_encoded_v2_service_descriptor_free(desc);
+ done:
+  tor_free(argline);
+  smartlist_free(hs_dirs); /* Contents belong to the rend service code. */
+  SMARTLIST_FOREACH(args, char *, arg, tor_free(arg));
+  smartlist_free(args);
   return 0;
 }
 
@@ -4078,6 +4168,9 @@ connection_control_process_inbuf(control_connection_t *conn)
       return -1;
   } else if (!strcasecmp(conn->incoming_cmd, "HSFETCH")) {
     if (handle_control_hsfetch(conn, cmd_data_len, args))
+      return -1;
+  } else if (!strcasecmp(conn->incoming_cmd, "+HSPOST")) {
+    if (handle_control_hspost(conn, cmd_data_len, args))
       return -1;
   } else if (!strcasecmp(conn->incoming_cmd, "ADD_ONION")) {
     int ret = handle_control_add_onion(conn, cmd_data_len, args);
@@ -5757,7 +5850,6 @@ node_describe_longname_by_id,(const char *id_digest))
   return longname;
 }
 
-
 /** Return either the onion address if the given pointer is a non empty
  * string else the unknown string. */
 static const char *
@@ -5777,10 +5869,9 @@ rend_hsaddress_str_or_unknown(const char *onion_address)
   /* All checks are good so return the given onion address. */
   str_ret = onion_address;
 
-end:
+ end:
   return str_ret;
 }
-
 
 /** send HS_DESC requested event.
  *
@@ -5804,6 +5895,31 @@ control_event_hs_descriptor_requested(const rend_data_t *rend_query,
                      "650 HS_DESC REQUESTED %s %s %s %s\r\n",
                      rend_hsaddress_str_or_unknown(rend_query->onion_address),
                      rend_auth_type_to_string(rend_query->auth_type),
+                     node_describe_longname_by_id(id_digest),
+                     desc_id_base32);
+}
+
+/** send HS_DESC upload event.
+ *
+ * <b>service_id</b> is the descriptor onion address.
+ * <b>hs_dir</b> is the description of contacting hs directory.
+ * <b>desc_id_base32</b> is the ID of requested hs descriptor.
+ */
+void
+control_event_hs_descriptor_upload(const char *service_id,
+                                   const char *id_digest,
+                                   const char *desc_id_base32)
+{
+  if (!service_id || !id_digest || !desc_id_base32) {
+    log_warn(LD_BUG, "Called with service_digest==%p, "
+             "desc_id_base32==%p, id_digest==%p", service_id,
+             desc_id_base32, id_digest);
+    return;
+  }
+
+  send_control_event(EVENT_HS_DESC, ALL_FORMATS,
+                     "650 HS_DESC UPLOAD %s UNKNOWN %s %s\r\n",
+                     service_id,
                      node_describe_longname_by_id(id_digest),
                      desc_id_base32);
 }
@@ -5846,9 +5962,43 @@ control_event_hs_descriptor_receive_end(const char *action,
   tor_free(reason_field);
 }
 
+/** send HS_DESC event after got response from hs directory.
+ *
+ * NOTE: this is an internal function used by following functions:
+ * control_event_hs_descriptor_uploaded
+ * control_event_hs_descriptor_upload_failed
+ *
+ * So do not call this function directly.
+ */
+void
+control_event_hs_descriptor_upload_end(const char *action,
+                                       const char *id_digest,
+                                       const char *reason)
+{
+  char *reason_field = NULL;
+
+  if (!action || !id_digest) {
+    log_warn(LD_BUG, "Called with action==%p, id_digest==%p", action,
+             id_digest);
+    return;
+  }
+
+  if (reason) {
+    tor_asprintf(&reason_field, " REASON=%s", reason);
+  }
+
+  send_control_event(EVENT_HS_DESC, ALL_FORMATS,
+                     "650 HS_DESC %s UNKNOWN UNKNOWN %s%s\r\n",
+                     action,
+                     node_describe_longname_by_id(id_digest),
+                     reason_field ? reason_field : "");
+
+  tor_free(reason_field);
+}
+
 /** send HS_DESC RECEIVED event
  *
- * called when a we successfully received a hidden service descriptor.
+ * called when we successfully received a hidden service descriptor.
  */
 void
 control_event_hs_descriptor_received(const char *onion_address,
@@ -5861,6 +6011,21 @@ control_event_hs_descriptor_received(const char *onion_address,
   }
   control_event_hs_descriptor_receive_end("RECEIVED", onion_address,
                                           auth_type, id_digest, NULL);
+}
+
+/** send HS_DESC UPLOADED event
+ *
+ * called when we successfully uploaded a hidden service descriptor.
+ */
+void
+control_event_hs_descriptor_uploaded(const char *id_digest)
+{
+  if (!id_digest) {
+    log_warn(LD_BUG, "Called with id_digest==%p",
+             id_digest);
+    return;
+  }
+  control_event_hs_descriptor_upload_end("UPLOADED", id_digest, NULL);
 }
 
 /** Send HS_DESC event to inform controller that query <b>rend_query</b>
@@ -5913,6 +6078,23 @@ control_event_hs_descriptor_content(const char *onion_address,
                      node_describe_longname_by_id(hsdir_id_digest),
                      esc_content);
   tor_free(esc_content);
+}
+
+/** Send HS_DESC event to inform controller upload of hidden service
+ * descriptor identified by <b>id_digest</b> failed. If <b>reason</b>
+ * is not NULL, add it to REASON= field.
+ */
+void
+control_event_hs_descriptor_upload_failed(const char *id_digest,
+                                          const char *reason)
+{
+  if (!id_digest) {
+    log_warn(LD_BUG, "Called with id_digest==%p",
+             id_digest);
+    return;
+  }
+  control_event_hs_descriptor_upload_end("UPLOAD_FAILED",
+                                         id_digest, reason);
 }
 
 /** Free any leftover allocated memory of the control.c subsystem. */
