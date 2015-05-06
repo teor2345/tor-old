@@ -5530,4 +5530,3 @@ cast_double_to_int64(double number)
   /* Handle infinities and finite numbers with magnitude >= 2^63. */
   return signbit(number) ? INT64_MIN : INT64_MAX;
 }
-
