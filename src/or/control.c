@@ -3452,7 +3452,7 @@ handle_control_hspost(control_connection_t *conn,
         const char *server = arg + strlen(opt_server);
         const node_t *node = node_get_by_hex_id(server);
 
-        if (!node) {
+        if (!node || !node->rs) {
           connection_printf_to_buf(conn, "552 Server \"%s\" not found\r\n",
                                    server);
           goto done;
@@ -3779,12 +3779,17 @@ add_onion_helper_keyarg(const char *arg, int discard_pk,
     memwipe(cp, 0, strlen(cp));
     tor_free(cp);
   });
+  smartlist_free(key_args);
 
   if (!ok) {
     crypto_pk_free(pk);
     pk = NULL;
   }
-  if (err_msg_out) *err_msg_out = err_msg;
+  if (err_msg_out) {
+    *err_msg_out = err_msg;
+  } else {
+    tor_free(err_msg);
+  }
   *key_new_alg_out = key_new_alg;
   *key_new_blob_out = key_new_blob;
 
