@@ -1,7 +1,8 @@
 #!/usr/bin/python
 
-# Usage: ./updateFallbackDirs.py > src/or/fallback_dirs.inc
-# Then read the generated code to ensure no-one slipped anything funny in it
+# Usage: scripts/maint/updateFallbackDirs.py > src/or/fallback_dirs.inc
+# Then read the generated list of string to ensure no-one slipped
+# anything funny into it
 
 # Script by weasel, April 2015
 # Portions by gsathya & karsten, 2013
@@ -44,6 +45,125 @@ ONIONOO_SCALE_ONE = 999.
 def parse_ts(t):
   return datetime.datetime.strptime(t, "%Y-%m-%d %H:%M:%S")
 
+def remove_bad_chars(raw_string, bad_char_list):
+  # Remove each character in the bad_char_list
+  escaped_string = raw_string
+  for c in bad_char_list:
+    escaped_string = escaped_string.replace(c, '')
+  return escaped_string
+
+def cleanse_whitespace(raw_string):
+  # Replace all whitespace characters with a space
+  escaped_string = raw_string
+  for c in string.whitespace:
+    escaped_string = escaped_string.replace(c, ' ')
+  return escaped_string
+
+def cleanse_c_multiline_comment(raw_string):
+  # Prevent a malicious / unanticipated string from breaking out
+  # of a C-style multiline comment
+  # This removes '/*' and '*/'
+  # To deal with '//', the end comment must be on its own line
+  bad_char_list = '*'
+  # Prevent a malicious string from using C nulls
+  bad_char_list += '\0'
+  # Be safer by removing bad characters entirely
+  escaped_string = remove_bad_chars(raw_string, bad_char_list)
+  # Embedded newlines should be removed by tor/onionoo, but let's be paranoid
+  escaped_string = cleanse_whitespace(escaped_string)
+  # Some compilers may further process the content of comments
+  # There isn't much we can do to cover every possible case
+  # But comment-based directives are typically only advisory
+  return escaped_string
+
+def cleanse_c_string(raw_string):
+  # Prevent a malicious address/fingerprint string from breaking out
+  # of a C-style string
+  bad_char_list = '"'
+  # Prevent a malicious string from using escapes
+  bad_char_list += '\\'
+  # Prevent a malicious string from using C nulls
+  bad_char_list += '\0'
+  # Be safer by removing bad characters entirely
+  escaped_string = remove_bad_chars(raw_string, bad_char_list)
+  # Embedded newlines should be removed by tor/onionoo, but let's be paranoid
+  escaped_string = cleanse_whitespace(escaped_string)
+  # Some compilers may further process the content of strings
+  # There isn't much we can do to cover every possible case
+  # But this typically only results in changes to the string data
+  return escaped_string
+
+# a dictionary of source metadata for each onionoo query we've made
+fetch_source = {}
+
+# register source metadata for 'what'
+# assumes we only retrieve one document for each 'what'
+def register_fetch_source(what, url, relays_published, version):
+  fetch_source[what] = {}
+  fetch_source[what]['url'] = url
+  fetch_source[what]['relays_published'] = relays_published
+  fetch_source[what]['version'] = version
+
+# list each registered source's 'what'
+def fetch_source_list():
+  return sorted(fetch_source.keys())
+
+# given 'what', provide a multiline C comment describing the source
+def describe_fetch_source(what):
+  desc = '/*\n'
+  desc += 'Onionoo Source: ' + cleanse_c_multiline_comment(what)
+  desc += ' Date: ' + cleanse_c_multiline_comment(fetch_source[what]['relays_published'])
+  desc += ' Version: ' + cleanse_c_multiline_comment(fetch_source[what]['version'])
+  desc += '\n'
+  desc += 'URL: ' + cleanse_c_multiline_comment(fetch_source[what]['url'])
+  desc += '\n*/'
+  return desc
+
+def write_to_file(str, file_name, max_len):
+  try:
+    with open(file_name, 'w') as f:
+      f.write(str[0:max_len])
+  except EnvironmentError, error:
+    logging.debug('Writing file %s failed: %d: %s'%
+                  (file_name,
+                   error.errno,
+                   error.strerror)
+                  )
+
+def read_from_file(file_name, max_len):
+  try:
+    if os.path.isfile(file_name):
+      with open(file_name, 'r') as f:
+        return f.read(max_len)
+  except EnvironmentError, error:
+    logging.debug('Loading file %s failed: %d: %s'%
+                  (file_name,
+                   error.errno,
+                   error.strerror)
+                  )
+  return None
+
+def load_possibly_compressed_response_json(response):
+    if response.info().get('Content-Encoding') == 'gzip':
+      buf = StringIO.StringIO( response.read() )
+      f = gzip.GzipFile(fileobj=buf)
+      return json.load(f)
+    else:
+      return json.load(response)
+
+def load_json_from_file(json_file_name):
+    # An exception here may be resolved by deleting the .last_modified
+    # and .json files, and re-running the script
+    try:
+      with open(json_file_name, 'r') as f:
+        return json.load(f)
+    except EnvironmentError, error:
+      raise Exception('Reading not-modified json file %s failed: %d: %s'%
+                    (json_file_name,
+                     error.errno,
+                     error.strerror)
+                    )
+
 def onionoo_fetch(what, **kwargs):
   params = kwargs
   params['type'] = 'relay'
@@ -53,49 +173,30 @@ def onionoo_fetch(what, **kwargs):
   params['flag'] = 'V2Dir'
   url = ONIONOO + what + '?' + urllib.urlencode(params)
 
-  #quoted_url = urllib.quote_plus(url)
   # Unfortunately, the URL is too long for some OS filenames,
   # but we still don't want to get files from different URLs mixed up
   base_file_name = what + '-' + hashlib.sha1(url).hexdigest()
 
-  FULL_URL_SUFFIX = '.full_url'
-  full_url_file_name = base_file_name + FULL_URL_SUFFIX
+  full_url_file_name = base_file_name + '.full_url'
   MAX_FULL_URL_LENGTH = 1024
 
-  LAST_MODIFIED_SUFFIX = '.last_modified'
-  last_modified_file_name = base_file_name + LAST_MODIFIED_SUFFIX
+  last_modified_file_name = base_file_name + '.last_modified'
   MAX_LAST_MODIFIED_LENGTH = 64
 
-  JSON_SUFFIX = '.json'
-  json_file_name = base_file_name + JSON_SUFFIX
+  json_file_name = base_file_name + '.json'
 
-  # optionally, store the full URL to a file for debugging
+  # store the full URL to a file for debugging
   # no need to compare as long as you trust SHA-1
-  try:
-    with open(full_url_file_name, 'w') as f:
-      f.write(url[0:MAX_FULL_URL_LENGTH])
-  except EnvironmentError, error:
-    logging.debug('Writing full URL file %s failed: %d: %s'%
-                  (full_url_file_name,
-                   error.errno,
-                   error.strerror)
-                  )
+  write_to_file(url, full_url_file_name, MAX_FULL_URL_LENGTH)
 
   request = urllib2.Request(url)
   request.add_header('Accept-encoding', 'gzip')
 
-  # optionally, load the last modified date from the file, if it exists
-  try:
-    if os.path.isfile(last_modified_file_name):
-      with open(last_modified_file_name, 'r') as f:
-        last_mod_date = f.read(MAX_LAST_MODIFIED_LENGTH)
-        request.add_header('If-modified-since', last_mod_date)
-  except EnvironmentError, error:
-    logging.debug('Loading last modified file %s failed: %d: %s'%
-                  (last_modified_file_name,
-                   error.errno,
-                   error.strerror)
-                  )
+  # load the last modified date from the file, if it exists
+  last_mod_date = read_from_file(last_modified_file_name,
+                                 MAX_LAST_MODIFIED_LENGTH)
+  if last_mod_date is not None:
+    request.add_header('If-modified-since', last_mod_date)
 
   response_code = 0
   try:
@@ -110,45 +211,29 @@ def onionoo_fetch(what, **kwargs):
 
   if response_code == 200: # OK
 
-    if response.info().get('Content-Encoding') == 'gzip':
-      buf = StringIO.StringIO( response.read() )
-      f = gzip.GzipFile(fileobj=buf)
-      response_json = json.load(f)
-    else:
-      response_json = json.load(response)
+    response_json = load_possibly_compressed_response_json(response)
 
     with open(json_file_name, 'w') as f:
       # use the most compact json representation to save space
       json.dump(response_json, f, separators=(',',':'))
 
-    # optionally, store the last modified date in its own file
-    try:
-      if response.info().get('Last-modified') is not None:
-        with open(last_modified_file_name, 'w') as f:
-          f.write(response.info().get('Last-Modified')[0:MAX_LAST_MODIFIED_LENGTH])
-    except EnvironmentError, error:
-      logging.debug('Writing last modified file %s failed: %d: %s'%
-                    (last_modified_file_name,
-                     error.errno,
-                     error.strerror)
-                    )
+    # store the last modified date in its own file
+    if response.info().get('Last-modified') is not None:
+      write_to_file(response.info().get('Last-Modified'),
+                    last_modified_file_name,
+                    MAX_LAST_MODIFIED_LENGTH)
 
   elif response_code == 304: # Not Modified
 
-    # An exception here can probably be resolved by deleting the .last_modified
-    # and .json files, and re-running the script
-    try:
-      with open(json_file_name, 'r') as f:
-        response_json = json.load(f)
-    except EnvironmentError, error:
-      raise Exception('Reading not-modified json file %s failed: %d: %s'%
-                    (json_file_name,
-                     error.errno,
-                     error.strerror)
-                    )
+    response_json = load_json_from_file(json_file_name)
 
   else: # Unexpected HTTP response code not covered in the HTTPError above
     raise Exception("Unexpected HTTP response code to "+url+": "+ str(response_code))
+
+  register_fetch_source(what,
+                        url,
+                        response_json['relays_published'],
+                        response_json['version'])
 
   return response_json
 
@@ -164,7 +249,6 @@ def fetch(what, **kwargs):
 
   return onionoo_fetch(what, **kwargs)
   #return dummy_fetch(what, **kwargs)
-
 
 
 class Candidate(object):
@@ -436,82 +520,36 @@ class Candidate(object):
       return False
     return True
 
-  @staticmethod
-  def _remove_bad_chars(raw_string, bad_char_list):
-    # Remove each character in the bad_char_list
-    escaped_string = raw_string
-    for c in bad_char_list:
-      escaped_string = escaped_string.replace(c, '')
-    return escaped_string
-
-  @staticmethod
-  def _cleanse_whitespace(raw_string):
-    # Replace all whitespace characters with a space
-    escaped_string = raw_string
-    for c in string.whitespace:
-      escaped_string = escaped_string.replace(c, ' ')
-    return escaped_string
-
-  @staticmethod
-  def _cleanse_c_multiline_comment(raw_string):
-    # Prevent a malicious Nickname/ContactInfo string from breaking out
-    # of a C-style multiline comment
-    # This also removes '/*' and '//'
-    bad_char_list = '*/'
-    # Prevent a malicious string from using C nulls
-    bad_char_list += '\0'
-    # Prevent attacks like '**//' -> '*/' by removing bad characters entirely
-    escaped_string = Candidate._remove_bad_chars(raw_string, bad_char_list)
-    # Embedded newlines should be removed by tor/onionoo, but let's be paranoid
-    escaped_string = Candidate._cleanse_whitespace(escaped_string)
-    # Put the string on a single line, all by itself
-    escaped_string += '\n'
-    # Some compilers may further process the content of comments
-    # There isn't much we can do to cover every possible case
-    # But comment-based directives are typically only advisory
-    return escaped_string
-
-  @staticmethod
-  def _cleanse_c_string(raw_string):
-    # Prevent a malicious address/fingerprint string from breaking out
-    # of a C-style string
-    bad_char_list = '"'
-    # Prevent a malicious string from using escapes
-    bad_char_list += '\\'
-    # Prevent a malicious string from using C nulls
-    bad_char_list += '\0'
-    # Be safer by removing bad characters entirely
-    escaped_string = Candidate._remove_bad_chars(raw_string, bad_char_list)
-    # Embedded newlines should be removed by tor/onionoo, but let's be paranoid
-    escaped_string = Candidate._cleanse_whitespace(escaped_string)
-    # Some compilers may further process the content of strings
-    # There isn't much we can do to cover every possible case
-    # But this typically only results in changes to the string data
-    return escaped_string
-
   def fallbackdir_line(self):
     # /*
     # nickname
     # [contact]
     # */
-    # "address:port orport=port id=fingerprint [weight=num]",
+    # "address:port orport=port id=fingerprint"
+    # "[ipv6=addr]"
+    # "weight=num",
     # Multiline C comment
     s = '/*\n'
-    s += Candidate._cleanse_c_multiline_comment(self._data['nickname'])
+    s += cleanse_c_multiline_comment(self._data['nickname'])
+    s += '\n'
     if self._data['contact'] is not None:
-      s += Candidate._cleanse_c_multiline_comment(self._data['contact'])
+      s += cleanse_c_multiline_comment(self._data['contact'])
+      s += '\n'
     s += '*/'
     s += '\n'
-    # Single-Line C string with trailing comma (part of a string list)
-    s += '"%s orport=%d id=%s weight=%d'%(
-            Candidate._cleanse_c_string(self._data['dir_address']),
+    # Multi-Line C string with trailing comma (part of a string list)
+    # This makes it easier to diff the file, and remove IPv6 lines using grep
+    s += '"%s orport=%d id=%s"'%(
+            cleanse_c_string(self._data['dir_address']),
             self.orport,                   # Integers don't need escaping
-            Candidate._cleanse_c_string(self._fpr),
-            self._data['consensus_weight'] # Integers don't need escaping
-          )
+            cleanse_c_string(self._fpr))
+    s += '\n'
     if self.ipv6addr is not None:
-      s += ' ipv6=%s'%(Candidate._cleanse_c_string(self.ipv6addr))
-    s += '",'
+      s += '" ipv6=%s"'%(
+            cleanse_c_string(self.ipv6addr))
+      s += '\n'
+    s += '" weight=%d",'%(
+            self._data['consensus_weight']) # Integers don't need escaping
     return s
 
 class CandidateList(dict):
@@ -543,6 +581,7 @@ class CandidateList(dict):
     logging.debug('Loading details document done.')
 
     if not 'relays' in d: raise Exception("No relays found in document.")
+
     for r in d['relays']: self._add_relay(r)
 
   def _add_uptimes(self):
@@ -557,17 +596,19 @@ class CandidateList(dict):
     self._add_details()
     self._add_uptimes()
 
-
   def compute_fallbacks(self):
     self.fallbacks = map(lambda x: self[x], sorted(filter(lambda x: self[x].is_candidate(), self.keys())))
 
 def list_fallbacks():
   """ Fetches required onionoo documents and evaluates the
-      t-shirt qualification criteria for each of the relays """
+      fallback directory criteria for each of the relays """
 
   candidates = CandidateList()
   candidates.add_relays()
   candidates.compute_fallbacks()
+
+  for s in fetch_source_list():
+    print describe_fetch_source(s)
 
   for x in candidates.fallbacks:
     print x.fallbackdir_line()
