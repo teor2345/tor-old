@@ -38,6 +38,9 @@ CUTOFF_GUARD = .95
 # .00 means no bad exits
 PERMITTED_BADEXIT = .00
 
+# Limit the number returned to this many
+TOP_N_BY_WEIGHT = 512
+
 AGE_ALPHA = 0.99 # older entries' weights are adjusted with ALPHA^(age in days)
 
 ONIONOO_SCALE_ONE = 999.
@@ -597,7 +600,7 @@ class CandidateList(dict):
     self._add_uptimes()
 
   def compute_fallbacks(self):
-    self.fallbacks = map(lambda x: self[x], sorted(filter(lambda x: self[x].is_candidate(), self.keys())))
+    self.fallbacks = map(lambda x: self[x], sorted(filter(lambda x: self[x].is_candidate(), self.keys()), key=lambda x: self[x]._data['consensus_weight'], reverse=True))
 
 def list_fallbacks():
   """ Fetches required onionoo documents and evaluates the
@@ -610,7 +613,7 @@ def list_fallbacks():
   for s in fetch_source_list():
     print describe_fetch_source(s)
 
-  for x in candidates.fallbacks:
+  for x in candidates.fallbacks[:TOP_N_BY_WEIGHT]:
     print x.fallbackdir_line()
     #print json.dumps(candidates[x]._data, sort_keys=True, indent=4, separators=(',', ': '), default=json_util.default)
 
