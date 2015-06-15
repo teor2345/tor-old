@@ -1,0 +1,25 @@
+Early draft fuzzer implementation for afl fuzzing torrc
+
+Fuzzing should only be performed on non-critical,
+non-production systems. It can reveal destructive bugs,
+place additional load on hardware, and fill RAM & disks.
+
+This is a very early proof-of-concept draft of a modular
+tor fuzzing architecture.
+
+The fuzzer runs like a tor unit test, and uses the mocking
+architecture in testsupport.h to modify tor behaviour.
+It calls custom code, minimised copies of tor functions,
+and standard tor functions, from its own main() function.
+
+Architecture:
+
+contrib/fuzz/
+  common - common code and scripts
+  feature - per-tor-feature code, scripts, and testcases
+  fuzzer - per-fuzzer code and scripts
+src/test/ (needs config mechanism)
+  symlinks to the code in contrib/fuzz for afl fuzzing torrc
+  makefile changes for afl fuzzing torrc
+src/common/
+  additional mock and macro changes to support fuzzing

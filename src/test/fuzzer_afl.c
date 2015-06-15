@@ -1,0 +1,1 @@
+../../contrib/fuzz/fuzzer/afl/fuzzer_afl.c

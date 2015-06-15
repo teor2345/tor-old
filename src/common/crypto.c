@@ -132,7 +132,7 @@ crypto_get_rsa_padding(int padding)
 }
 
 /** Boolean: has OpenSSL's crypto been initialized? */
-static int crypto_early_initialized_ = 0;
+STATIC int crypto_early_initialized_ = 0;
 
 /** Boolean: has OpenSSL's crypto been initialized? */
 static int crypto_global_initialized_ = 0;

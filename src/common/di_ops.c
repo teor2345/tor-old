@@ -22,8 +22,8 @@
  * data-dependent: it should return in the same amount of time regardless of
  * the contents of <b>a</b> and <b>b</b>.
  */
-int
-tor_memcmp(const void *a, const void *b, size_t len)
+MOCK_IMPL(int,
+tor_memcmp,(const void *a, const void *b, size_t len))
 {
   const uint8_t *x = a;
   const uint8_t *y = b;
@@ -94,8 +94,8 @@ tor_memcmp(const void *a, const void *b, size_t len)
  * regardless of the contents of <b>a</b> and <b>b</b>.  It differs from
  * !tor_memcmp(a,b,sz) by being faster.
  */
-int
-tor_memeq(const void *a, const void *b, size_t sz)
+MOCK_IMPL(int,
+tor_memeq,(const void *a, const void *b, size_t sz))
 {
   /* Treat a and b as byte ranges. */
   const uint8_t *ba = a, *bb = b;
@@ -208,8 +208,8 @@ dimap_search(const di_digest256_map_t *map, const uint8_t *key,
  * Return true iff the <b>sz</b> bytes at <b>mem</b> are all zero. Runs in
  * time independent of the contents of <b>mem</b>.
  */
-int
-safe_mem_is_zero(const void *mem, size_t sz)
+MOCK_IMPL(int,
+safe_mem_is_zero, (const void *mem, size_t sz))
 {
   uint32_t total = 0;
   const uint8_t *ptr = mem;

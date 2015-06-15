@@ -80,7 +80,9 @@ void tor_assertion_failed_(const char *fname, unsigned int line,
 /** Define this if you want Tor to crash when any problem comes up,
  * so you can get a coredump and track things down. */
 // #define tor_fragile_assert() tor_assert(0)
+#ifndef tor_fragile_assert
 #define tor_fragile_assert()
+#endif
 
 /* Memory management */
 void *tor_malloc_(size_t size DMALLOC_PARAMS) ATTR_MALLOC;
