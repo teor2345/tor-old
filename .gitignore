@@ -161,6 +161,7 @@ cscope.*
 /src/test/Makefile.in
 /src/test/bench
 /src/test/bench.exe
+/src/test/fuzz-torrc
 /src/test/test
 /src/test/test-slow
 /src/test/test-bt-cl
