@@ -1,13 +1,12 @@
 /*
- * Note: I considered implementing this for torrc fuzzing,
- * but I can't see the (potential) speedup justifying
- * the effort, or the possibility that I forget to reset a variable.
+ * Note:
  * It's not fork() that's slowing tor down, it's the complex parsing.
  * (When all inputs are ignored, it runs at 1000 runs per second.)
- * torrc parsing also uses getaddrinfo(), which might not be resettable either.
- * Don't even ask about OpenSSL, I bet that's a nightmare to reset.
- * I'll reconsider persistent fuzzing for features like cell parsing.
+ * So using persistent fuzzing with torrc may not lead to a speed increase.
  * -- teor
+ * TODO: use the reset function that is used by the following code:
+ * "Received reload signal (hup). Reloading config and resetting internal
+ *  state."
  */
 
 /*
