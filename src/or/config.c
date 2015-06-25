@@ -296,6 +296,7 @@ static config_var_t option_vars_[] = {
   V(HidServAuth,                 LINELIST, NULL),
   V(CloseHSClientCircuitsImmediatelyOnTimeout, BOOL, "0"),
   V(CloseHSServiceRendCircuitsImmediatelyOnTimeout, BOOL, "0"),
+  V(RendezvousSingleOnionServiceNonAnonymousServer, BOOL, "0"),
   V(HTTPProxy,                   STRING,   NULL),
   V(HTTPProxyAuthenticator,      STRING,   NULL),
   V(HTTPSProxy,                  STRING,   NULL),
@@ -3229,6 +3230,67 @@ options_validate(or_options_t *old_options, or_options_t *options,
     options->PredictedPortsRelevanceTime = MAX_PREDICTED_CIRCS_RELEVANCE;
   }
 
+#ifndef NON_ANONYMOUS_MODE_ENABLED
+  /* If you run an anonymous client with an active RSOS, the client loses
+   * anonymity. */
+  if (options->RendezvousSingleOnionServiceNonAnonymousServer
+      && options->RendConfigLines && options->SocksPort_set
+      && !options->Tor2webMode) {
+    REJECT("RendezvousSingleOnionServiceNonAnonymousServer is incompatible "
+           "with using Tor as an anonymous client. Please set SocksPort to "
+           "0, or RendezvousSingleOnionServiceNonAnonymousServer to 0, or "
+           "Tor2webMode 1.");
+  }
+#endif
+
+#ifdef NON_ANONYMOUS_MODE_ENABLED
+  /* If you run a hidden service in non-anonymous mode, the hidden service
+   * loses anonymity, even if SOCKSPort / Tor2web mode isn't used. */
+  if (!options->RendezvousSingleOnionServiceNonAnonymousServer
+      && options->RendConfigLines) {
+    REJECT("Non-anonymous (Tor2web) mode is incompatible with using Tor as a "
+           "hidden service. Please set "
+           "RendezvousSingleOnionServiceNonAnonymousServer 1, or remove all "
+           "HiddenServiceDir lines, or use a version of tor compiled without "
+           "--enable-tor2webmode.");
+  }
+#endif
+
+  if (options->RendezvousSingleOnionServiceNonAnonymousServer
+      && options->LearnCircuitBuildTimeout) {
+    /* LearnCircuitBuildTimeout and RSOS are incompatible in
+     * two ways:
+     *
+     * - LearnCircuitBuildTimeout results in a low CBT, which
+     *   RSOS's use of one-hop intro and rendezvous circuits lowers
+     *   much further, producing *far* too many timeouts.
+     *
+     * - The adaptive CBT code does not update its timeout estimate
+     *   using build times for single-hop circuits.
+     *
+     * If we fix both of these issues someday, we should test
+     * RSOS with LearnCircuitBuildTimeout on again. */
+    log_notice(LD_CONFIG,"RendezvousSingleOnionServiceNonAnonymousServer is "
+               "enabled; turning LearnCircuitBuildTimeout off.");
+    options->LearnCircuitBuildTimeout = 0;
+  }
+
+  if (options->RendezvousSingleOnionServiceNonAnonymousServer
+      && options->UseEntryGuards) {
+    /* RSOS services do not (and should not) use entry guards
+     * in any meaningful way.  Further, RSOS causes the hidden
+     * service code to do things which break the path bias
+     * detector, and it's far easier to turn off entry guards (and
+     * thus the path bias detector with it) than to figure out how to
+     * make a piece of code which cannot possibly help RSOS, compatible with
+     * RSOS.
+     */
+    log_notice(LD_CONFIG,
+               "RendezvousSingleOnionServiceNonAnonymousServer is enabled; "
+               "disabling UseEntryGuards.");
+    options->UseEntryGuards = 0;
+  }
+
 #ifdef ENABLE_TOR2WEB_MODE
   if (options->Tor2webMode && options->LearnCircuitBuildTimeout) {
     /* LearnCircuitBuildTimeout and Tor2webMode are incompatible in
@@ -3289,6 +3351,16 @@ options_validate(or_options_t *old_options, or_options_t *options,
              "For this reason, the use of one EntryNodes with an hidden "
              "service is prohibited until a better solution is found.");
     return -1;
+  }
+
+  /* RendezvousSingleOnionServiceNonAnonymousServer: one hop between the
+   * hidden/onion service server and intro / rendezvous points */
+  if (options->RendezvousSingleOnionServiceNonAnonymousServer) {
+    log_warn(LD_CONFIG,
+             "RendezvousSingleOnionServiceNonAnonymousServer is set to 1."
+             " Every hidden/onion service on this instance is NON-ANONYMOUS."
+             " Clients remain location-anonymous, but may be statistically"
+             " distinguishable. This setting is for experimental use only.");
   }
 
   if (!options->LearnCircuitBuildTimeout && options->CircuitBuildTimeout &&
