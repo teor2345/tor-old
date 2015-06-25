@@ -3405,7 +3405,8 @@ typedef struct {
   /** What should the tor process actually do? */
   enum {
     CMD_RUN_TOR=0, CMD_LIST_FINGERPRINT, CMD_HASH_PASSWORD,
-    CMD_VERIFY_CONFIG, CMD_RUN_UNITTESTS, CMD_DUMP_CONFIG
+    CMD_VERIFY_CONFIG, CMD_RUN_UNITTESTS, CMD_DUMP_CONFIG,
+    CMD_KEYGEN
   } command;
   char *command_arg; /**< Argument for command-line option. */
 
@@ -4971,15 +4972,6 @@ typedef struct rend_service_descriptor_t {
    * to know which uploads succeeded and which not). */
   smartlist_t *successful_uploads;
 } rend_service_descriptor_t;
-
-/** A cached rendezvous descriptor. */
-typedef struct rend_cache_entry_t {
-  size_t len; /**< Length of <b>desc</b> */
-  time_t last_served; /**< When did we last write this one to somebody?
-                       * (HSDir only) */
-  char *desc; /**< Service descriptor */
-  rend_service_descriptor_t *parsed; /**< Parsed value of 'desc' */
-} rend_cache_entry_t;
 
 /********************************* routerlist.c ***************************/
 
