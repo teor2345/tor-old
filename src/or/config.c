@@ -3192,21 +3192,22 @@ options_validate(or_options_t *old_options, or_options_t *options,
   && options->HSServiceRendRouteLength <= MAX_HARD_HS_SERVICE_REND_ROUTE_LEN) {
     log_warn(LD_CONFIG,
              "HSServiceRendRouteLength %d is higher than default length %d"
-             " and the maximum number of RELAY_EARLY cells %d."
+             " and higher than the maximum number of RELAY_EARLY cells "
+             " which can be sent without tor warnings, %d."
              " Performance of your Hidden Service(s) will suffer,"
              " and tor will issue warnings about RELAY_EARLY cell exhaustion."
              " Route lengths greater than %d have no known anonymity benefits."
              " This setting is for EXPERIMENTAL USE ONLY.",
              options->HSServiceRendRouteLength,
-             MAX_SOFT_HS_SERVICE_REND_ROUTE_LEN,
              DEFAULT_HS_SERVICE_REND_ROUTE_LEN,
+             MAX_SOFT_HS_SERVICE_REND_ROUTE_LEN,
              DEFAULT_HS_SERVICE_REND_ROUTE_LEN);
   } else if (
       options->HSServiceRendRouteLength > MAX_HARD_HS_SERVICE_REND_ROUTE_LEN) {
     /* we could attempt stringification tricks on *_HS_SERVICE_REND_ROUTE_LEN,
      * but instead, just take the risk that the values fall out of sync */
     REJECT("HSServiceRendRouteLength is higher than maximum permitted"
-           " length. Please choose a value between 0 and 15."
+           " length. Please choose a value between 0 and 8."
            " (-1 gives the default behavior: 3 for new circuits"
            " and 4 for cannibalized circuits.)"
            " This setting is for EXPERIMENTAL USE ONLY.");
