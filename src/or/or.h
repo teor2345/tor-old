@@ -3628,6 +3628,17 @@ typedef struct {
    * they reach the normal circuit-build timeout. */
   int CloseHSServiceRendCircuitsImmediatelyOnTimeout;
 
+  /** Rendezvous Single Onion Service (Non-Anonymous) Servers make one-hop
+   * circuits between the onion service server, and the introduction and
+   * rendezvous points. (Onion service descriptors are still posted using
+   * 3-hop paths, to avoid hidden/onion service directories blocking the
+   * service.) This option makes every hidden service instance hosted by
+   * this tor instance a Rendezvous Single Onion Service (RSOS). One-hop
+   * circuits make RSOS servers easily locatable, but clients remain
+   * location-anonymous. However, client use of a RSOS may be statistically
+   * distinguishable.*/
+  int RendezvousSingleOnionServiceNonAnonymousServer;
+
   int ConnLimit; /**< Demanded minimum number of simultaneous connections. */
   int ConnLimit_; /**< Maximum allowed number of simultaneous connections. */
   int RunAsDaemon; /**< If true, run in the background. (Unix only) */
@@ -4464,6 +4475,13 @@ struct socks_request_t {
 
 /** How many hops does a general-purpose circuit have by default? */
 #define DEFAULT_ROUTE_LEN 3
+
+/** How many hops do Rendezvous Single Onion Service (RSOS) Server Intro
+ * Point and Rendezvous circuits have? (This includes the server-chosen intro
+ * point and client-chosen rendezvous point.)
+ * RSOSs use one-hop circuits and are non-anonymous.
+ * Only used when RendezvousSingleOnionServiceNonAnonymousServer is set. */
+#define RSOS_NON_ANONYMOUS_ROUTE_LEN 1
 
 /* Circuit Build Timeout "public" structures. */
 

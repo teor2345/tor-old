@@ -1431,6 +1431,7 @@ new_route_len(uint8_t purpose, extend_info_t *exit, smartlist_t *nodes)
   tor_assert(nodes);
 
   routelen = DEFAULT_ROUTE_LEN;
+
   if (exit &&
       purpose != CIRCUIT_PURPOSE_TESTING &&
       purpose != CIRCUIT_PURPOSE_S_ESTABLISH_INTRO)
@@ -1952,7 +1953,9 @@ onion_pick_cpath_exit(origin_circuit_t *circ, extend_info_t *exit)
   cpath_build_state_t *state = circ->build_state;
 
   if (state->onehop_tunnel) {
-    log_debug(LD_CIRC, "Launching a one-hop circuit for dir tunnel.");
+    log_debug(LD_CIRC, "Launching a one-hop circuit for dir%s tunnel.",
+              (get_options()->RendezvousSingleOnionServiceNonAnonymousServer ?
+               "or intro or rendezvous" : ""));
     state->desired_path_len = 1;
   } else {
     int r = new_route_len(circ->base_.purpose, exit, nodelist_get_list());
