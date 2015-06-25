@@ -3588,6 +3588,10 @@ typedef struct {
    * they reach the normal circuit-build timeout. */
   int CloseHSServiceRendCircuitsImmediatelyOnTimeout;
 
+  /** How many hops does a Onion Service Server Rendezvous circuit have
+   * between the Onion Service Server & the Rendezvous Point */
+  int OnionSrvRendRouteLength;
+
   int ConnLimit; /**< Demanded minimum number of simultaneous connections. */
   int ConnLimit_; /**< Maximum allowed number of simultaneous connections. */
   int RunAsDaemon; /**< If true, run in the background. (Unix only) */
@@ -4393,6 +4397,21 @@ struct socks_request_t {
 
 /** How many hops does a general-purpose circuit have by default? */
 #define DEFAULT_ROUTE_LEN 3
+/** How many hops does a Hidden Service Server Rendezvous circuit have?
+ * This circuit is between the Hidden Service Server & the Rendezvous Point
+ * The hop count does not include the Rendezvous Point
+ * For testing only, no proven anonymity gains past DEFAULT_ROUTE_LEN */
+/** Hidden Services - server anonymity */
+#define DEFAULT_ONION_SRV_REND_ROUTE_LEN  DEFAULT_ROUTE_LEN
+/** Direct Onion Services - server can be located - for known services */
+#define MIN_ONION_SRV_REND_ROUTE_LEN      0
+/** Experimental Only - Soft limited to 7 by RELAY_EARLY
+ * Circuits longer than 7 will log warnings */
+#define MAX_SOFT_ONION_SRV_REND_ROUTE_LEN \
+                                      ((MAX_RELAY_EARLY_CELLS_PER_CIRCUIT) - 1)
+/** Experimental Only - Hard limited to 8 by RELAY_EARLY
+ * Circuits longer than 8 won't connect */
+#define MAX_HARD_ONION_SRV_REND_ROUTE_LEN MAX_RELAY_EARLY_CELLS_PER_CIRCUIT
 
 /* Circuit Build Timeout "public" structures. */
 

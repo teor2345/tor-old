@@ -1686,6 +1686,7 @@ circuit_launch_by_extend_info(uint8_t purpose,
   int onehop_tunnel = (flags & CIRCLAUNCH_ONEHOP_TUNNEL) != 0;
   int have_path = have_enough_path_info(! (flags & CIRCLAUNCH_IS_INTERNAL) );
   int need_specific_rp = 0;
+  int need_specific_len = 0;
 
   if (!onehop_tunnel && (!router_have_minimum_dir_info() || !have_path)) {
     log_debug(LD_CIRC,"Haven't %s yet; canceling "
@@ -1704,9 +1705,21 @@ circuit_launch_by_extend_info(uint8_t purpose,
     need_specific_rp = 1;
   }
 
+  /* By default, CIRCUIT_PURPOSE_S_CONNECT_REND circuits are 4 hops long
+   * if cannibalized (and 3 hops long if new). So if OnionSrvRendRouteLength
+   * isn't negative (default) or 4, we don't want to cannibalize any circuits,
+   * as any returned cannibalized circuit is already DEFAULT_ROUTE_LEN (3),
+   * and would be extended by 1 to 4 hops long. */
+  int hs_rend_route_len = get_options()->OnionSrvRendRouteLength;
+  if (purpose == CIRCUIT_PURPOSE_S_CONNECT_REND &&
+      hs_rend_route_len >= MIN_ONION_SRV_REND_ROUTE_LEN &&
+      hs_rend_route_len != (DEFAULT_ONION_SRV_REND_ROUTE_LEN + 1)) {
+    need_specific_len = 1;
+  }
+
   if ((extend_info || purpose != CIRCUIT_PURPOSE_C_GENERAL) &&
       purpose != CIRCUIT_PURPOSE_TESTING &&
-      !onehop_tunnel && !need_specific_rp) {
+      !onehop_tunnel && !need_specific_rp && !need_specific_len) {
     /* see if there are appropriate circs available to cannibalize. */
     /* XXX if we're planning to add a hop, perhaps we want to look for
      * internal circs rather than exit circs? -RD */
