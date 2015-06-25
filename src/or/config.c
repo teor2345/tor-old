@@ -290,6 +290,7 @@ static config_var_t option_vars_[] = {
   V(HidServAuth,                 LINELIST, NULL),
   V(CloseHSClientCircuitsImmediatelyOnTimeout, BOOL, "0"),
   V(CloseHSServiceRendCircuitsImmediatelyOnTimeout, BOOL, "0"),
+  V(RendezvousSingleOnionServiceNonAnonymousServer, BOOL, "0"),
   V(HTTPProxy,                   STRING,   NULL),
   V(HTTPProxyAuthenticator,      STRING,   NULL),
   V(HTTPSProxy,                  STRING,   NULL),
@@ -3083,6 +3084,16 @@ options_validate(or_options_t *old_options, or_options_t *options,
              "hidden services on this Tor instance.  Your hidden services "
              "will be very easy to locate using a well-known attack -- see "
              "http://freehaven.net/anonbib/#hs-attack06 for details.");
+  }
+
+  /* RendezvousSingleOnionServiceNonAnonymousServer: one hop between the
+   * hidden/onion service server and intro / rendezvous points */
+  if (options->RendezvousSingleOnionServiceNonAnonymousServer) {
+    log_warn(LD_CONFIG,
+             "RendezvousSingleOnionServiceNonAnonymousServer is set to 1."
+             " Every hidden/onion service on this instance is NON-ANONYMOUS."
+             " Clients remain location-anonymous, but may be statistically"
+             " distinguishable. This setting is for experimental use only.");
   }
 
   if (!options->LearnCircuitBuildTimeout && options->CircuitBuildTimeout &&

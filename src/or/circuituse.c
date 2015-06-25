@@ -1676,6 +1676,9 @@ have_enough_path_info(int need_exit)
  * CIRCLAUNCH_NEED_CAPACITY is set, choose among routers with high bandwidth.
  * If CIRCLAUNCH_IS_INTERNAL is true, the last hop need not be an exit node.
  * If CIRCLAUNCH_ONEHOP_TUNNEL is set, the circuit will have only one hop.
+ * If RendezvousSingleOnionServiceNonAnonymousServer is set in the options,
+ * hidden/onion service server introduction and rendezvous circuits become
+ * one-hop.
  * Return the newly allocated circuit on success, or NULL on failure. */
 origin_circuit_t *
 circuit_launch_by_extend_info(uint8_t purpose,
@@ -1686,6 +1689,17 @@ circuit_launch_by_extend_info(uint8_t purpose,
   int onehop_tunnel = (flags & CIRCLAUNCH_ONEHOP_TUNNEL) != 0;
   int have_path = have_enough_path_info(! (flags & CIRCLAUNCH_IS_INTERNAL) );
   int need_specific_rp = 0;
+
+  /* If RendezvousSingleOnionServiceNonAnonymousServer is set, we want to make
+   * one-hop intro and rendezvous paths. So we don't want to cannibalize any
+   * circuits, as any returned cannibalized circuit is already
+   * DEFAULT_ROUTE_LEN (3). */
+  if (get_options()->RendezvousSingleOnionServiceNonAnonymousServer
+      && (purpose == CIRCUIT_PURPOSE_S_ESTABLISH_INTRO
+          || purpose == CIRCUIT_PURPOSE_S_CONNECT_REND)) {
+    onehop_tunnel = 1;
+    flags = flags | CIRCLAUNCH_ONEHOP_TUNNEL;
+  }
 
   if (!onehop_tunnel && (!router_have_minimum_dir_info() || !have_path)) {
     log_debug(LD_CIRC,"Haven't %s yet; canceling "
