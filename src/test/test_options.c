@@ -2758,6 +2758,149 @@ test_options_validate__rend(void *ignored)
 }
 
 static void
+test_options_validate__single_onion(void *ignored)
+{
+  (void)ignored;
+  int ret;
+  char *msg;
+  options_test_data_t *tdata = NULL;
+  int previous_log = setup_capture_of_logs(LOG_WARN);
+
+  /* Test that SingleOnionMode must come with NonAnonymousMode */
+  tdata = get_options_test_data(TEST_OPTIONS_DEFAULT_VALUES
+                                "SOCKSPort 0\n"
+                                "SingleOnionMode 1\n"
+                                );
+  ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
+  tt_int_op(ret, OP_EQ, -1);
+  tt_str_op(msg, OP_EQ, "SingleOnionMode does not provide any server "
+            "anonymity. It must be used with NonAnonymousMode set to 1.");
+  tor_free(msg);
+  free_options_test_data(tdata);
+
+  tdata = get_options_test_data(TEST_OPTIONS_DEFAULT_VALUES
+                                "SOCKSPort 0\n"
+                                "SingleOnionMode 1\n"
+                                "NonAnonymousMode 0\n"
+                                );
+  ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
+  tt_int_op(ret, OP_EQ, -1);
+  tt_str_op(msg, OP_EQ, "SingleOnionMode does not provide any server "
+            "anonymity. It must be used with NonAnonymousMode set to 1.");
+  tor_free(msg);
+  free_options_test_data(tdata);
+
+  tdata = get_options_test_data(TEST_OPTIONS_DEFAULT_VALUES
+                                "SOCKSPort 0\n"
+                                "SingleOnionMode 1\n"
+                                "NonAnonymousMode 1\n"
+                                );
+  ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
+  tt_int_op(ret, OP_EQ, 0);
+  tt_ptr_op(msg, OP_EQ, NULL);
+  free_options_test_data(tdata);
+
+  /* Test that SOCKSPort must come with Tor2webMode if SingleOnionMode is 1 */
+  tdata = get_options_test_data(TEST_OPTIONS_DEFAULT_VALUES
+                                "SOCKSPort 5000\n"
+                                "SingleOnionMode 1\n"
+                                "NonAnonymousMode 1\n"
+                                "Tor2webMode 0\n"
+                                );
+  ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
+  tt_int_op(ret, OP_EQ, -1);
+  tt_str_op(msg, OP_EQ, "SingleOnionMode is incompatible with using Tor as an "
+            "anonymous client. Please set SocksPort to 0, or SingleOnionMode "
+            "to 0, or use the non-anonymous Tor2webMode.");
+  tor_free(msg);
+  free_options_test_data(tdata);
+
+  tdata = get_options_test_data(TEST_OPTIONS_DEFAULT_VALUES
+                                "SOCKSPort 0\n"
+                                "SingleOnionMode 1\n"
+                                "NonAnonymousMode 1\n"
+                                "Tor2webMode 0\n"
+                                );
+  ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
+  tt_int_op(ret, OP_EQ, 0);
+  tt_ptr_op(msg, OP_EQ, NULL);
+  free_options_test_data(tdata);
+
+  tdata = get_options_test_data(TEST_OPTIONS_DEFAULT_VALUES
+                                "SOCKSPort 5000\n"
+                                "SingleOnionMode 0\n"
+                                "Tor2webMode 0\n"
+                                );
+  ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
+  tt_int_op(ret, OP_EQ, 0);
+  tt_ptr_op(msg, OP_EQ, NULL);
+  free_options_test_data(tdata);
+
+  tdata = get_options_test_data(TEST_OPTIONS_DEFAULT_VALUES
+                                "SOCKSPort 5000\n"
+                                "SingleOnionMode 1\n"
+                                "NonAnonymousMode 1\n"
+                                "Tor2webMode 1\n"
+                                );
+  ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
+  tt_int_op(ret, OP_EQ, 0);
+  tt_ptr_op(msg, OP_EQ, NULL);
+  free_options_test_data(tdata);
+
+  /* Test that a hidden service can't be run with Tor2web
+   * Use NonAnonymousMode instead of Tor2webMode, because Tor2webMode requires
+   * a compilation #define */
+  tdata = get_options_test_data(TEST_OPTIONS_DEFAULT_VALUES
+                  "NonAnonymousMode 1\n"
+                  "HiddenServiceDir /Library/Tor/var/lib/tor/hidden_service/\n"
+                  "HiddenServicePort 80 127.0.0.1:8080\n"
+                                );
+  ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
+  tt_int_op(ret, OP_EQ, -1);
+  tt_str_op(msg, OP_EQ,
+            "Non-anonymous (Tor2web) mode is incompatible with using Tor as a "
+            "hidden service. Please remove all HiddenServiceDir lines, or use "
+            "a version of tor compiled without --enable-tor2web-mode, or use "
+            "the non-anonymous SingleOnionMode.");
+  tor_free(msg);
+  free_options_test_data(tdata);
+
+  tdata = get_options_test_data(TEST_OPTIONS_DEFAULT_VALUES
+                  "NonAnonymousMode 1\n"
+                                );
+  ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
+  tt_int_op(ret, OP_EQ, 0);
+  tt_ptr_op(msg, OP_EQ, NULL);
+  free_options_test_data(tdata);
+
+  tdata = get_options_test_data(TEST_OPTIONS_DEFAULT_VALUES
+                  "HiddenServiceDir /Library/Tor/var/lib/tor/hidden_service/\n"
+                  "HiddenServicePort 80 127.0.0.1:8080\n"
+                                );
+  ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
+  tt_int_op(ret, OP_EQ, 0);
+  tt_ptr_op(msg, OP_EQ, NULL);
+  free_options_test_data(tdata);
+
+  tdata = get_options_test_data(TEST_OPTIONS_DEFAULT_VALUES
+                  "NonAnonymousMode 1\n"
+                  "HiddenServiceDir /Library/Tor/var/lib/tor/hidden_service/\n"
+                  "HiddenServicePort 80 127.0.0.1:8080\n"
+                  "SingleOnionMode 1\n"
+                  "SOCKSPort 0\n"
+                                );
+  ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
+  tt_int_op(ret, OP_EQ, 0);
+  tt_ptr_op(msg, OP_EQ, NULL);
+
+ done:
+  policies_free_all();
+  teardown_capture_of_logs(previous_log);
+  free_options_test_data(tdata);
+  tor_free(msg);
+}
+
+static void
 test_options_validate__accounting(void *ignored)
 {
   (void)ignored;
@@ -4379,6 +4522,7 @@ struct testcase_t options_tests[] = {
   LOCAL_VALIDATE_TEST(port_forwarding),
   LOCAL_VALIDATE_TEST(tor2web),
   LOCAL_VALIDATE_TEST(rend),
+  LOCAL_VALIDATE_TEST(single_onion),
   LOCAL_VALIDATE_TEST(accounting),
   LOCAL_VALIDATE_TEST(proxy),
   LOCAL_VALIDATE_TEST(control),
