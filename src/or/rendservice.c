@@ -1301,7 +1301,9 @@ rend_service_introduce(origin_circuit_t *circuit, const uint8_t *request,
   }
 
 #ifndef NON_ANONYMOUS_MODE_ENABLED
-  tor_assert(!(circuit->build_state->onehop_tunnel));
+  if (!get_options()->RendezvousSingleOnionServiceNonAnonymousServer) {
+    tor_assert(!(circuit->build_state->onehop_tunnel));
+  }
 #endif
   tor_assert(circuit->rend_data);
 
@@ -1512,6 +1514,11 @@ rend_service_introduce(origin_circuit_t *circuit, const uint8_t *request,
   for (i=0;i<MAX_REND_FAILURES;i++) {
     int flags = CIRCLAUNCH_NEED_CAPACITY | CIRCLAUNCH_IS_INTERNAL;
     if (circ_needs_uptime) flags |= CIRCLAUNCH_NEED_UPTIME;
+    /* If RendezvousSingleOnionServiceNonAnonymousServer is set, we want to
+     * make one-hop rendezvous circuits. */
+    if (get_options()->RendezvousSingleOnionServiceNonAnonymousServer) {
+          flags = flags | CIRCLAUNCH_ONEHOP_TUNNEL;
+    }
     launched = circuit_launch_by_extend_info(
                         CIRCUIT_PURPOSE_S_CONNECT_REND, rp, flags);
 
@@ -2448,9 +2455,15 @@ rend_service_relaunch_rendezvous(origin_circuit_t *oldcirc)
   log_info(LD_REND,"Reattempting rendezvous circuit to '%s'",
            safe_str(extend_info_describe(oldstate->chosen_exit)));
 
+  int flags = CIRCLAUNCH_NEED_CAPACITY | CIRCLAUNCH_IS_INTERNAL;
+  /* If RendezvousSingleOnionServiceNonAnonymousServer is set, we want to
+   * make one-hop rendezvous circuits. */
+  if (get_options()->RendezvousSingleOnionServiceNonAnonymousServer) {
+    flags = flags | CIRCLAUNCH_ONEHOP_TUNNEL;
+  }
+
   newcirc = circuit_launch_by_extend_info(CIRCUIT_PURPOSE_S_CONNECT_REND,
-                            oldstate->chosen_exit,
-                            CIRCLAUNCH_NEED_CAPACITY|CIRCLAUNCH_IS_INTERNAL);
+                            oldstate->chosen_exit, flags);
 
   if (!newcirc) {
     log_warn(LD_REND,"Couldn't relaunch rendezvous circuit to '%s'.",
@@ -2476,6 +2489,13 @@ rend_service_launch_establish_intro(rend_service_t *service,
                                     rend_intro_point_t *intro)
 {
   origin_circuit_t *launched;
+  int flags = CIRCLAUNCH_NEED_UPTIME|CIRCLAUNCH_IS_INTERNAL;
+
+  /* If RendezvousSingleOnionServiceNonAnonymousServer is set, we want to
+   * make one-hop intro circuits. */
+  if (get_options()->RendezvousSingleOnionServiceNonAnonymousServer) {
+    flags = flags | CIRCLAUNCH_ONEHOP_TUNNEL;
+  }
 
   log_info(LD_REND,
            "Launching circuit to introduction point %s for service %s",
@@ -2486,8 +2506,7 @@ rend_service_launch_establish_intro(rend_service_t *service,
 
   ++service->n_intro_circuits_launched;
   launched = circuit_launch_by_extend_info(CIRCUIT_PURPOSE_S_ESTABLISH_INTRO,
-                             intro->extend_info,
-                             CIRCLAUNCH_NEED_UPTIME|CIRCLAUNCH_IS_INTERNAL);
+                             intro->extend_info, flags);
 
   if (!launched) {
     log_info(LD_REND,
@@ -2559,7 +2578,9 @@ rend_service_intro_has_opened(origin_circuit_t *circuit)
 
   tor_assert(circuit->base_.purpose == CIRCUIT_PURPOSE_S_ESTABLISH_INTRO);
 #ifndef NON_ANONYMOUS_MODE_ENABLED
-  tor_assert(!(circuit->build_state->onehop_tunnel));
+  if (!get_options()->RendezvousSingleOnionServiceNonAnonymousServer) {
+    tor_assert(!(circuit->build_state->onehop_tunnel));
+  }
 #endif
   tor_assert(circuit->cpath);
   tor_assert(circuit->rend_data);
@@ -2616,6 +2637,7 @@ rend_service_intro_has_opened(origin_circuit_t *circuit)
   log_info(LD_REND,
            "Established circuit %u as introduction point for service %s",
            (unsigned)circuit->base_.n_circ_id, serviceid);
+  circuit_log_path(LOG_INFO, LD_REND, circuit);
 
   /* Use the intro key instead of the service key in ESTABLISH_INTRO. */
   intro_key = circuit->intro_key;
@@ -2732,7 +2754,9 @@ rend_service_rendezvous_has_opened(origin_circuit_t *circuit)
   tor_assert(circuit->cpath);
   tor_assert(circuit->build_state);
 #ifndef NON_ANONYMOUS_MODE_ENABLED
-  tor_assert(!(circuit->build_state->onehop_tunnel));
+  if (!get_options()->RendezvousSingleOnionServiceNonAnonymousServer) {
+    tor_assert(!(circuit->build_state->onehop_tunnel));
+  }
 #endif
   tor_assert(circuit->rend_data);
 
@@ -2753,6 +2777,7 @@ rend_service_rendezvous_has_opened(origin_circuit_t *circuit)
            "Done building circuit %u to rendezvous with "
            "cookie %s for service %s",
            (unsigned)circuit->base_.n_circ_id, hexcookie, serviceid);
+  circuit_log_path(LOG_INFO, LD_REND, circuit);
 
   /* Clear the 'in-progress HS circ has timed out' flag for
    * consistency with what happens on the client side; this line has

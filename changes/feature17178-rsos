@@ -1,0 +1,16 @@
+  o Minor features (onion services):
+    - Add experimental RendezvousSingleOnionServiceNonAnonymousServer
+      option. When set to 1, every hidden service instance becomes a
+      non-anonymous Rendezvous Single Onion Service (RSOS). RSOSs make
+      one-hop connections to their introduction and renzedvous points.
+      Set to 1 for one-hop circuits, and 0 (default) for three-hop
+      circuits.
+      One-hop circuits make RSOS servers easily locatable, but clients
+      remain location-anonymous. However, client use of a RSOS may be
+      statistically distinguishable.
+      This is an alternate implementation of the "Stream latency is
+      reduced on a 4-hop circuit" feature of #prop252. It is compatible
+      with existing hidden service implementation, and works on the
+      existing tor network without any changes to older relays or
+      clients.
+      Completes ticket #17178. Patch by "teor".

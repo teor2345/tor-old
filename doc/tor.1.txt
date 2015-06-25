@@ -2140,6 +2140,17 @@ The following options are used to configure a hidden service.
     only owner is able to read the hidden service directory. (Default: 0)
     Has no effect on Windows.
 
+[[RendezvousSingleOnionServiceNonAnonymousServer]] **RendezvousSingleOnionServiceNonAnonymousServer** **0**|**1**::
+    **Experimental - Non Anonymous ** make one-hop circuits between the
+    Rendezvous Single Onion Service server, and the introduction and
+    rendezvous points. ((Onion service descriptors are still posted using
+    3-hop paths, to avoid hidden/onion service directories blocking the
+    service.) This option makes every hidden service instance hosted by this
+    tor instance a Rendezvous Single Onion Service (RSOS). One-hop circuits
+    make RSOS servers easily locatable, but clients remain location-anonymous.
+    However, client use of a RSOS may be statistically distinguishable.
+    (Default: 0)
+
 TESTING NETWORK OPTIONS
 -----------------------
 
