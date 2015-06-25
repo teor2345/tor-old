@@ -294,6 +294,7 @@ static config_var_t option_vars_[] = {
   V(HidServAuth,                 LINELIST, NULL),
   V(CloseHSClientCircuitsImmediatelyOnTimeout, BOOL, "0"),
   V(CloseHSServiceRendCircuitsImmediatelyOnTimeout, BOOL, "0"),
+  VAR("__OnionSrvRendRouteLength", INT, OnionSrvRendRouteLength, "-1"),
   V(HTTPProxy,                   STRING,   NULL),
   V(HTTPProxyAuthenticator,      STRING,   NULL),
   V(HTTPSProxy,                  STRING,   NULL),
@@ -3195,6 +3196,56 @@ options_validate(or_options_t *old_options, or_options_t *options,
              "For this reason, the use of one EntryNodes with an hidden "
              "service is prohibited until a better solution is found.");
     return -1;
+  }
+
+  /* OnionSrvRendRouteLength, in number of hops (0..8)
+   * -1 (or any negative number) means the default behaviour:
+   * 3 hops for new circuits, 4 for cannibalized */
+
+  if (options->OnionSrvRendRouteLength >= MIN_ONION_SRV_REND_ROUTE_LEN) {
+    log_warn(LD_CONFIG,
+             "OnionSrvRendRouteLength %d is not the default setting %d."
+             " This can compromise anonymity, or lead to poor performance."
+             " This setting is for experimental use only.",
+             options->OnionSrvRendRouteLength,
+             -1);
+  }
+
+  if (
+  options->OnionSrvRendRouteLength >= MIN_ONION_SRV_REND_ROUTE_LEN &&
+  options->OnionSrvRendRouteLength < DEFAULT_ONION_SRV_REND_ROUTE_LEN) {
+    log_warn(LD_CONFIG,
+             "OnionSrvRendRouteLength %d is lower than default length %d."
+             " Your Hidden Service(s) can be located more easily.",
+             options->OnionSrvRendRouteLength,
+             DEFAULT_ONION_SRV_REND_ROUTE_LEN);
+  } else if (
+  options->OnionSrvRendRouteLength > DEFAULT_ONION_SRV_REND_ROUTE_LEN) {
+    log_warn(LD_CONFIG,
+             "OnionSrvRendRouteLength %d is higher than default length %d."
+             " Performance of your Hidden Service(s) will suffer."
+             " Routes longer than %d have no known anonymity benefits.",
+             options->OnionSrvRendRouteLength,
+             DEFAULT_ONION_SRV_REND_ROUTE_LEN,
+             DEFAULT_ONION_SRV_REND_ROUTE_LEN);
+  }
+
+  if (
+  options->OnionSrvRendRouteLength > MAX_SOFT_ONION_SRV_REND_ROUTE_LEN &&
+  options->OnionSrvRendRouteLength <= MAX_HARD_ONION_SRV_REND_ROUTE_LEN) {
+    log_warn(LD_CONFIG,
+             "OnionSrvRendRouteLength %d will trigger RELAY_EARLY warnings."
+             " Set OnionSrvRendRouteLength to %d or less.",
+             options->OnionSrvRendRouteLength,
+             MAX_SOFT_ONION_SRV_REND_ROUTE_LEN);
+  } else if (
+  options->OnionSrvRendRouteLength > MAX_HARD_ONION_SRV_REND_ROUTE_LEN) {
+    /* the values of the *_ONION_SRV_REND_ROUTE_LEN macros are hardcoded below,
+     * because the macro doesn't support printf-style arguments */
+    REJECT("OnionSrvRendRouteLength is higher than maximum permitted"
+           " length. Please choose either -1, or a number between 0 and 8."
+           " (-1 means the default behavior: 3 hops for new circuits"
+           " and 4 hops for cannibalized circuits.)");
   }
 
   if (!options->LearnCircuitBuildTimeout && options->CircuitBuildTimeout &&

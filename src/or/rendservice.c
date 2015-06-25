@@ -2912,6 +2912,7 @@ rend_service_rendezvous_has_opened(origin_circuit_t *circuit)
            "Done building circuit %u to rendezvous with "
            "cookie %s for service %s",
            (unsigned)circuit->base_.n_circ_id, hexcookie, serviceid);
+  circuit_log_path(LOG_INFO, LD_REND, circuit);
 
   /* Clear the 'in-progress HS circ has timed out' flag for
    * consistency with what happens on the client side; this line has
