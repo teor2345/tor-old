@@ -1431,6 +1431,11 @@ new_route_len(uint8_t purpose, extend_info_t *exit, smartlist_t *nodes)
   tor_assert(nodes);
 
   routelen = DEFAULT_ROUTE_LEN;
+  /* a HSServiceRendRouteLength of -1 means the default behavior:
+   * 3 hops for new circuits, and 4 for cannibalized circuits */
+  if (purpose == CIRCUIT_PURPOSE_S_CONNECT_REND &&
+      get_options()->HSServiceRendRouteLength >= MIN_HS_SERVICE_REND_ROUTE_LEN)
+    routelen = get_options()->HSServiceRendRouteLength;
   if (exit &&
       purpose != CIRCUIT_PURPOSE_TESTING &&
       purpose != CIRCUIT_PURPOSE_S_ESTABLISH_INTRO)
