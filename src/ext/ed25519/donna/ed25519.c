@@ -14,10 +14,26 @@
 #define ED25519_FN2(fn,suffix) ED25519_FN3(fn,suffix)
 #define ED25519_FN(fn)         ED25519_FN2(fn,ED25519_SUFFIX)
 
+
 #include "ed25519-donna.h"
-#include "ed25519.h"
+/* #include "ed25519.h" */
 #include "ed25519-randombytes.h"
 #include "ed25519-hash.h"
+
+/* Tor: Tor specific external interface, certain typedefs/routines, no longer
+ * exposed globally.
+ */
+#include "ed25519_donna.h"
+typedef unsigned char ed25519_signature[64];
+typedef unsigned char ed25519_public_key[32];
+typedef unsigned char ed25519_secret_key[32];
+
+static int
+ED25519_FN(ed25519_sign_open) (const unsigned char *m,
+                               size_t mlen,
+                               const ed25519_public_key pk,
+                               const ed25519_signature RS);
+
 
 /*
 	Generates a (extsk[0..31]) and aExt (extsk[32..63])
@@ -41,6 +57,8 @@ ed25519_hram(hash_512bits hram, const ed25519_signature RS, const ed25519_public
 	ed25519_hash_final(&ctx, hram);
 }
 
+/* Tor: Removed, not used since the secret key is handled in expanded format. */
+#if 0
 void
 ED25519_FN(ed25519_publickey) (const ed25519_secret_key sk, ed25519_public_key pk) {
 	bignum256modm a;
@@ -89,8 +107,10 @@ ED25519_FN(ed25519_sign) (const unsigned char *m, size_t mlen, const ed25519_sec
 	/* S = (r + H(R,A,m)a) mod L */	
 	contract256_modm(RS + 32, S);
 }
+#endif
 
-int
+/* Tor: Make static. */
+static int
 ED25519_FN(ed25519_sign_open) (const unsigned char *m, size_t mlen, const ed25519_public_key pk, const ed25519_signature RS) {
 	ge25519 ALIGN(16) R, A;
 	hash_512bits hash;
@@ -148,3 +168,103 @@ ED25519_FN(curved25519_scalarmult_basepoint) (curved25519_key pk, const curved25
 	curve25519_contract(pk, yplusz);
 }
 
+/* Tor: Keypair generation, handle expanded format. */
+int
+ed25519_donna_seckey(unsigned char *sk)
+{
+  ed25519_secret_key seed;
+
+  if (crypto_strongest_rand(seed, 32))
+    return -1;
+
+  ed25519_extsk(sk, seed);
+
+  memwipe(seed, 0, sizeof(seed));
+
+  return 0;
+}
+
+int
+ed25519_donna_seckey_expand(unsigned char *sk, const unsigned char *skseed)
+{
+  ed25519_extsk(sk, skseed);
+
+  return 0;
+}
+
+int
+ed25519_donna_pubkey(unsigned char *pk, const unsigned char *sk)
+{
+	bignum256modm a;
+	ge25519 ALIGN(16) A;
+
+	/* A = aB */
+	expand256_modm(a, sk, 32);
+	ge25519_scalarmult_base_niels(&A, ge25519_niels_base_multiples, a);
+	ge25519_pack(pk, &A);
+
+  return 0;
+}
+
+int
+ed25519_donna_keygen(unsigned char *pk, unsigned char *sk)
+{
+  int ok;
+  ok = ed25519_donna_seckey(sk);
+  ed25519_donna_pubkey(pk, sk);
+
+  return ok;
+}
+
+int
+ed25519_donna_open(
+  const unsigned char *signature,
+  const unsigned char *m, size_t mlen,
+  const unsigned char *pk)
+{
+  return ED25519_FN(ed25519_sign_open)(m, mlen, pk, signature);
+}
+
+int
+ed25519_donna_sign(
+  unsigned char *sig,
+  const unsigned char *m, size_t mlen,
+  const unsigned char *sk, const unsigned char *pk)
+{
+	ed25519_hash_context ctx;
+	bignum256modm r, S, a;
+	ge25519 ALIGN(16) R;
+	hash_512bits hashr, hram;
+
+  /* Tor: This is equivalent to the removed `ED25519_FN(ed25519_sign)` routine,
+   * except that the key expansion step is omitted as sk already is in expanded
+   * form.
+   */
+
+	/* r = H(aExt[32..64], m) */
+	ed25519_hash_init(&ctx);
+	ed25519_hash_update(&ctx, sk + 32, 32);
+	ed25519_hash_update(&ctx, m, mlen);
+	ed25519_hash_final(&ctx, hashr);
+	expand256_modm(r, hashr, 64);
+
+	/* R = rB */
+	ge25519_scalarmult_base_niels(&R, ge25519_niels_base_multiples, r);
+	ge25519_pack(sig, &R);
+
+	/* S = H(R,A,m).. */
+	ed25519_hram(hram, sig, pk, m, mlen);
+	expand256_modm(S, hram, 64);
+
+	/* S = H(R,A,m)a */
+	expand256_modm(a, sk, 32);
+	mul256_modm(S, S, a);
+
+	/* S = (r + H(R,A,m)a) */
+	add256_modm(S, S, r);
+
+	/* S = (r + H(R,A,m)a) mod L */
+	contract256_modm(sig + 32, S);
+
+  return 0;
+}

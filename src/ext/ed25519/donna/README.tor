@@ -1,0 +1,18 @@
+
+We've made the following changes to the stock ed25519-donna from
+as of 8757bd4cd209cb032853ece0ce413f122eef212c.
+
+ * Interfaces to match the `ref10` integration function prototypes have been
+   added, and mostly replace the ed25519-donna provided ones.
+
+   * Removed entirely (Replaced with expanded form private key code):
+     * `ED25519_FN(ed25519_publickey)`
+     * `ED25519_FN(ed25519_sign)`
+
+   * Made static/file scoped:
+     * `ED25519_FN(ed25519_randombytes_unsafe)`
+     * `ED25519_FN(ed25519_sign_open)`
+     * The various `ed25519_` typedefs.
+
+ * The secret (aka private) key is now stored/used in expanded form.
+
