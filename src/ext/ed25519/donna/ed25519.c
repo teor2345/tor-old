@@ -339,3 +339,24 @@ ed25519_donna_blind_public_key(unsigned char *out, const unsigned char *inp,
 
   return 0;
 }
+
+int
+ed25519_donna_pubkey_from_curve25519_pubkey(unsigned char *out,
+  const unsigned char *inp, int signbit)
+{
+  static const bignum25519 one = { 1 };
+  bignum25519 ALIGN(16) u, uminus1, uplus1, inv_uplus1, y;
+
+  /* Prop228: y = (u-1)/(u+1) */
+  curve25519_expand(u, inp);
+  curve25519_sub(uminus1, u, one);
+  curve25519_add(uplus1, u, one);
+  curve25519_recip(inv_uplus1, uplus1);
+  curve25519_mul(y, uminus1, inv_uplus1);
+  curve25519_contract(out, y);
+
+  /* Propagate sign. */
+  out[31] |= (!!signbit) << 7;
+
+  return 0;
+}
