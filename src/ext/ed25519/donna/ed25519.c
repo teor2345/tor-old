@@ -286,7 +286,7 @@ ed25519_donna_blind_secret_key(unsigned char *out, const unsigned char *inp,
   static const char str[] = "Derive temporary signing key hash input";
   unsigned char tweak[64];
   ed25519_hash_context ctx;
-	bignum256modm sk, t;
+	bignum256modm ALIGN(16) sk, t;
 
   gettweak(tweak, param);
   expand256_modm(t, tweak, 32);
@@ -316,8 +316,8 @@ ed25519_donna_blind_public_key(unsigned char *out, const unsigned char *inp,
   static const bignum256modm zero = { 0 };
   unsigned char tweak[64];
   unsigned char pkcopy[32];
-  ge25519 A, Aprime;
-  bignum256modm t;
+  ge25519 ALIGN(16) A, Aprime;
+  bignum256modm ALIGN(16) t;
 
   gettweak(tweak, param);
 	expand256_modm(t, tweak, 32);
