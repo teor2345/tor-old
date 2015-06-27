@@ -28,12 +28,10 @@ typedef unsigned char ed25519_signature[64];
 typedef unsigned char ed25519_public_key[32];
 typedef unsigned char ed25519_secret_key[32];
 
-static int
-ED25519_FN(ed25519_sign_open) (const unsigned char *m,
-                               size_t mlen,
-                               const ed25519_public_key pk,
-                               const ed25519_signature RS);
+static void gettweak(unsigned char *out, const unsigned char *param);
 
+static int ED25519_FN(ed25519_sign_open)(const unsigned char *m, size_t mlen,
+  const ed25519_public_key pk, const ed25519_signature RS);
 
 /*
 	Generates a (extsk[0..31]) and aExt (extsk[32..63])
@@ -217,18 +215,14 @@ ed25519_donna_keygen(unsigned char *pk, unsigned char *sk)
 }
 
 int
-ed25519_donna_open(
-  const unsigned char *signature,
-  const unsigned char *m, size_t mlen,
-  const unsigned char *pk)
+ed25519_donna_open(const unsigned char *signature, const unsigned char *m,
+  size_t mlen, const unsigned char *pk)
 {
   return ED25519_FN(ed25519_sign_open)(m, mlen, pk, signature);
 }
 
 int
-ed25519_donna_sign(
-  unsigned char *sig,
-  const unsigned char *m, size_t mlen,
+ed25519_donna_sign(unsigned char *sig, const unsigned char *m, size_t mlen,
   const unsigned char *sk, const unsigned char *pk)
 {
 	ed25519_hash_context ctx;
@@ -265,6 +259,83 @@ ed25519_donna_sign(
 
 	/* S = (r + H(R,A,m)a) mod L */
 	contract256_modm(sig + 32, S);
+
+  return 0;
+}
+
+static void
+gettweak(unsigned char *out, const unsigned char *param)
+{
+  static const char str[] = "Derive temporary signing key";
+  ed25519_hash_context ctx;
+
+  ed25519_hash_init(&ctx);
+  ed25519_hash_update(&ctx, (const unsigned char*)str, strlen(str));
+  ed25519_hash_update(&ctx, param, 32);
+  ed25519_hash_final(&ctx, out);
+
+  out[0] &= 248;  /* Is this necessary ? */
+  out[31] &= 63;
+  out[31] |= 64;
+}
+
+int
+ed25519_donna_blind_secret_key(unsigned char *out, const unsigned char *inp,
+  const unsigned char *param)
+{
+  static const char str[] = "Derive temporary signing key hash input";
+  unsigned char tweak[64];
+  ed25519_hash_context ctx;
+	bignum256modm sk, t;
+
+  gettweak(tweak, param);
+  expand256_modm(t, tweak, 32);
+
+  expand256_modm(sk, inp, 32);
+  mul256_modm(sk, sk, t);
+  contract256_modm(out, sk);
+
+  ed25519_hash_init(&ctx);
+  ed25519_hash_update(&ctx, (const unsigned char*)str, strlen(str));
+  ed25519_hash_update(&ctx, inp + 32, 32);
+  ed25519_hash_final(&ctx, tweak);
+
+  memcpy(out + 32, tweak, 32);
+
+  memwipe(sk, 0, sizeof(sk));
+  memwipe(t, 0, sizeof(t));
+  memwipe(tweak, 0, sizeof(tweak));
+
+  return 0;
+}
+
+int
+ed25519_donna_blind_public_key(unsigned char *out, const unsigned char *inp,
+  const unsigned char *param)
+{
+  static const bignum256modm zero = { 0 };
+  unsigned char tweak[64];
+  unsigned char pkcopy[32];
+  ge25519 A, Aprime;
+  bignum256modm t;
+
+  gettweak(tweak, param);
+	expand256_modm(t, tweak, 32);
+
+  /* No "ge25519_unpack", negate the public key. */
+  memcpy(pkcopy, inp, 32);
+  pkcopy[31] ^= (1<<7);
+  ge25519_unpack_negative_vartime(&A, pkcopy);
+
+  /* A' = [tweak] * A + [0] * basepoint. */
+  ge25519_double_scalarmult_vartime(&Aprime, &A, t, zero);
+  ge25519_pack(out, &Aprime);
+
+  memwipe(tweak, 0, sizeof(tweak));
+  memwipe(pkcopy, 0, sizeof(pkcopy));
+  memwipe(&A, 0, sizeof(A));
+  memwipe(&Aprime, 0, sizeof(Aprime));
+  memwipe(t, 0, sizeof(t));
 
   return 0;
 }

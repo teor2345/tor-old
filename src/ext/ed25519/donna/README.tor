@@ -14,5 +14,8 @@ as of 8757bd4cd209cb032853ece0ce413f122eef212c.
      * `ED25519_FN(ed25519_sign_open)`
      * The various `ed25519_` typedefs.
 
+ * There's an implementation of multiplicative key blinding so we can use
+   it for next-gen hidden srevice descriptors.
+
  * The secret (aka private) key is now stored/used in expanded form.
 
