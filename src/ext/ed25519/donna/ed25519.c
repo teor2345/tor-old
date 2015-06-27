@@ -193,13 +193,13 @@ ed25519_donna_seckey_expand(unsigned char *sk, const unsigned char *skseed)
 int
 ed25519_donna_pubkey(unsigned char *pk, const unsigned char *sk)
 {
-	bignum256modm a;
-	ge25519 ALIGN(16) A;
+  bignum256modm a;
+  ge25519 ALIGN(16) A;
 
-	/* A = aB */
-	expand256_modm(a, sk, 32);
-	ge25519_scalarmult_base_niels(&A, ge25519_niels_base_multiples, a);
-	ge25519_pack(pk, &A);
+  /* A = aB */
+  expand256_modm(a, sk, 32);
+  ge25519_scalarmult_base_niels(&A, ge25519_niels_base_multiples, a);
+  ge25519_pack(pk, &A);
 
   return 0;
 }
@@ -225,40 +225,40 @@ int
 ed25519_donna_sign(unsigned char *sig, const unsigned char *m, size_t mlen,
   const unsigned char *sk, const unsigned char *pk)
 {
-	ed25519_hash_context ctx;
-	bignum256modm r, S, a;
-	ge25519 ALIGN(16) R;
-	hash_512bits hashr, hram;
+  ed25519_hash_context ctx;
+  bignum256modm r, S, a;
+  ge25519 ALIGN(16) R;
+  hash_512bits hashr, hram;
 
   /* Tor: This is equivalent to the removed `ED25519_FN(ed25519_sign)` routine,
    * except that the key expansion step is omitted as sk already is in expanded
    * form.
    */
 
-	/* r = H(aExt[32..64], m) */
-	ed25519_hash_init(&ctx);
-	ed25519_hash_update(&ctx, sk + 32, 32);
-	ed25519_hash_update(&ctx, m, mlen);
-	ed25519_hash_final(&ctx, hashr);
-	expand256_modm(r, hashr, 64);
+  /* r = H(aExt[32..64], m) */
+  ed25519_hash_init(&ctx);
+  ed25519_hash_update(&ctx, sk + 32, 32);
+  ed25519_hash_update(&ctx, m, mlen);
+  ed25519_hash_final(&ctx, hashr);
+  expand256_modm(r, hashr, 64);
 
-	/* R = rB */
-	ge25519_scalarmult_base_niels(&R, ge25519_niels_base_multiples, r);
-	ge25519_pack(sig, &R);
+  /* R = rB */
+  ge25519_scalarmult_base_niels(&R, ge25519_niels_base_multiples, r);
+  ge25519_pack(sig, &R);
 
-	/* S = H(R,A,m).. */
-	ed25519_hram(hram, sig, pk, m, mlen);
-	expand256_modm(S, hram, 64);
+  /* S = H(R,A,m).. */
+  ed25519_hram(hram, sig, pk, m, mlen);
+  expand256_modm(S, hram, 64);
 
-	/* S = H(R,A,m)a */
-	expand256_modm(a, sk, 32);
-	mul256_modm(S, S, a);
+  /* S = H(R,A,m)a */
+  expand256_modm(a, sk, 32);
+  mul256_modm(S, S, a);
 
-	/* S = (r + H(R,A,m)a) */
-	add256_modm(S, S, r);
+  /* S = (r + H(R,A,m)a) */
+  add256_modm(S, S, r);
 
-	/* S = (r + H(R,A,m)a) mod L */
-	contract256_modm(sig + 32, S);
+  /* S = (r + H(R,A,m)a) mod L */
+  contract256_modm(sig + 32, S);
 
   return 0;
 }
@@ -286,7 +286,7 @@ ed25519_donna_blind_secret_key(unsigned char *out, const unsigned char *inp,
   static const char str[] = "Derive temporary signing key hash input";
   unsigned char tweak[64];
   ed25519_hash_context ctx;
-	bignum256modm ALIGN(16) sk, t;
+  bignum256modm ALIGN(16) sk, t;
 
   gettweak(tweak, param);
   expand256_modm(t, tweak, 32);
@@ -320,7 +320,7 @@ ed25519_donna_blind_public_key(unsigned char *out, const unsigned char *inp,
   bignum256modm ALIGN(16) t;
 
   gettweak(tweak, param);
-	expand256_modm(t, tweak, 32);
+  expand256_modm(t, tweak, 32);
 
   /* No "ge25519_unpack", negate the public key. */
   memcpy(pkcopy, inp, 32);
