@@ -14,5 +14,5 @@
 static void
 ED25519_FN(ed25519_randombytes_unsafe) (void *p, size_t len)
 {
-  crypto_strongest_rand(p, len);
+  crypto_rand(p, len);
 }
