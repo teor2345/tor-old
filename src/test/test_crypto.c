@@ -1639,8 +1639,8 @@ test_crypto_ed25519_testvectors(void *arg)
 static void
 test_crypto_ed25519_fuzz_donna(void *arg)
 {
-  const int iters = 1024;
-  uint8_t msg[iters];
+#define ITERATIONS 1024
+  uint8_t msg[ITERATIONS];
   int i;
   (void)arg;
 
@@ -1649,7 +1649,7 @@ test_crypto_ed25519_fuzz_donna(void *arg)
   /* Fuzz Ed25519-donna vs ref10, alternating the implementation used to
    * generate keys/sign per iteration.
    */
-  for (i = 0; i < iters; ++i) {
+  for (i = 0; i < ITERATIONS; ++i) {
     const int use_donna = i & 1;
     uint8_t blinding[32];
     curve25519_keypair_t ckp;

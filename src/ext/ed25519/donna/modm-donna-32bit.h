@@ -210,6 +210,8 @@ expand256_modm(bignum256modm out, const unsigned char *in, size_t len) {
 	bignum256modm_element_t x[16];
 	bignum256modm q1;
 
+  memset(out, 0, sizeof(bignum256modm));
+  memset(work, 0, 64);
 	memcpy(work, in, len);
 	x[0] = U8TO32_LE(work +  0);
 	x[1] = U8TO32_LE(work +  4);

@@ -952,7 +952,7 @@ curve25519_expand(bignum25519 out, const unsigned char in[32]) {
  */
 static void
 curve25519_contract(unsigned char out[32], const bignum25519 in) {
-	bignum25519 ALIGN(16) f;
+	bignum25519 DONNA_ALIGN(16) f;
 	curve25519_copy(f, in);
 
 	#define carry_pass() \

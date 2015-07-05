@@ -60,7 +60,7 @@ ed25519_hram(hash_512bits hram, const ed25519_signature RS, const ed25519_public
 void
 ED25519_FN(ed25519_publickey) (const ed25519_secret_key sk, ed25519_public_key pk) {
 	bignum256modm a;
-	ge25519 ALIGN(16) A;
+	ge25519 DONNA_ALIGN(16) A;
 	hash_512bits extsk;
 
 	/* A = aB */
@@ -75,7 +75,7 @@ void
 ED25519_FN(ed25519_sign) (const unsigned char *m, size_t mlen, const ed25519_secret_key sk, const ed25519_public_key pk, ed25519_signature RS) {
 	ed25519_hash_context ctx;
 	bignum256modm r, S, a;
-	ge25519 ALIGN(16) R;
+	ge25519 DONNA_ALIGN(16) R;
 	hash_512bits extsk, hashr, hram;
 
 	ed25519_extsk(extsk, sk);
@@ -110,7 +110,7 @@ ED25519_FN(ed25519_sign) (const unsigned char *m, size_t mlen, const ed25519_sec
 /* Tor: Make static. */
 static int
 ED25519_FN(ed25519_sign_open) (const unsigned char *m, size_t mlen, const ed25519_public_key pk, const ed25519_signature RS) {
-	ge25519 ALIGN(16) R, A;
+	ge25519 DONNA_ALIGN(16) R, A;
 	hash_512bits hash;
 	bignum256modm hram, S;
 	unsigned char checkR[32];
@@ -143,8 +143,8 @@ void
 ED25519_FN(curved25519_scalarmult_basepoint) (curved25519_key pk, const curved25519_key e) {
 	curved25519_key ec;
 	bignum256modm s;
-	bignum25519 ALIGN(16) yplusz, zminusy;
-	ge25519 ALIGN(16) p;
+	bignum25519 DONNA_ALIGN(16) yplusz, zminusy;
+	ge25519 DONNA_ALIGN(16) p;
 	size_t i;
 
 	/* clamp */
@@ -194,8 +194,9 @@ int
 ed25519_donna_pubkey(unsigned char *pk, const unsigned char *sk)
 {
   bignum256modm a;
-  ge25519 ALIGN(16) A;
+  ge25519 DONNA_ALIGN(16) A;
 
+  memset(a, 0, sizeof(bignum256modm));
   /* A = aB */
   expand256_modm(a, sk, 32);
   ge25519_scalarmult_base_niels(&A, ge25519_niels_base_multiples, a);
@@ -227,7 +228,7 @@ ed25519_donna_sign(unsigned char *sig, const unsigned char *m, size_t mlen,
 {
   ed25519_hash_context ctx;
   bignum256modm r, S, a;
-  ge25519 ALIGN(16) R;
+  ge25519 DONNA_ALIGN(16) R;
   hash_512bits hashr, hram;
 
   /* Tor: This is equivalent to the removed `ED25519_FN(ed25519_sign)` routine,
@@ -240,6 +241,7 @@ ed25519_donna_sign(unsigned char *sig, const unsigned char *m, size_t mlen,
   ed25519_hash_update(&ctx, sk + 32, 32);
   ed25519_hash_update(&ctx, m, mlen);
   ed25519_hash_final(&ctx, hashr);
+  memset(r, 0, sizeof(bignum256modm));
   expand256_modm(r, hashr, 64);
 
   /* R = rB */
@@ -248,9 +250,11 @@ ed25519_donna_sign(unsigned char *sig, const unsigned char *m, size_t mlen,
 
   /* S = H(R,A,m).. */
   ed25519_hram(hram, sig, pk, m, mlen);
+  memset(S, 0, sizeof(bignum256modm));
   expand256_modm(S, hram, 64);
 
   /* S = H(R,A,m)a */
+  memset(a, 0, sizeof(bignum256modm));
   expand256_modm(a, sk, 32);
   mul256_modm(S, S, a);
 
@@ -286,7 +290,7 @@ ed25519_donna_blind_secret_key(unsigned char *out, const unsigned char *inp,
   static const char str[] = "Derive temporary signing key hash input";
   unsigned char tweak[64];
   ed25519_hash_context ctx;
-  bignum256modm ALIGN(16) sk, t;
+  bignum256modm DONNA_ALIGN(16) sk, t;
 
   gettweak(tweak, param);
   expand256_modm(t, tweak, 32);
@@ -316,8 +320,8 @@ ed25519_donna_blind_public_key(unsigned char *out, const unsigned char *inp,
   static const bignum256modm zero = { 0 };
   unsigned char tweak[64];
   unsigned char pkcopy[32];
-  ge25519 ALIGN(16) A, Aprime;
-  bignum256modm ALIGN(16) t;
+  ge25519 DONNA_ALIGN(16) A, Aprime;
+  bignum256modm DONNA_ALIGN(16) t;
 
   gettweak(tweak, param);
   expand256_modm(t, tweak, 32);
@@ -345,7 +349,7 @@ ed25519_donna_pubkey_from_curve25519_pubkey(unsigned char *out,
   const unsigned char *inp, int signbit)
 {
   static const bignum25519 one = { 1 };
-  bignum25519 ALIGN(16) u, uminus1, uplus1, inv_uplus1, y;
+  bignum25519 DONNA_ALIGN(16) u, uminus1, uplus1, inv_uplus1, y;
 
   /* Prop228: y = (u-1)/(u+1) */
   curve25519_expand(u, inp);
