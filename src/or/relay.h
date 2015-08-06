@@ -15,9 +15,11 @@
 extern uint64_t stats_n_relay_cells_relayed;
 extern uint64_t stats_n_relay_cells_delivered;
 
+void relay_set_digest(crypto_digest_t *digest, cell_t *cell);
+int relay_digest_matches(crypto_digest_t *digest, cell_t *cell);
+void relay_increment_relay_cells_relayed(void);
 int circuit_receive_relay_cell(cell_t *cell, circuit_t *circ,
                                cell_direction_t cell_direction);
-
 void relay_header_pack(uint8_t *dest, const relay_header_t *src);
 void relay_header_unpack(relay_header_t *dest, const uint8_t *src);
 int relay_send_command_from_edge_(streamid_t stream_id, circuit_t *circ,

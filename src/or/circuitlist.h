@@ -31,6 +31,7 @@ time_t circuit_id_when_marked_unusable_on_channel(circid_t circ_id,
 void circuit_set_state(circuit_t *circ, uint8_t state);
 void circuit_close_all_marked(void);
 int32_t circuit_initial_package_window(void);
+void init_circuit_base(circuit_t *circ);
 origin_circuit_t *origin_circuit_new(void);
 or_circuit_t *or_circuit_new(circid_t p_circ_id, channel_t *p_chan);
 circuit_t *circuit_get_by_circid_channel(circid_t circ_id,
@@ -71,6 +72,7 @@ int circuit_count_pending_on_channel(channel_t *chan);
 void assert_cpath_layer_ok(const crypt_path_t *cp);
 void assert_circuit_ok(const circuit_t *c);
 void circuit_free_all(void);
+void circuit_free_cpath_node(crypt_path_t *victim);
 void circuits_handle_oom(size_t current_allocation);
 
 void circuit_clear_testing_cell_stats(circuit_t *circ);

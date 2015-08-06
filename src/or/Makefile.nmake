@@ -41,6 +41,7 @@ LIBTOR_OBJECTS = \
   entrynodes.obj \
   geoip.obj \
   hibernate.obj \
+  loose.obj \
   main.obj \
   microdesc.obj \
   networkstatus.obj \

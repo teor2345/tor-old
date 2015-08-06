@@ -27,6 +27,7 @@
 #include "control.h"
 #include "cpuworker.h"
 #include "hibernate.h"
+#include "loose.h"
 #include "nodelist.h"
 #include "onion.h"
 #include "rephist.h"
@@ -205,6 +206,67 @@ command_process_var_cell(channel_t *chan, var_cell_t *var_cell)
            var_cell->command);
 }
 
+int
+command_answer_create_cell(circuit_t *circ, channel_t *chan, cell_t *cell)
+{
+  create_cell_t *create_cell;
+
+  create_cell = tor_malloc_zero(sizeof(create_cell_t));
+  if (create_cell_parse(create_cell, cell) < 0) {
+    tor_free(create_cell);
+    log_fn(LOG_PROTOCOL_WARN, LD_OR,
+           "Bogus/unrecognized create cell; closing.");
+    return -END_CIRC_REASON_TORPROTOCOL;
+  }
+
+  if (create_cell->handshake_type != ONION_HANDSHAKE_TYPE_FAST) {
+    /* hand it off to the cpuworkers, and then return. */
+    if (connection_or_digest_is_known_relay(chan->identity_digest))
+      rep_hist_note_circuit_handshake_requested(create_cell->handshake_type);
+    if (assign_onionskin_to_cpuworker(TO_OR_CIRCUIT(circ), create_cell) < 0) {
+      log_debug(LD_GENERAL,"Failed to hand off onionskin. Closing.");
+      return -END_CIRC_REASON_RESOURCELIMIT;
+    }
+    log_debug(LD_OR,"success: handed off onionskin.");
+  } else {
+    /* This is a CREATE_FAST cell; we can handle it immediately without using
+     * a CPU worker. */
+    uint8_t keys[CPATH_KEY_MATERIAL_LEN];
+    uint8_t rend_circ_nonce[DIGEST_LEN];
+    int len;
+    created_cell_t created_cell;
+
+    /* Make sure we never try to use the OR connection on which we
+     * received this cell to satisfy an EXTEND request,  */
+    channel_mark_client(chan);
+
+    memset(&created_cell, 0, sizeof(created_cell));
+    len = onion_skin_server_handshake(ONION_HANDSHAKE_TYPE_FAST,
+                                       create_cell->onionskin,
+                                       create_cell->handshake_len,
+                                       NULL,
+                                       created_cell.reply,
+                                       keys, CPATH_KEY_MATERIAL_LEN,
+                                       rend_circ_nonce);
+    tor_free(create_cell);
+    if (len < 0) {
+      log_warn(LD_OR,"Failed to generate key material. Closing.");
+      return -END_CIRC_REASON_INTERNAL;
+    }
+    created_cell.cell_type = CELL_CREATED_FAST;
+    created_cell.handshake_len = len;
+
+    if (onionskin_answer(TO_OR_CIRCUIT(circ), &created_cell,
+                         (const char *)keys, rend_circ_nonce)<0) {
+      log_warn(LD_OR,"Failed to reply to CREATE_FAST cell. Closing.");
+      return -END_CIRC_REASON_INTERNAL;
+    }
+    memwipe(keys, 0, sizeof(keys));
+  }
+
+  return 0;
+}
+
 /** Process a 'create' <b>cell</b> that just arrived from <b>chan</b>. Make a
  * new circuit with the p_circ_id specified in cell. Put the circuit in state
  * onionskin_pending, and pass the onionskin to the cpuworker. Circ will get
@@ -213,10 +275,11 @@ command_process_var_cell(channel_t *chan, var_cell_t *var_cell)
 static void
 command_process_create_cell(cell_t *cell, channel_t *chan)
 {
-  or_circuit_t *circ;
+  or_circuit_t *or_circ;
+  loose_or_circuit_t *loose_circ;
   const or_options_t *options = get_options();
   int id_is_high;
-  create_cell_t *create_cell;
+  int reason;
 
   tor_assert(cell);
   tor_assert(chan);
@@ -264,6 +327,10 @@ command_process_create_cell(cell_t *cell, channel_t *chan)
     return;
   }
 
+  /* If we're an OP, or we're a bridge and this is the outward facing
+   * connection, then our guard should not be sending us a CREATE* cell.  Send
+   * a (make total) DESTROY cell to tear down this weird connection.
+   */
   if (!server_mode(options) ||
       (!public_server_mode(options) && channel_is_outgoing(chan))) {
     log_fn(LOG_PROTOCOL_WARN, LD_PROTOCOL,
@@ -294,64 +361,28 @@ command_process_create_cell(cell_t *cell, channel_t *chan)
     return;
   }
 
-  circ = or_circuit_new(cell->circ_id, chan);
-  circ->base_.purpose = CIRCUIT_PURPOSE_OR;
-  circuit_set_state(TO_CIRCUIT(circ), CIRCUIT_STATE_ONIONSKIN_PENDING);
-  create_cell = tor_malloc_zero(sizeof(create_cell_t));
-  if (create_cell_parse(create_cell, cell) < 0) {
-    tor_free(create_cell);
-    log_fn(LOG_PROTOCOL_WARN, LD_OR,
-           "Bogus/unrecognized create cell; closing.");
-    circuit_mark_for_close(TO_CIRCUIT(circ), END_CIRC_REASON_TORPROTOCOL);
-    return;
-  }
-
-  if (create_cell->handshake_type != ONION_HANDSHAKE_TYPE_FAST) {
-    /* hand it off to the cpuworkers, and then return. */
-    if (connection_or_digest_is_known_relay(chan->identity_digest))
-      rep_hist_note_circuit_handshake_requested(create_cell->handshake_type);
-    if (assign_onionskin_to_cpuworker(circ, create_cell) < 0) {
-      log_debug(LD_GENERAL,"Failed to hand off onionskin. Closing.");
-      circuit_mark_for_close(TO_CIRCUIT(circ), END_CIRC_REASON_RESOURCELIMIT);
-      return;
+  /* If we're a Bridge, and we've just received a CREATE* cell from an OP,
+   * then we should send some CREATE* cell(s) to our Bridge Guard(s) and start
+   * preparing the extra hops for a loose_or_circuit_t while waiting for the
+   * OP to send its first EXTEND*.  (prop#188)
+   */
+  if (bridge_server_mode(options) && channel_is_incoming(chan) &&
+      loose_circuits_are_possible) {
+    loose_circ = loose_circuit_establish_circuit(cell->circ_id, chan, NULL,
+                                                 0, CIRCUIT_PURPOSE_OR, 0);
+    if (!loose_circ) {
+      log_warn(LD_OR, "Failed to establish loose circuit.");
+    } else {
+      loose_circuit_answer_create_cell(loose_circ, cell);
     }
-    log_debug(LD_OR,"success: handed off onionskin.");
   } else {
-    /* This is a CREATE_FAST cell; we can handle it immediately without using
-     * a CPU worker. */
-    uint8_t keys[CPATH_KEY_MATERIAL_LEN];
-    uint8_t rend_circ_nonce[DIGEST_LEN];
-    int len;
-    created_cell_t created_cell;
+    or_circ = or_circuit_new(cell->circ_id, chan);
+    or_circ->base_.purpose = CIRCUIT_PURPOSE_OR;
+    circuit_set_state(TO_CIRCUIT(or_circ), CIRCUIT_STATE_ONIONSKIN_PENDING);
 
-    /* Make sure we never try to use the OR connection on which we
-     * received this cell to satisfy an EXTEND request,  */
-    channel_mark_client(chan);
-
-    memset(&created_cell, 0, sizeof(created_cell));
-    len = onion_skin_server_handshake(ONION_HANDSHAKE_TYPE_FAST,
-                                       create_cell->onionskin,
-                                       create_cell->handshake_len,
-                                       NULL,
-                                       created_cell.reply,
-                                       keys, CPATH_KEY_MATERIAL_LEN,
-                                       rend_circ_nonce);
-    tor_free(create_cell);
-    if (len < 0) {
-      log_warn(LD_OR,"Failed to generate key material. Closing.");
-      circuit_mark_for_close(TO_CIRCUIT(circ), END_CIRC_REASON_INTERNAL);
-      return;
+    if ((reason = command_answer_create_cell(TO_CIRCUIT(or_circ), chan, cell)) < 0) {
+      circuit_mark_for_close(TO_CIRCUIT(or_circ), -reason);
     }
-    created_cell.cell_type = CELL_CREATED_FAST;
-    created_cell.handshake_len = len;
-
-    if (onionskin_answer(circ, &created_cell,
-                         (const char *)keys, rend_circ_nonce)<0) {
-      log_warn(LD_OR,"Failed to reply to CREATE_FAST cell. Closing.");
-      circuit_mark_for_close(TO_CIRCUIT(circ), END_CIRC_REASON_INTERNAL);
-      return;
-    }
-    memwipe(keys, 0, sizeof(keys));
   }
 }
 
@@ -405,6 +436,19 @@ command_process_created_cell(cell_t *cell, channel_t *chan)
       log_info(LD_OR,"circuit_send_next_onion_skin failed.");
       /* XXX push this circuit_close lower */
       circuit_mark_for_close(circ, -err_reason);
+      return;
+    }
+  } else if (CIRCUIT_IS_LOOSE(circ)) {
+    /* prop#188: We're creating a loose-source circuit.  Also handshake this. */
+    loose_or_circuit_t *loose_circ = TO_LOOSE_CIRCUIT(circ);
+    int err = 0;
+
+    log_debug(LD_OR, "Received created cell on loose circuit. Processing...");
+    err = loose_circuit_process_created_cell(loose_circ,
+                                             &extended_cell.created_cell);
+    if (err < 0) {
+      log_warn(LD_OR, "Error while calling loose_circuit_process_created_cell");
+      circuit_mark_for_close(circ, -err);
       return;
     }
   } else { /* pack it into an extended relay cell, and send it. */
@@ -504,6 +548,7 @@ command_process_relay_cell(cell_t *cell, channel_t *chan)
     }
   }
 
+  /* Loose circuits will also be handled here. */
   if ((reason = circuit_receive_relay_cell(cell, circ, direction)) < 0) {
     log_fn(LOG_PROTOCOL_WARN,LD_PROTOCOL,"circuit_receive_relay_cell "
            "(%s) failed. Closing.",

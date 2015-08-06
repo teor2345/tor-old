@@ -808,7 +808,8 @@ circuitmux_find_map_entry(circuitmux_t *cmux, circuit_t *circ)
     tor_assert(hashent->muxinfo.direction == CELL_DIRECTION_OUT);
   } else {
     /* Not there, have we got a p_chan/p_circ_id to try? */
-    if (circ->magic == OR_CIRCUIT_MAGIC) {
+    if ((circ->magic == OR_CIRCUIT_MAGIC) ||
+        (circ->magic == LOOSE_OR_CIRCUIT_MAGIC)) {
       search.circ_id = TO_OR_CIRCUIT(circ)->p_circ_id;
       /* Check for p_chan */
       if (TO_OR_CIRCUIT(circ)->p_chan) {
@@ -1114,7 +1115,7 @@ circuitmux_detach_circuit,(circuitmux_t *cmux, circuit_t *circ))
 
   /* Got one? If not, see if it's an or_circuit_t and try p_chan/p_circ_id */
   if (!hashent) {
-    if (circ->magic == OR_CIRCUIT_MAGIC) {
+    if (CIRCUIT_IS_ORCIRC(circ) || CIRCUIT_IS_LOOSE(circ)) {
       search.circ_id = TO_OR_CIRCUIT(circ)->p_circ_id;
       if (TO_OR_CIRCUIT(circ)->p_chan) {
         search.chan_id = TO_OR_CIRCUIT(circ)->p_chan->global_identifier;

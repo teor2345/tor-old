@@ -25,6 +25,7 @@
 #include "connection_or.h"
 #include "control.h"
 #include "geoip.h"
+#include "loose.h"
 #include "main.h"
 #include "networkstatus.h"
 #include "nodelist.h"
@@ -86,7 +87,7 @@ static tor_weak_rng_t stream_choice_rng = TOR_WEAK_RNG_INIT;
 /** Update digest from the payload of cell. Assign integrity part to
  * cell.
  */
-static void
+void
 relay_set_digest(crypto_digest_t *digest, cell_t *cell)
 {
   char integrity[4];
@@ -107,7 +108,7 @@ relay_set_digest(crypto_digest_t *digest, cell_t *cell)
  * to 0). If the integrity part is valid, return 1, else restore digest
  * and cell to their original state and return 0.
  */
-static int
+int
 relay_digest_matches(crypto_digest_t *digest, cell_t *cell)
 {
   uint32_t received_integrity, calculated_integrity;
@@ -187,6 +188,14 @@ circuit_receive_relay_cell(cell_t *cell, circuit_t *circ,
              cell_direction == CELL_DIRECTION_IN);
   if (circ->marked_for_close)
     return 0;
+
+  /* For loose circuits, we treat all cells as recognized. */
+  if (CIRCUIT_IS_LOOSE(circ)) {
+    loose_or_circuit_t *loose_circ = TO_LOOSE_CIRCUIT(circ);
+
+    return loose_circuit_process_relay_cell(loose_circ, layer_hint, cell,
+                                            cell_direction, recognized);
+  }
 
   if (relay_crypt(circ, cell, cell_direction, &layer_hint, &recognized) < 0) {
     log_warn(LD_BUG,"relay crypt failed. Dropping connection.");
@@ -578,7 +587,7 @@ relay_send_command_from_edge_(streamid_t stream_id, circuit_t *circ,
   if (cpath_layer) {
     cell.circ_id = circ->n_circ_id;
     cell_direction = CELL_DIRECTION_OUT;
-  } else if (! CIRCUIT_IS_ORIGIN(circ)) {
+  } else if (CIRCUIT_IS_ORIGIN(circ) || CIRCUIT_IS_LOOSE(circ)) {
     cell.circ_id = TO_OR_CIRCUIT(circ)->p_circ_id;
     cell_direction = CELL_DIRECTION_IN;
   } else {
@@ -642,6 +651,21 @@ relay_send_command_from_edge_(streamid_t stream_id, circuit_t *circ,
                "Commands sent before: %s", commands);
       tor_free(commands);
       smartlist_free(commands_list);
+    }
+  }
+
+  if (cell_direction == CELL_DIRECTION_OUT && CIRCUIT_IS_LOOSE(circ)) {
+    loose_or_circuit_t *loose_circ = TO_LOOSE_CIRCUIT(circ);
+    /* If we've got any relay_early cells left and we're sending an extend
+     * cell (or we're not talking to the first hop), use one of them. */
+    if (LOOSE_TO_OR_CIRCUIT(loose_circ)->remaining_relay_early_cells > 0 &&
+        (relay_command == RELAY_COMMAND_EXTEND ||
+         relay_command == RELAY_COMMAND_EXTEND2 ||
+         cpath_layer != loose_circ->cpath)) {
+      cell.command = CELL_RELAY_EARLY;
+      --LOOSE_TO_OR_CIRCUIT(loose_circ)->remaining_relay_early_cells;
+      log_debug(LD_OR, "Sending a RELAY_EARLY cell; %d remaining.",
+                LOOSE_TO_OR_CIRCUIT(loose_circ)->remaining_relay_early_cells);
     }
   }
 
@@ -1588,6 +1612,7 @@ connection_edge_process_relay_cell(cell_t *cell, circuit_t *circ,
         connection_mark_and_flush(TO_CONN(conn));
       }
       return 0;
+    // prop#188
     case RELAY_COMMAND_EXTEND:
     case RELAY_COMMAND_EXTEND2: {
       static uint64_t total_n_extend=0, total_nonearly=0;
@@ -2613,6 +2638,10 @@ channel_flush_from_first_active_circuit, (channel_t *chan, int max))
       queue = &TO_OR_CIRCUIT(circ)->p_chan_cells;
       streams_blocked = circ->streams_blocked_on_p_chan;
     }
+
+    if (CIRCUIT_IS_LOOSE(circ))
+      log_debug(LD_CIRC, "Circuitmux handed back \"active\" loose circuit %d with "
+                "%d cells queued.", circ->global_circuitlist_idx, queue->n);
 
     /* Circuitmux told us this was active, so it should have cells */
     tor_assert(queue->n > 0);

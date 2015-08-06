@@ -55,6 +55,7 @@ LIBTOR_A_SOURCES = \
 	src/or/ext_orport.c				\
 	src/or/hibernate.c				\
 	src/or/keypin.c					\
+	src/or/loose.c					\
 	src/or/main.c					\
 	src/or/microdesc.c				\
 	src/or/networkstatus.c				\

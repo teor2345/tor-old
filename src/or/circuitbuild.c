@@ -30,6 +30,7 @@
 #include "control.h"
 #include "directory.h"
 #include "entrynodes.h"
+#include "loose.h"
 #include "main.h"
 #include "microdesc.h"
 #include "networkstatus.h"
@@ -51,26 +52,17 @@
 #define MIN(a,b) ((a)<(b)?(a):(b))
 #endif
 
-static channel_t * channel_connect_for_circuit(const tor_addr_t *addr,
-                                               uint16_t port,
-                                               const char *id_digest);
 static void circuit_list_cpath_impl(crypt_path_t *cpath, smartlist_t *elements,
                                     int verbose, int verbose_names);
-static int circuit_deliver_create_cell(circuit_t *circ,
-                                       const create_cell_t *create_cell,
-                                       int relayed);
 static int onion_pick_cpath_exit(origin_circuit_t *circ, extend_info_t *exit);
-static crypt_path_t *onion_next_hop_in_cpath(crypt_path_t *cpath);
 static int onion_extend_cpath(origin_circuit_t *circ);
 static int count_acceptable_nodes(smartlist_t *routers);
-static int onion_append_hop(crypt_path_t **head_ptr, extend_info_t *choice);
-static int circuits_can_use_ntor(void);
 
 /** This function tries to get a channel to the specified endpoint,
  * and then calls command_setup_channel() to give it the right
  * callbacks.
  */
-static channel_t *
+channel_t *
 channel_connect_for_circuit(const tor_addr_t *addr, uint16_t port,
                             const char *id_digest)
 {
@@ -373,6 +365,7 @@ circuit_log_path(int severity, unsigned int domain, origin_circuit_t *circ)
  * unable to extend.
  */
 /* XXXX Someday we should learn from OR circuits too. */
+/* XXXX Someday we should probably do this for loose circuits too. -IL */
 void
 circuit_rep_hist_note_result(origin_circuit_t *circ)
 {
@@ -681,6 +674,14 @@ circuit_n_chan_done(channel_t *chan, int status, int close_origin_circuits)
           /* XXX could this be bad, eg if next_onion_skin failed because conn
            *     died? */
         }
+      } else if (CIRCUIT_IS_LOOSE(circ)) {
+        loose_or_circuit_t *loose_circ = TO_LOOSE_CIRCUIT(circ);
+
+        if ((err_reason = loose_circuit_send_next_onion_skin(loose_circ)) < 0) {
+          log_info(LD_CIRC, "loose_circuit_send_next_onion_skin failed.");
+          circuit_mark_for_close(circ, -err_reason);
+          continue;
+        }
       } else {
         /* pull the create cell out of circ->n_chan_create_cell, and send it */
         tor_assert(circ->n_chan_create_cell);
@@ -704,7 +705,7 @@ circuit_n_chan_done(channel_t *chan, int status, int close_origin_circuits)
  * gave us via an EXTEND cell, so we shouldn't worry if we don't understand
  * it. Return -1 if we failed to find a suitable circid, else return 0.
  */
-static int
+int
 circuit_deliver_create_cell(circuit_t *circ, const create_cell_t *create_cell,
                             int relayed)
 {
@@ -838,7 +839,7 @@ circuit_timeout_want_to_count_circ(origin_circuit_t *circ)
 /** Return true if the ntor handshake is enabled in the configuration, or if
  * it's been set to "auto" in the configuration and it's enabled in the
  * consensus. */
-static int
+int
 circuits_can_use_ntor(void)
 {
   const or_options_t *options = get_options();
@@ -850,7 +851,7 @@ circuits_can_use_ntor(void)
 /** Decide whether to use a TAP or ntor handshake for connecting to <b>ei</b>
  * directly, and set *<b>cell_type_out</b> and *<b>handshake_type_out</b>
  * accordingly. */
-static void
+void
 circuit_pick_create_handshake(uint8_t *cell_type_out,
                               uint16_t *handshake_type_out,
                               const extend_info_t *ei)
@@ -872,7 +873,7 @@ circuit_pick_create_handshake(uint8_t *cell_type_out,
  * in extending through <b>node</b> to do so, we should use an EXTEND2 or an
  * EXTEND cell to do so, and set *<b>cell_type_out</b> and
  * *<b>create_cell_type_out</b> accordingly. */
-static void
+void
 circuit_pick_extend_handshake(uint8_t *cell_type_out,
                               uint8_t *create_cell_type_out,
                               uint16_t *handshake_type_out,
@@ -1033,6 +1034,11 @@ circuit_send_next_onion_skin(origin_circuit_t *circ)
         if (server_mode(options) && !check_whether_orport_reachable(options)) {
           inform_testing_reachability();
           consider_testing_reachability(1, 1);
+        }
+        if (bridge_server_mode(options) && !loose_circuits_are_possible) {
+          log_notice(LD_CIRC, "We should now be able to create loose-source "
+                              "routed circuits.");
+          loose_circuits_are_possible = 1;
         }
       }
 
@@ -1437,7 +1443,9 @@ onionskin_answer(or_circuit_t *circ,
   tmp_cpath = tor_malloc_zero(sizeof(crypt_path_t));
   tmp_cpath->magic = CRYPT_PATH_MAGIC;
 
-  circuit_set_state(TO_CIRCUIT(circ), CIRCUIT_STATE_OPEN);
+  if (!CIRCUIT_IS_LOOSE(circ)) {
+    circuit_set_state(TO_CIRCUIT(circ), CIRCUIT_STATE_OPEN);
+  }
 
   log_debug(LD_CIRC,"init digest forward 0x%.8x, backward 0x%.8x.",
             (unsigned int)get_uint32(keys),
@@ -2146,7 +2154,7 @@ onion_append_to_cpath(crypt_path_t **head_ptr, crypt_path_t *new_hop)
  * circuit. In particular, make sure we don't pick the exit node or its
  * family, and make sure we don't duplicate any previous nodes or their
  * families. */
-static const node_t *
+const node_t *
 choose_good_middle_server(uint8_t purpose,
                           cpath_build_state_t *state,
                           crypt_path_t *head,
@@ -2254,7 +2262,7 @@ choose_good_entry_server(uint8_t purpose, cpath_build_state_t *state)
 
 /** Return the first non-open hop in cpath, or return NULL if all
  * hops are open. */
-static crypt_path_t *
+crypt_path_t *
 onion_next_hop_in_cpath(crypt_path_t *cpath)
 {
   crypt_path_t *hop = cpath;
@@ -2329,7 +2337,7 @@ onion_extend_cpath(origin_circuit_t *circ)
 /** Create a new hop, annotate it with information about its
  * corresponding router <b>choice</b>, and append it to the
  * end of the cpath <b>head_ptr</b>. */
-static int
+int
 onion_append_hop(crypt_path_t **head_ptr, extend_info_t *choice)
 {
   crypt_path_t *hop = tor_malloc_zero(sizeof(crypt_path_t));
