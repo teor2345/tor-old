@@ -54,6 +54,8 @@
 static channel_t * channel_connect_for_circuit(const tor_addr_t *addr,
                                                uint16_t port,
                                                const char *id_digest);
+static void circuit_list_cpath_impl(crypt_path_t *cpath, smartlist_t *elements,
+                                    int verbose, int verbose_names);
 static int circuit_deliver_create_cell(circuit_t *circ,
                                        const create_cell_t *create_cell,
                                        int relayed);
@@ -217,46 +219,39 @@ get_unique_circ_id_by_chan(channel_t *chan)
   return test_circ_id;
 }
 
-/** If <b>verbose</b> is false, allocate and return a comma-separated list of
+/** Iterate through the hops in <b>cpath</b>, and allocate and return
+ * information about the hops.
+ *
+ * If <b>verbose</b> is false, allocate and return a comma-separated list of
  * the currently built elements of <b>circ</b>. If <b>verbose</b> is true, also
  * list information about link status in a more verbose format using spaces.
+ *
  * If <b>verbose_names</b> is false, give nicknames for Named routers and hex
  * digests for others; if <b>verbose_names</b> is true, use $DIGEST=Name style
  * names.
  */
-static char *
-circuit_list_path_impl(origin_circuit_t *circ, int verbose, int verbose_names)
+static void
+circuit_list_cpath_impl(crypt_path_t *cpath, smartlist_t *elements,
+                        int verbose, int verbose_names)
 {
   crypt_path_t *hop;
-  smartlist_t *elements;
   const char *states[] = {"closed", "waiting for keys", "open"};
-  char *s;
 
-  elements = smartlist_new();
+  hop = cpath;
 
-  if (verbose) {
-    const char *nickname = build_state_get_exit_nickname(circ->build_state);
-    smartlist_add_asprintf(elements, "%s%s circ (length %d%s%s):",
-                 circ->build_state->is_internal ? "internal" : "exit",
-                 circ->build_state->need_uptime ? " (high-uptime)" : "",
-                 circ->build_state->desired_path_len,
-                 circ->base_.state == CIRCUIT_STATE_OPEN ? "" : ", last hop ",
-                 circ->base_.state == CIRCUIT_STATE_OPEN ? "" :
-                 (nickname?nickname:"*unnamed*"));
-  }
-
-  hop = circ->cpath;
   do {
     char *elt;
     const char *id;
     const node_t *node;
-    if (!hop)
+
+    if ((!hop) || (!hop->extend_info))
       break;
+
     if (!verbose && hop->state != CPATH_STATE_OPEN)
       break;
-    if (!hop->extend_info)
-      break;
+
     id = hop->extend_info->identity_digest;
+
     if (verbose_names) {
       elt = tor_malloc(MAX_VERBOSE_NICKNAME_LEN+1);
       if ((node = node_get_by_id(id))) {
@@ -284,15 +279,57 @@ circuit_list_path_impl(origin_circuit_t *circ, int verbose, int verbose_names)
     tor_assert(elt);
     if (verbose) {
       tor_assert(hop->state <= 2);
-      smartlist_add_asprintf(elements,"%s(%s)",elt,states[hop->state]);
+      smartlist_add_asprintf(elements, "%s(%s)", elt, states[hop->state]);
       tor_free(elt);
     } else {
       smartlist_add(elements, elt);
     }
     hop = hop->next;
-  } while (hop != circ->cpath);
+  } while (hop != cpath);
+}
 
-  s = smartlist_join_strings(elements, verbose?" ":",", 0, NULL);
+/** Iterate through the hops in <b>cpath</b>, and allocate and return
+ * information about the hops.
+ *
+ * If <b>verbose</b> is false, allocate and return a comma-separated list of
+ * the currently built elements of <b>circ</b>. If <b>verbose</b> is true, also
+ * list information about link status in a more verbose format using spaces.
+ */
+void
+circuit_list_cpath(crypt_path_t *cpath, smartlist_t *elements, int verbose)
+{
+  circuit_list_cpath_impl(cpath, elements, verbose, 0);
+}
+
+/** If <b>verbose</b> is false, allocate and return a comma-separated list of
+ * the currently built elements of <b>circ</b>. If <b>verbose</b> is true, also
+ * list information about link status in a more verbose format using spaces.
+ * If <b>verbose_names</b> is false, give nicknames for Named routers and hex
+ * digests for others; if <b>verbose_names</b> is true, use $DIGEST=Name style
+ * names.
+ */
+static char *
+circuit_list_path_impl(origin_circuit_t *circ, int verbose, int verbose_names)
+{
+  smartlist_t *elements;
+  char *s;
+
+  elements = smartlist_new();
+
+  if (verbose) {
+    const char *nickname = build_state_get_exit_nickname(circ->build_state);
+    smartlist_add_asprintf(elements, "%s%s circ (length %d%s%s):",
+                 circ->build_state->is_internal ? "internal" : "exit",
+                 circ->build_state->need_uptime ? " (high-uptime)" : "",
+                 circ->build_state->desired_path_len,
+                 circ->base_.state == CIRCUIT_STATE_OPEN ? "" : ", last hop ",
+                 circ->base_.state == CIRCUIT_STATE_OPEN ? "" :
+                 (nickname?nickname:"*unnamed*"));
+  }
+
+  circuit_list_cpath(circ->cpath, elements, verbose);
+
+  s = smartlist_join_strings(elements, verbose ? " " : ",", 0, NULL);
   SMARTLIST_FOREACH(elements, char*, cp, tor_free(cp));
   smartlist_free(elements);
   return s;
