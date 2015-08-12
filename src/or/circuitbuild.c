@@ -406,13 +406,15 @@ circuit_rep_hist_note_result(origin_circuit_t *circ)
   } while (hop!=circ->cpath);
 }
 
-/** Return 1 iff at least one node in circ's cpath supports ntor. */
-static int
-circuit_cpath_supports_ntor(const origin_circuit_t *circ)
+/** Return 1 iff at least one node in circ's cpath supports ntor.
+ * Helper function for circuit_cpath_supports_ntor.
+ */
+int
+cpath_supports_ntor(crypt_path_t *const cpath_orig)
 {
   crypt_path_t *head, *cpath;
 
-  cpath = head = circ->cpath;
+  cpath = head = cpath_orig;
   do {
     if (cpath->extend_info &&
         !tor_mem_is_zero(
@@ -424,6 +426,13 @@ circuit_cpath_supports_ntor(const origin_circuit_t *circ)
   } while (cpath != head);
 
   return 0;
+}
+
+/** Return 1 iff at least one node in circ's cpath supports ntor. */
+static int
+circuit_cpath_supports_ntor(const origin_circuit_t *circ)
+{
+  return cpath_supports_ntor(circ->cpath);
 }
 
 /** Pick all the entries in our cpath. Stop and return 0 when we're
