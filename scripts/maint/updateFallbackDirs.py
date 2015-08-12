@@ -6,7 +6,8 @@
 
 # Script by weasel, April 2015
 # Portions by gsathya & karsten, 2013
-# Modifications by teor, May 2015
+# https://trac.torproject.org/projects/tor/attachment/ticket/8374/dir_list.2.py
+# Modifications by teor, May-August 2015
 
 import StringIO
 import string
@@ -29,11 +30,12 @@ logging.basicConfig(level=logging.INFO)
 ONIONOO = 'https://onionoo.torproject.org/'
 
 ADDRESS_AND_PORT_STABLE_DAYS = 120
-# What time-weighted-fraction of these flags must FallbackDirs:
+# What time-weighted-fraction of these flags must FallbackDirs
 # Equal or Exceed?
 CUTOFF_RUNNING = .95
 CUTOFF_V2DIR = .95
 CUTOFF_GUARD = .95
+# What time-weighted-fraction of these flags must FallbackDirs
 # Equal or Fall Under?
 # .00 means no bad exits
 PERMITTED_BADEXIT = .00
@@ -113,13 +115,19 @@ def fetch_source_list():
 
 # given 'what', provide a multiline C comment describing the source
 def describe_fetch_source(what):
-  desc = '/*\n'
-  desc += 'Onionoo Source: ' + cleanse_c_multiline_comment(what)
-  desc += ' Date: ' + cleanse_c_multiline_comment(fetch_source[what]['relays_published'])
-  desc += ' Version: ' + cleanse_c_multiline_comment(fetch_source[what]['version'])
+  desc = '/*'
   desc += '\n'
-  desc += 'URL: ' + cleanse_c_multiline_comment(fetch_source[what]['url'])
-  desc += '\n*/'
+  desc += 'Onionoo Source: '
+  desc += cleanse_c_multiline_comment(what)
+  desc += ' Date: '
+  desc += cleanse_c_multiline_comment(fetch_source[what]['relays_published'])
+  desc += ' Version: '
+  desc += cleanse_c_multiline_comment(fetch_source[what]['version'])
+  desc += '\n'
+  desc += 'URL: '
+  desc += cleanse_c_multiline_comment(fetch_source[what]['url'])
+  desc += '\n'
+  desc += '*/'
   return desc
 
 def write_to_file(str, file_name, max_len):
@@ -210,7 +218,8 @@ def onionoo_fetch(what, **kwargs):
     if response_code == 304: # Not Modified
       pass
     else:
-      raise Exception("Could not get "+url+": "+ str(error.code) + ": " + error.reason)
+      raise Exception("Could not get " + url + ": "
+                      + str(error.code) + ": " + error.reason)
 
   if response_code == 200: # OK
 
@@ -231,7 +240,8 @@ def onionoo_fetch(what, **kwargs):
     response_json = load_json_from_file(json_file_name)
 
   else: # Unexpected HTTP response code not covered in the HTTPError above
-    raise Exception("Unexpected HTTP response code to "+url+": "+ str(response_code))
+    raise Exception("Unexpected HTTP response code to " + url + ": "
+                    + str(response_code))
 
   register_fetch_source(what,
                         url,
@@ -255,14 +265,17 @@ def fetch(what, **kwargs):
 
 
 class Candidate(object):
-  CUTOFF_ADDRESS_AND_PORT_STABLE = datetime.datetime.now() - datetime.timedelta(ADDRESS_AND_PORT_STABLE_DAYS)
+  CUTOFF_ADDRESS_AND_PORT_STABLE = (datetime.datetime.now()
+                            - datetime.timedelta(ADDRESS_AND_PORT_STABLE_DAYS))
 
   def __init__(self, details):
-    for f in ['fingerprint', 'nickname', 'last_changed_address_or_port', 'consensus_weight', 'or_addresses', 'dir_address']:
+    for f in ['fingerprint', 'nickname', 'last_changed_address_or_port',
+              'consensus_weight', 'or_addresses', 'dir_address']:
       if not f in details: raise Exception("Document has no %s field."%(f,))
 
     if not 'contact' in details: details['contact'] = None
-    details['last_changed_address_or_port'] = parse_ts(details['last_changed_address_or_port'])
+    details['last_changed_address_or_port'] = parse_ts(
+                                      details['last_changed_address_or_port'])
 
     self._data = details
     self._stable_sort_or_addresses()
@@ -292,8 +305,6 @@ class Candidate(object):
     return self._fpr
 
   # is_valid_ipv[46]_address by gsathya, karsten, 2013
-  # https://trac.torproject.org/projects/tor/attachment/ticket/8374/dir_list.2.py
-
   @staticmethod
   def is_valid_ipv4_address(address):
     if not isinstance(address, (str, unicode)):
@@ -421,7 +432,8 @@ class Candidate(object):
     #         "values": [ ...]
     #     }
     #   },
-    # extract exactly one piece of data per time interval, using smaller intervals where available.
+    # extract exactly one piece of data per time interval,
+    # using smaller intervals where available.
     #
     # returns list of (age, length, value) dictionaries.
 
@@ -437,7 +449,8 @@ class Candidate(object):
       this_ts = parse_ts(h['last'])
 
       if (len(h['values']) != h['count']):
-        logging.warn('Inconsistent value count in %s document for %s'%(p, which,))
+        logging.warn('Inconsistent value count in %s document for %s'
+                     %(p, which))
       for v in reversed(h['values']):
         if (this_ts <= newest):
           generic_history.append(
@@ -449,9 +462,11 @@ class Candidate(object):
         this_ts -= interval
 
       if (this_ts + interval != parse_ts(h['first'])):
-        logging.warn('Inconsistent time information in %s document for %s'%(p, which,))
+        logging.warn('Inconsistent time information in %s document for %s'
+                     %(p, which))
 
-    #print json.dumps(generic_history, sort_keys=True, indent=4, separators=(',', ': '))
+    #print json.dumps(generic_history, sort_keys=True,
+    #                  indent=4, separators=(',', ': '))
     return generic_history
 
   @staticmethod
@@ -488,11 +503,15 @@ class Candidate(object):
         logging.debug('No %s in flags for %s.'%(f, self._fpr,))
         return
 
-    running = self._extract_generic_history(uptime['flags']['Running'], '%s-Running'%(self._fpr,))
-    guard = self._extract_generic_history(uptime['flags']['Guard'], '%s-Guard'%(self._fpr,))
-    v2dir = self._extract_generic_history(uptime['flags']['V2Dir'], '%s-V2Dir'%(self._fpr,))
+    running = self._extract_generic_history(uptime['flags']['Running'],
+                                            '%s-Running'%(self._fpr))
+    guard = self._extract_generic_history(uptime['flags']['Guard'],
+                                          '%s-Guard'%(self._fpr))
+    v2dir = self._extract_generic_history(uptime['flags']['V2Dir'],
+                                          '%s-V2Dir'%(self._fpr))
     if 'BadExit' in uptime['flags']:
-      badexit = self._extract_generic_history(uptime['flags']['BadExit'], '%s-BadExit'%(self._fpr,))
+      badexit = self._extract_generic_history(uptime['flags']['BadExit'],
+                                              '%s-BadExit'%(self._fpr))
 
     self._running = self._avg_generic_history(running) / ONIONOO_SCALE_ONE
     self._guard = self._avg_generic_history(guard) / ONIONOO_SCALE_ONE
@@ -502,24 +521,30 @@ class Candidate(object):
       self._badexit = self._avg_generic_history(badexit) / ONIONOO_SCALE_ONE
 
   def is_candidate(self):
-    if self._data['last_changed_address_or_port'] > self.CUTOFF_ADDRESS_AND_PORT_STABLE:
+    if (self._data['last_changed_address_or_port'] >
+        self.CUTOFF_ADDRESS_AND_PORT_STABLE):
       logging.debug('%s not a candidate: changed address/port recently (%s)',
         self._fpr, self._data['last_changed_address_or_port'])
       return False
     if self._running < CUTOFF_RUNNING:
-      logging.debug('%s not a candidate: running avg too low (%lf)', self._fpr, self._running)
+      logging.debug('%s not a candidate: running avg too low (%lf)',
+                    self._fpr, self._running)
       return False
     if self._guard < CUTOFF_GUARD:
-      logging.debug('%s not a candidate: guard avg too low (%lf)', self._fpr, self._guard)
+      logging.debug('%s not a candidate: guard avg too low (%lf)',
+                    self._fpr, self._guard)
       return False
     if self._v2dir < CUTOFF_V2DIR:
-      logging.debug('%s not a candidate: v2dir avg too low (%lf)', self._fpr, self._v2dir)
+      logging.debug('%s not a candidate: v2dir avg too low (%lf)',
+                    self._fpr, self._v2dir)
       return False
     if self._badexit is not None and self._badexit > PERMITTED_BADEXIT:
-      logging.debug('%s not a candidate: badexit avg too high (%lf)', self._fpr, self._badexit)
+      logging.debug('%s not a candidate: badexit avg too high (%lf)',
+                    self._fpr, self._badexit)
       return False
     # if the relay doesn't report a version, also exclude the relay
-    if not self._data.has_key('recommended_version') or not self._data['recommended_version']:
+    if (not self._data.has_key('recommended_version')
+        or not self._data['recommended_version']):
       return False
     return True
 
@@ -532,7 +557,8 @@ class Candidate(object):
     # "[ipv6=addr]"
     # "weight=num",
     # Multiline C comment
-    s = '/*\n'
+    s = '/*'
+    s += '\n'
     s += cleanse_c_multiline_comment(self._data['nickname'])
     s += '\n'
     if self._data['contact'] is not None:
@@ -542,17 +568,17 @@ class Candidate(object):
     s += '\n'
     # Multi-Line C string with trailing comma (part of a string list)
     # This makes it easier to diff the file, and remove IPv6 lines using grep
+    # Integers don't need escaping
     s += '"%s orport=%d id=%s"'%(
             cleanse_c_string(self._data['dir_address']),
-            self.orport,                   # Integers don't need escaping
+            self.orport,
             cleanse_c_string(self._fpr))
     s += '\n'
     if self.ipv6addr is not None:
       s += '" ipv6=%s"'%(
             cleanse_c_string(self.ipv6addr))
       s += '\n'
-    s += '" weight=%d",'%(
-            self._data['consensus_weight']) # Integers don't need escaping
+    s += '" weight=%d",'%(weight)
     return s
 
 class CandidateList(dict):
@@ -580,7 +606,9 @@ class CandidateList(dict):
 
   def _add_details(self):
     logging.debug('Loading details document.')
-    d = fetch('details', fields='fingerprint,nickname,contact,last_changed_address_or_port,consensus_weight,or_addresses,dir_address,recommended_version')
+    d = fetch('details',
+        fields=('fingerprint,nickname,contact,last_changed_address_or_port,' +
+              'consensus_weight,or_addresses,dir_address,recommended_version'))
     logging.debug('Loading details document done.')
 
     if not 'relays' in d: raise Exception("No relays found in document.")
@@ -599,8 +627,15 @@ class CandidateList(dict):
     self._add_details()
     self._add_uptimes()
 
+  # Find fallbacks that fit the uptime, stability, and flags criteria
   def compute_fallbacks(self):
-    self.fallbacks = map(lambda x: self[x], sorted(filter(lambda x: self[x].is_candidate(), self.keys()), key=lambda x: self[x]._data['consensus_weight'], reverse=True))
+    self.fallbacks = map(lambda x: self[x],
+                      sorted(
+                        filter(lambda x: self[x].is_candidate(),
+                               self.keys()),
+                        key=lambda x: self[x]._data['consensus_weight'],
+                        reverse=True)
+                      )
 
 def list_fallbacks():
   """ Fetches required onionoo documents and evaluates the
@@ -615,7 +650,8 @@ def list_fallbacks():
 
   for x in candidates.fallbacks[:TOP_N_BY_WEIGHT]:
     print x.fallbackdir_line()
-    #print json.dumps(candidates[x]._data, sort_keys=True, indent=4, separators=(',', ': '), default=json_util.default)
+    #print json.dumps(candidates[x]._data, sort_keys=True, indent=4,
+    #                  separators=(',', ': '), default=json_util.default)
 
 if __name__ == "__main__":
   list_fallbacks()
