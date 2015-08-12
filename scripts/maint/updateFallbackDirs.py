@@ -40,12 +40,35 @@ CUTOFF_GUARD = .95
 # .00 means no bad exits
 PERMITTED_BADEXIT = .00
 
-# Limit the number returned to this many
-TOP_N_BY_WEIGHT = 512
+# Limit the number of fallbacks (eliminating lowest by weight)
+MAX_FALLBACK_COUNT = 500
+# Emit a C #error if the number of fallbacks is below
+MIN_FALLBACK_COUNT = 100
+
+# Limit the proportional weight
+# If a single fallback's weight is too high, it will see too many clients
+# We reweight using a lower threshold to provide some leeway for:
+# * elimination of low weight relays
+# * consensus weight changes
+# * fallback directory losses over time
+# With 2 million users per day, a relay weighted at 1 in 50 fallbacks will
+# receive 40,000 requests per day, or about 1 request every two seconds.
+# It will see about 2% of clients.
+TARGET_MAX_WEIGHT_FRACTION = 1/50.0
+REWEIGHTING_FUDGE_FACTOR = 0.8
+MAX_WEIGHT_FRACTION = TARGET_MAX_WEIGHT_FRACTION * REWEIGHTING_FUDGE_FACTOR
+# If a single fallback's weight is too low, it's pointless adding it.
+# (Final weights may be slightly higher than this, due to low weight relays
+# being excluded.)
+# With 2 million users per day, a relay weighted at 1 in 2000 fallbacks will
+# receive 1000 requests per day, or about 1 request every minute or two.
+# It will see less than 0.1% of clients.
+MIN_WEIGHT_FRACTION = 1/2000.0
 
 AGE_ALPHA = 0.99 # older entries' weights are adjusted with ALPHA^(age in days)
 
 ONIONOO_SCALE_ONE = 999.
+
 
 def parse_ts(t):
   return datetime.datetime.strptime(t, "%Y-%m-%d %H:%M:%S")
@@ -548,9 +571,25 @@ class Candidate(object):
       return False
     return True
 
-  def fallbackdir_line(self):
+  def fallback_weight_fraction(self, total_weight):
+    return float(self._data['consensus_weight']) / total_weight
+
+  # return the original consensus weight, if it exists,
+  # or, if not, return the consensus weight
+  def original_consensus_weight(self):
+    if self._data.has_key('original_consensus_weight'):
+      return self._data['original_consensus_weight']
+    else:
+      return self._data['consensus_weight']
+
+  def original_fallback_weight_fraction(self, total_weight):
+    return float(self.original_consensus_weight()) / total_weight
+
+  def fallbackdir_line(self, total_weight, original_total_weight):
     # /*
     # nickname
+    # weight / total (percentage)
+    # [original weight / original total (original percentage)]
     # [contact]
     # */
     # "address:port orport=port id=fingerprint"
@@ -561,6 +600,19 @@ class Candidate(object):
     s += '\n'
     s += cleanse_c_multiline_comment(self._data['nickname'])
     s += '\n'
+    weight = self._data['consensus_weight']
+    percent_weight = self.fallback_weight_fraction(total_weight)*100
+    s += 'Fallback Weight: %d / %d (%.3f%%)'%(weight, total_weight,
+                                              percent_weight)
+    s += '\n'
+    o_weight = self.original_consensus_weight()
+    if o_weight != weight:
+      o_percent_weight = self.original_fallback_weight_fraction(
+                                                     original_total_weight)*100
+      s += 'Consensus Weight: %d / %d (%.3f%%)'%(o_weight,
+                                                 original_total_weight,
+                                                 o_percent_weight)
+      s += '\n'
     if self._data['contact'] is not None:
       s += cleanse_c_multiline_comment(self._data['contact'])
       s += '\n'
@@ -637,6 +689,157 @@ class CandidateList(dict):
                         reverse=True)
                       )
 
+  # Remove any fallbacks in excess of MAX_FALLBACK_COUNT,
+  # starting with the lowest-weighted fallbacks
+  # total_weight should be recalculated after calling this
+  def exclude_excess_fallbacks(self):
+    self.fallbacks = self.fallbacks[:MAX_FALLBACK_COUNT]
+
+  # Reweight any fallbacks with weights higher than MAX_WEIGHT_FRACTION
+  # total_weight is kept constant
+  # fallbacks are kept sorted, although high weights will be reduced to
+  # equal maximum acceptable weights
+  # This is complex, let's check the results carefully if it's ever needed
+  def reweight_high_weight_fallbacks(self, total_weight):
+    if MAX_WEIGHT_FRACTION * len(self.fallbacks) < 1.0:
+      raise Exception(
+        'Max Fallback Weight %.3f%% is unachievable '%(MAX_WEIGHT_FRACTION) +
+        'with Current Fallback Count %d.'%(len(self.fallbacks)))
+    relays_reduced = 0
+    relays_increased = 0
+    total_excess_weight = 0
+    # the total weight of relays remaining
+    total_weight_remaining = total_weight
+    max_acceptable_weight = total_weight * MAX_WEIGHT_FRACTION
+    for f in self.fallbacks:
+      frac_weight = f.fallback_weight_fraction(total_weight)
+      if frac_weight > MAX_WEIGHT_FRACTION:
+        relays_reduced += 1
+        current_weight = f._data['consensus_weight']
+        excess_weight = current_weight - max_acceptable_weight
+        f._data['original_consensus_weight'] = current_weight
+        f._data['consensus_weight'] = max_acceptable_weight
+        total_excess_weight += excess_weight
+        total_weight_remaining -= current_weight
+    # avoid the second loop if we have no weight to reassign
+    if total_excess_weight == 0:
+      return (0, 0, 0)
+    remaining_excess_weight = total_excess_weight
+    # we increase each fallback's weight proportional to its current weight,
+    # up to max_acceptable_weight
+    for f in self.fallbacks:
+      frac_weight = f.fallback_weight_fraction(total_weight)
+      if frac_weight < MAX_WEIGHT_FRACTION:
+        relays_increased += 1
+        current_weight = f._data['consensus_weight']
+        frac_weight_no_excess = f.fallback_weight_fraction(
+                                    total_weight_remaining)
+        additional_weight = frac_weight_no_excess * remaining_excess_weight
+        # cap the final weight at max_acceptable_weight
+        new_weight = current_weight + additional_weight
+        if new_weight > max_acceptable_weight:
+          new_weight = max_acceptable_weight
+          additional_weight = new_weight - current_weight
+        f._data['original_consensus_weight'] = current_weight
+        f._data['consensus_weight'] = new_weight
+        remaining_excess_weight -= additional_weight
+        total_weight_remaining -= new_weight
+    # check we redistributed all the weight
+    if remaining_excess_weight > 0:
+      raise Exception(
+        'Leftover weight after reweighting high weight fallbacks: %d. '
+        %(remaining_excess_weight) +
+        'Try increasing TARGET_MAX_WEIGHT_FRACTION.')
+    return (relays_reduced, relays_increased, total_excess_weight)
+
+  # Remove any fallbacks with weights lower than MIN_WEIGHT_FRACTION
+  # total_weight should be recalculated after calling this
+  def exclude_low_weight_fallbacks(self, total_weight):
+    self.fallbacks = filter(
+            lambda x:
+             x.fallback_weight_fraction(total_weight) >= MIN_WEIGHT_FRACTION,
+             self.fallbacks)
+
+  def fallback_weight_total(self):
+    return sum(f._data['consensus_weight'] for f in self.fallbacks)
+
+  def fallback_min_weight(self):
+    return self.fallbacks[-1]
+
+  def fallback_max_weight(self):
+    return self.fallbacks[0]
+
+  def summarise_fallbacks(self, eligible_count, eligible_weight,
+                          relays_reduced, relays_increased, excess_weight):
+    # Report:
+    #  the number of fallback directories (with min & max limits);
+    #    #error if below minimum count
+    #  the total weight, min & max fallback proportions
+    #    #error if outside max weight proportion
+    # Multiline C comment with #error if things go bad
+    s = '/*'
+    s += '\n'
+    s += 'Fallback Directory Summary'
+    s += '\n'
+    # Integers don't need escaping in C comments
+    fallback_count = len(self.fallbacks)
+    s += 'Final Count:  %d (Eligible %d, Clamped to %d)'%(
+            fallback_count,
+            eligible_count,
+            MAX_FALLBACK_COUNT)
+    s += '\n'
+    if fallback_count < MIN_FALLBACK_COUNT:
+      s += '*/'
+      s += '\n'
+      # We must have a minimum number of fallbacks so they are always
+      # reachable, and are in diverse locations
+      s += '#error Fallback Count %d is too low. '%(fallback_count)
+      s += 'Must be at least %d for diversity.'%(MIN_FALLBACK_COUNT)
+      s += '\n'
+      s += '/*'
+      s += '\n'
+    total_weight = self.fallback_weight_total()
+    min_fb = self.fallback_min_weight()
+    min_weight = min_fb._data['consensus_weight']
+    min_percent = min_fb.fallback_weight_fraction(total_weight)*100.0
+    max_fb = self.fallback_max_weight()
+    max_weight = max_fb._data['consensus_weight']
+    max_frac = max_fb.fallback_weight_fraction(total_weight)
+    max_percent = max_frac*100.0
+    s += 'Final Weight: %d (Eligible %d)'%(total_weight, eligible_weight)
+    s += '\n'
+    s += 'Max Weight:   %d (%.3f%%) (Clamped to %.3f%%)'%(
+                                                max_weight,
+                                                max_percent,
+                                                TARGET_MAX_WEIGHT_FRACTION*100)
+    s += '\n'
+    s += 'Min Weight:   %d (%.3f%%) (Clamped to %.3f%%)'%(
+                                                min_weight,
+                                                min_percent,
+                                                MIN_WEIGHT_FRACTION*100)
+    s += '\n'
+    if eligible_count != fallback_count:
+      s += 'Excluded:     %d (Excess or Low Weight)'%(
+                                              eligible_count - fallback_count)
+      s += '\n'
+    if relays_reduced > 0:
+      s += 'Reweighted:   %d (%.3f%%) Excess Weight, '%(
+                                    excess_weight,
+                                    (100.0 * excess_weight) / total_weight)
+      s += '%d High Weight Fallbacks (%.1f%%)'%(
+                                    relays_reduced,
+                                    (100.0 * relays_reduced) / fallback_count)
+      s += '\n'
+    s += '*/'
+    if max_frac > TARGET_MAX_WEIGHT_FRACTION:
+      s += '\n'
+      # We must restrict the maximum fallback weight, so an adversary
+      # at or near the fallback doesn't see too many clients
+      s += '#error Max Fallback Weight %.3f%% is too high. '%(max_frac*100)
+      s += 'Must be at most %.3f%% for client anonymity.'%(
+                                                TARGET_MAX_WEIGHT_FRACTION*100)
+    return s
+
 def list_fallbacks():
   """ Fetches required onionoo documents and evaluates the
       fallback directory criteria for each of the relays """
@@ -644,12 +847,55 @@ def list_fallbacks():
   candidates = CandidateList()
   candidates.add_relays()
   candidates.compute_fallbacks()
+  eligible_count = len(candidates.fallbacks)
+  eligible_weight = candidates.fallback_weight_total()
+
+  # print the raw fallback list
+  #total_weight = candidates.fallback_weight_total()
+  #for x in candidates.fallbacks:
+  #  print x.fallbackdir_line(total_weight, total_weight)
+
+  # When candidates are excluded, total_weight decreases, and
+  # the proportional weight of other candidates increases.
+  candidates.exclude_excess_fallbacks()
+  total_weight = candidates.fallback_weight_total()
+
+  # When candidates are reweighted, total_weight remains constant.
+  # Previously low-weight candidates might obtain sufficient weights.
+  # Save the weight at which we reweighted fallbacks for the summary
+  reweighted_total_weight = total_weight
+  (reduced, increased, excess) = candidates.reweight_high_weight_fallbacks(
+                                                                  total_weight)
+
+  # When candidates are excluded, total_weight decreases, and
+  # the proportional weight of other candidates increases.
+  # No new low weight candidates will be created during exclusions.
+  # However, high weight candidates may increase over the maximum.
+  # This should not be an issue, except in pathological cases.
+  candidates.exclude_low_weight_fallbacks(total_weight)
+  total_weight = candidates.fallback_weight_total()
+
+  # check we haven't exceeded TARGET_MAX_WEIGHT_FRACTION
+  # since reweighting preserves the orginal sort order,
+  # the maximum weights will be at the head of the list
+  max_weight_fb = candidates.fallback_max_weight()
+  max_weight = max_weight_fb.fallback_weight_fraction(total_weight)
+  if  max_weight > TARGET_MAX_WEIGHT_FRACTION:
+    raise Exception(
+    'Maximum fallback weight: %.3f%% exceeds target %.3f%%. '%(
+                                                    max_weight,
+                                                    TARGET_MAX_WEIGHT_FRACTION
+                                                    ) +
+    'Try decreasing REWEIGHTING_FUDGE_FACTOR.')
+
+  print candidates.summarise_fallbacks(eligible_count, eligible_weight,
+                                       reduced, increased, excess)
 
   for s in fetch_source_list():
     print describe_fetch_source(s)
 
-  for x in candidates.fallbacks[:TOP_N_BY_WEIGHT]:
-    print x.fallbackdir_line()
+  for x in candidates.fallbacks[:MAX_FALLBACK_COUNT]:
+    print x.fallbackdir_line(total_weight, reweighted_total_weight)
     #print json.dumps(candidates[x]._data, sort_keys=True, indent=4,
     #                  separators=(',', ': '), default=json_util.default)
 
