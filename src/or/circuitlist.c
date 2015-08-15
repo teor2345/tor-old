@@ -1635,18 +1635,29 @@ circuit_get_cpath_len(origin_circuit_t *circ)
   return cpath_get_len(circ->cpath);
 }
 
+/** Return the <b>hopnum</b>th hop in <b>cpath_orig</b>, or NULL if there
+ * aren't that many hops in the list. */
+crypt_path_t *
+cpath_get_hop(crypt_path_t *cpath_orig, int hopnum)
+{
+  if (cpath_orig && hopnum > 0) {
+    crypt_path_t *cpath, *cpath_next = NULL;
+    for (cpath = cpath_orig; cpath_next != cpath_orig; cpath = cpath_next) {
+      cpath_next = cpath->next;
+      if (--hopnum <= 0)
+        return cpath;
+    }
+  }
+  return NULL;
+}
+
 /** Return the <b>hopnum</b>th hop in <b>circ</b>->cpath, or NULL if there
  * aren't that many hops in the list. */
 crypt_path_t *
 circuit_get_cpath_hop(origin_circuit_t *circ, int hopnum)
 {
-  if (circ && circ->cpath && hopnum > 0) {
-    crypt_path_t *cpath, *cpath_next = NULL;
-    for (cpath = circ->cpath; cpath_next != circ->cpath; cpath = cpath_next) {
-      cpath_next = cpath->next;
-      if (--hopnum <= 0)
-        return cpath;
-    }
+  if (circ && circ->cpath) {
+    return cpath_get_hop(circ->cpath, hopnum);
   }
   return NULL;
 }
