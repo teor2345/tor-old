@@ -7,14 +7,14 @@
 	<key>IDESourceControlProjectIdentifier</key>
 	<string>49628137-1558-49CE-87FC-A7DEBB828432</string>
 	<key>IDESourceControlProjectName</key>
-	<string>tor</string>
+	<string>project</string>
 	<key>IDESourceControlProjectOriginsDictionary</key>
 	<dict>
 		<key>2DC3DDF7BCC0E5378D248832F6578EE0E5E23937</key>
 		<string>https://git.torproject.org/tor.git</string>
 	</dict>
 	<key>IDESourceControlProjectPath</key>
-	<string>contrib/osxbuild/tor.xcodeproj</string>
+	<string>contrib/osxbuild/tor.xcodeproj/project.xcworkspace</string>
 	<key>IDESourceControlProjectRelativeInstallPathDictionary</key>
 	<dict>
 		<key>2DC3DDF7BCC0E5378D248832F6578EE0E5E23937</key>

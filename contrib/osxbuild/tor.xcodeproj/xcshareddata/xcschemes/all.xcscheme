@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "0610"
+   LastUpgradeVersion = "0640"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -42,7 +42,91 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "028FE54A19D7E5E000EAE502"
+               BlueprintIdentifier = "028FE3F019D7E5CD00EAE502"
+               BuildableName = "test-bt-cl"
+               BlueprintName = "test-bt-cl"
+               ReferencedContainer = "container:tor.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "028FE49D19D7E5D600EAE502"
+               BuildableName = "test-ntor-cl"
+               BlueprintName = "test-ntor-cl"
+               ReferencedContainer = "container:tor.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "NO"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "028FE33F19D7E02900EAE502"
+               BuildableName = "test-child"
+               BlueprintName = "test-child"
+               ReferencedContainer = "container:tor.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "021A961D1AEE1AB100EED9E3"
+               BuildableName = "test-memwipe"
+               BlueprintName = "test-memwipe"
+               ReferencedContainer = "container:tor.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "024349731A877661009BC542"
+               BuildableName = "test_slow"
+               BlueprintName = "test_slow"
+               ReferencedContainer = "container:tor.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "0266F1191AEE3C3F0051FB76"
+               BuildableName = "test_workqueue"
+               BlueprintName = "test_workqueue"
+               ReferencedContainer = "container:tor.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "0266F13D1AEE44590051FB76"
                BuildableName = "bench"
                BlueprintName = "bench"
                ReferencedContainer = "container:tor.xcodeproj">
@@ -60,9 +144,9 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "028FE54A19D7E5E000EAE502"
-            BuildableName = "bench"
-            BlueprintName = "bench"
+            BlueprintIdentifier = "028FE2B419D7DFC700EAE502"
+            BuildableName = "test"
+            BlueprintName = "test"
             ReferencedContainer = "container:tor.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -76,7 +160,8 @@
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
       allowLocationSimulation = "YES">
-      <BuildableProductRunnable>
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "028FE2B419D7DFC700EAE502"
@@ -97,9 +182,9 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "028FE54A19D7E5E000EAE502"
-            BuildableName = "bench"
-            BlueprintName = "bench"
+            BlueprintIdentifier = "025354C019AB6515006D569F"
+            BuildableName = "tor"
+            BlueprintName = "tor"
             ReferencedContainer = "container:tor.xcodeproj">
          </BuildableReference>
       </MacroExpansion>

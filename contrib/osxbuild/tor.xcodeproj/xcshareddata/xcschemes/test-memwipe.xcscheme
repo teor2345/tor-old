@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "0610"
+   LastUpgradeVersion = "0640"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -14,9 +14,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "02B4DC7319F6A30600DACF3B"
-               BuildableName = "or_sha1.i"
-               BlueprintName = "or_sha1.i"
+               BlueprintIdentifier = "021A961D1AEE1AB100EED9E3"
+               BuildableName = "test-memwipe"
+               BlueprintName = "test-memwipe"
                ReferencedContainer = "container:tor.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -29,6 +29,15 @@
       buildConfiguration = "Debug">
       <Testables>
       </Testables>
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "021A961D1AEE1AB100EED9E3"
+            BuildableName = "test-memwipe"
+            BlueprintName = "test-memwipe"
+            ReferencedContainer = "container:tor.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
    </TestAction>
    <LaunchAction
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
@@ -39,15 +48,16 @@
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
       allowLocationSimulation = "YES">
-      <MacroExpansion>
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "02B4DC7319F6A30600DACF3B"
-            BuildableName = "or_sha1.i"
-            BlueprintName = "or_sha1.i"
+            BlueprintIdentifier = "021A961D1AEE1AB100EED9E3"
+            BuildableName = "test-memwipe"
+            BlueprintName = "test-memwipe"
             ReferencedContainer = "container:tor.xcodeproj">
          </BuildableReference>
-      </MacroExpansion>
+      </BuildableProductRunnable>
       <AdditionalOptions>
       </AdditionalOptions>
    </LaunchAction>
@@ -57,15 +67,16 @@
       useCustomWorkingDirectory = "NO"
       buildConfiguration = "Release"
       debugDocumentVersioning = "YES">
-      <MacroExpansion>
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "02B4DC7319F6A30600DACF3B"
-            BuildableName = "or_sha1.i"
-            BlueprintName = "or_sha1.i"
+            BlueprintIdentifier = "021A961D1AEE1AB100EED9E3"
+            BuildableName = "test-memwipe"
+            BlueprintName = "test-memwipe"
             ReferencedContainer = "container:tor.xcodeproj">
          </BuildableReference>
-      </MacroExpansion>
+      </BuildableProductRunnable>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">
