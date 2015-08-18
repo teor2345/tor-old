@@ -62,9 +62,9 @@ static int count_acceptable_nodes(smartlist_t *routers);
  * and then calls command_setup_channel() to give it the right
  * callbacks.
  */
-channel_t *
-channel_connect_for_circuit(const tor_addr_t *addr, uint16_t port,
-                            const char *id_digest)
+MOCK_IMPL(channel_t *,
+channel_connect_for_circuit,(const tor_addr_t *addr, uint16_t port,
+                             const char *id_digest))
 {
   channel_t *chan;
 
@@ -705,9 +705,9 @@ circuit_n_chan_done(channel_t *chan, int status, int close_origin_circuits)
  * gave us via an EXTEND cell, so we shouldn't worry if we don't understand
  * it. Return -1 if we failed to find a suitable circid, else return 0.
  */
-int
-circuit_deliver_create_cell(circuit_t *circ, const create_cell_t *create_cell,
-                            int relayed)
+MOCK_IMPL(int,
+circuit_deliver_create_cell,(circuit_t *circ, const create_cell_t *create_cell,
+                             int relayed))
 {
   cell_t cell;
   circid_t id;
@@ -2154,11 +2154,11 @@ onion_append_to_cpath(crypt_path_t **head_ptr, crypt_path_t *new_hop)
  * circuit. In particular, make sure we don't pick the exit node or its
  * family, and make sure we don't duplicate any previous nodes or their
  * families. */
-const node_t *
-choose_good_middle_server(uint8_t purpose,
-                          cpath_build_state_t *state,
-                          crypt_path_t *head,
-                          int cur_len)
+MOCK_IMPL(const node_t *,
+choose_good_middle_server,(uint8_t purpose,
+                           cpath_build_state_t *state,
+                           crypt_path_t *head,
+                           int cur_len))
 {
   int i;
   const node_t *r, *choice;
@@ -2201,8 +2201,8 @@ choose_good_middle_server(uint8_t purpose,
  * guard, not for any particular circuit.
  */
 /* XXXX024 I'd like to have this be static again, but entrynodes.c needs it. */
-const node_t *
-choose_good_entry_server(uint8_t purpose, cpath_build_state_t *state)
+MOCK_IMPL(const node_t *,
+choose_good_entry_server,(uint8_t purpose, cpath_build_state_t *state))
 {
   const node_t *choice;
   smartlist_t *excluded;

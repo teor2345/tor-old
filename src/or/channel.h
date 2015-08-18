@@ -484,10 +484,11 @@ int channel_send_destroy(circid_t circ_id, channel_t *chan,
 channel_t * channel_connect(const tor_addr_t *addr, uint16_t port,
                             const char *id_digest);
 
-channel_t * channel_get_for_extend(const char *digest,
-                                   const tor_addr_t *target_addr,
-                                   const char **msg_out,
-                                   int *launch_out);
+MOCK_DECL(channel_t *,
+channel_get_for_extend,(const char *digest,
+                        const tor_addr_t *target_addr,
+                        const char **msg_out,
+                        int *launch_out));
 
 /* Ask which of two channels is better for circuit-extension purposes */
 int channel_is_better(time_t now,

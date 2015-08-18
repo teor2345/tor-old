@@ -206,8 +206,8 @@ command_process_var_cell(channel_t *chan, var_cell_t *var_cell)
            var_cell->command);
 }
 
-int
-command_answer_create_cell(circuit_t *circ, channel_t *chan, cell_t *cell)
+MOCK_IMPL(int,
+command_answer_create_cell,(circuit_t *circ, channel_t *chan, cell_t *cell))
 {
   create_cell_t *create_cell;
 

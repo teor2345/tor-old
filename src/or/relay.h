@@ -59,9 +59,10 @@ void cell_queue_append_packed_copy(circuit_t *circ, cell_queue_t *queue,
                                    int exitward, const cell_t *cell,
                                    int wide_circ_ids, int use_stats);
 
-void append_cell_to_circuit_queue(circuit_t *circ, channel_t *chan,
-                                  cell_t *cell, cell_direction_t direction,
-                                  streamid_t fromstream);
+MOCK_DECL(void, append_cell_to_circuit_queue,
+          (circuit_t *circ, channel_t *chan,
+           cell_t *cell, cell_direction_t direction,
+           streamid_t fromstream));
 void channel_unlink_all_circuits(channel_t *chan, smartlist_t *detached_out);
 MOCK_DECL(int, channel_flush_from_first_active_circuit,
           (channel_t *chan, int max));

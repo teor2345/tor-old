@@ -3297,11 +3297,11 @@ channel_is_better(time_t now, channel_t *a, channel_t *b,
  * the caller should try to launch a new channel with channel_connect().
  */
 
-channel_t *
-channel_get_for_extend(const char *digest,
-                       const tor_addr_t *target_addr,
-                       const char **msg_out,
-                       int *launch_out)
+MOCK_IMPL(channel_t *,
+channel_get_for_extend,(const char *digest,
+                        const tor_addr_t *target_addr,
+                        const char **msg_out,
+                        int *launch_out))
 {
   channel_t *chan, *best = NULL;
   int n_inprogress_goodaddr = 0, n_old = 0;

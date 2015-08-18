@@ -2742,10 +2742,10 @@ get_max_middle_cells(void)
 
 /** Add <b>cell</b> to the queue of <b>circ</b> writing to <b>chan</b>
  * transmitting in <b>direction</b>. */
-void
-append_cell_to_circuit_queue(circuit_t *circ, channel_t *chan,
-                             cell_t *cell, cell_direction_t direction,
-                             streamid_t fromstream)
+MOCK_IMPL(void,
+append_cell_to_circuit_queue,(circuit_t *circ, channel_t *chan,
+                              cell_t *cell, cell_direction_t direction,
+                              streamid_t fromstream))
 {
   or_circuit_t *orcirc = NULL;
   cell_queue_t *queue;

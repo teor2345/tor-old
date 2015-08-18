@@ -1153,6 +1153,7 @@ extern struct testcase_t introduce_tests[];
 extern struct testcase_t keypin_tests[];
 extern struct testcase_t link_handshake_tests[];
 extern struct testcase_t logging_tests[];
+extern struct testcase_t loose_tests[];
 extern struct testcase_t microdesc_tests[];
 extern struct testcase_t nodelist_tests[];
 extern struct testcase_t oom_tests[];
@@ -1209,6 +1210,7 @@ struct testgroup_t testgroups[] = {
   { "introduce/", introduce_tests },
   { "keypin/", keypin_tests },
   { "link-handshake/", link_handshake_tests },
+  { "loose/", loose_tests },
   { "nodelist/", nodelist_tests },
   { "oom/", oom_tests },
   { "options/", options_tests },
