@@ -26,6 +26,7 @@ int circuit_handle_first_hop(origin_circuit_t *circ);
 void circuit_n_chan_done(channel_t *chan, int status,
                          int close_origin_circuits);
 int inform_testing_reachability(void);
+int should_use_create_fast_for_circuit_cpath(const crypt_path_t *cpath);
 int circuit_timeout_want_to_count_circ(origin_circuit_t *circ);
 int cpath_supports_ntor(crypt_path_t *const cpath_orig);
 int circuit_send_next_onion_skin(origin_circuit_t *circ);
