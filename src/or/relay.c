@@ -607,7 +607,7 @@ relay_send_command_from_edge_(streamid_t stream_id, circuit_t *circ,
     channel_timestamp_client(circ->n_chan);
   }
 
-  if (cell_direction == CELL_DIRECTION_OUT) {
+  if (cell_direction == CELL_DIRECTION_OUT && CIRCUIT_IS_ORIGIN(circ)) {
     origin_circuit_t *origin_circ = TO_ORIGIN_CIRCUIT(circ);
     if (origin_circ->remaining_relay_early_cells > 0 &&
         (relay_command == RELAY_COMMAND_EXTEND ||
