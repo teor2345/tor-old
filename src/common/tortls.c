@@ -354,7 +354,7 @@ tls_log_errors(tor_tls_t *tls, int severity, int domain, const char *doing)
 
 /** Convert an errno (or a WSAerrno on windows) into a TOR_TLS_* error
  * code. */
-static int
+STATIC int
 tor_errno_to_tls_error(int e)
 {
   switch (e) {
@@ -405,7 +405,7 @@ tor_tls_err_to_string(int err)
  * If an error has occurred, log it at level <b>severity</b> and describe the
  * current action as <b>doing</b>.
  */
-static int
+STATIC int
 tor_tls_get_error(tor_tls_t *tls, int r, int extra,
                   const char *doing, int severity, int domain)
 {
@@ -519,7 +519,7 @@ tor_tls_free_all(void)
  * it: We always accept peer certs and complete the handshake.  We
  * don't validate them until later.
  */
-static int
+STATIC int
 always_accept_verify_cb(int preverify_ok,
                         X509_STORE_CTX *x509_ctx)
 {
@@ -726,7 +726,9 @@ tor_x509_cert_free(tor_x509_cert_t *cert)
     X509_free(cert->cert);
   tor_free(cert->encoded);
   memwipe(cert, 0x03, sizeof(*cert));
+  /* LCOV_EXCL_BR_START since cert will never be NULL here */
   tor_free(cert);
+  /* LCOV_EXCL_BR_STOP */
 }
 
 /**
@@ -859,7 +861,9 @@ tor_tls_context_decref(tor_tls_context_t *ctx)
     tor_x509_cert_free(ctx->my_auth_cert);
     crypto_pk_free(ctx->link_key);
     crypto_pk_free(ctx->auth_key);
+    /* LCOV_EXCL_BR_START since ctx will never be NULL here */
     tor_free(ctx);
+    /* LCOV_EXCL_BR_STOP */
   }
 }
 
@@ -1358,7 +1362,7 @@ tor_tls_get_ciphersuite_name(tor_tls_t *tls)
  * 0.2.3.17-beta. If a client is using this list, we can't believe the ciphers
  * that it claims to support.  We'll prune this list to remove the ciphers
  * *we* don't recognize. */
-static uint16_t v2_cipher_list[] = {
+STATIC uint16_t v2_cipher_list[] = {
   0xc00a, /* TLS1_TXT_ECDHE_ECDSA_WITH_AES_256_CBC_SHA */
   0xc014, /* TLS1_TXT_ECDHE_RSA_WITH_AES_256_CBC_SHA */
   0x0039, /* TLS1_TXT_DHE_RSA_WITH_AES_256_SHA */
@@ -1476,7 +1480,7 @@ prune_v2_cipher_list(const SSL *ssl)
  * client it is.  Return one of CIPHERS_ERR, CIPHERS_V1, CIPHERS_V2,
  * CIPHERS_UNRESTRICTED.
  **/
-static int
+STATIC int
 tor_tls_classify_client_ciphers(const SSL *ssl,
                                 STACK_OF(SSL_CIPHER) *peer_ciphers)
 {
@@ -1558,7 +1562,7 @@ tor_tls_classify_client_ciphers(const SSL *ssl,
 /** Return true iff the cipher list suggested by the client for <b>ssl</b> is
  * a list that indicates that the client knows how to do the v2 TLS connection
  * handshake. */
-static int
+STATIC int
 tor_tls_client_is_using_v2_ciphers(const SSL *ssl)
 {
   STACK_OF(SSL_CIPHER) *ciphers;
@@ -1904,10 +1908,10 @@ tor_tls_read,(tor_tls_t *tls, char *cp, size_t len))
 
 /** Total number of bytes that we've used TLS to send.  Used to track TLS
  * overhead. */
-static uint64_t total_bytes_written_over_tls = 0;
+STATIC uint64_t total_bytes_written_over_tls = 0;
 /** Total number of bytes that TLS has put on the network for us. Used to
  * track TLS overhead. */
-static uint64_t total_bytes_written_by_tls = 0;
+STATIC uint64_t total_bytes_written_by_tls = 0;
 
 /** Underlying function for TLS writing.  Write up to <b>n</b>
  * characters from <b>cp</b> onto <b>tls</b>.  On success, returns the
@@ -2489,7 +2493,7 @@ tor_tls_used_v1_handshake(tor_tls_t *tls)
 
 /** Return true iff <b>name</b> is a DN of a kind that could only
  * occur in a v3-handshake-indicating certificate */
-static int
+STATIC int
 dn_indicates_v3_cert(X509_NAME *name)
 {
 #ifdef DISABLE_V3_LINKPROTO_CLIENTSIDE
@@ -2620,7 +2624,7 @@ SSL_get_server_random(SSL *s, uint8_t *out, size_t len)
 #endif
 
 #ifndef HAVE_SSL_SESSION_GET_MASTER_KEY
-static size_t
+STATIC size_t
 SSL_SESSION_get_master_key(SSL_SESSION *s, uint8_t *out, size_t len)
 {
   tor_assert(s);

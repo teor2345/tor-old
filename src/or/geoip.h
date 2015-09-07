@@ -18,6 +18,7 @@
 STATIC int geoip_parse_entry(const char *line, sa_family_t family);
 STATIC int geoip_get_country_by_ipv4(uint32_t ipaddr);
 STATIC int geoip_get_country_by_ipv6(const struct in6_addr *addr);
+STATIC void clear_geoip_db(void);
 #endif
 int should_record_bridge_info(const or_options_t *options);
 int geoip_load_file(sa_family_t family, const char *filename);
@@ -52,7 +53,7 @@ void geoip_dirreq_stats_init(time_t now);
 void geoip_reset_dirreq_stats(time_t now);
 char *geoip_format_dirreq_stats(time_t now);
 time_t geoip_dirreq_stats_write(time_t now);
-void geoip_dirreq_stats_term(void);
+MOCK_DECL(void, geoip_dirreq_stats_term, (void));
 void geoip_entry_stats_init(time_t now);
 time_t geoip_entry_stats_write(time_t now);
 void geoip_entry_stats_term(void);

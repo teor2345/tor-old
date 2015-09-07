@@ -18,7 +18,6 @@
 #include "geoip.h"
 #include "routerlist.h"
 
-static void clear_geoip_db(void);
 static void init_geoip_countries(void);
 
 /** An entry from the GeoIP IPv4 file: maps an IPv4 range to a country. */
@@ -1193,8 +1192,8 @@ geoip_reset_dirreq_stats(time_t now)
 
 /** Stop collecting directory request stats in a way that we can re-start
  * doing so in geoip_dirreq_stats_init(). */
-void
-geoip_dirreq_stats_term(void)
+MOCK_IMPL(void,
+geoip_dirreq_stats_term, (void))
 {
   geoip_reset_dirreq_stats(0);
 }
@@ -1207,9 +1206,11 @@ geoip_format_dirreq_stats(time_t now)
 {
   char t[ISO_TIME_LEN+1];
   int i;
-  char *v3_ips_string, *v3_reqs_string, *v3_direct_dl_string,
-       *v3_tunneled_dl_string;
-  char *result;
+  char *v3_ips_string = NULL,
+       *v3_reqs_string = NULL,
+       *v3_direct_dl_string = NULL,
+       *v3_tunneled_dl_string = NULL;
+  char *result = NULL;
 
   if (!start_of_dirreq_stats_interval)
     return NULL; /* Not initialized. */
@@ -1666,7 +1667,7 @@ getinfo_helper_geoip(control_connection_t *control_conn,
 }
 
 /** Release all storage held by the GeoIP databases and country list. */
-static void
+STATIC void
 clear_geoip_db(void)
 {
   if (geoip_countries) {

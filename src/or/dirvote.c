@@ -2505,8 +2505,8 @@ static struct {
 
 /** Set voting_schedule to hold the timing for the next vote we should be
  * doing. */
-void
-dirvote_recalculate_timing(const or_options_t *options, time_t now)
+MOCK_IMPL(void,
+dirvote_recalculate_timing, (const or_options_t *options, time_t now))
 {
   int interval, vote_delay, dist_delay;
   time_t start;
@@ -3373,8 +3373,8 @@ dirvote_free_all(void)
  * ==== */
 
 /** Return the body of the consensus that we're currently trying to build. */
-const char *
-dirvote_get_pending_consensus(consensus_flavor_t flav)
+MOCK_IMPL(const char *,
+dirvote_get_pending_consensus, (consensus_flavor_t flav))
 {
   tor_assert(((int)flav) >= 0 && (int)flav < N_CONSENSUS_FLAVORS);
   return pending_consensuses[flav].body;
@@ -3382,8 +3382,8 @@ dirvote_get_pending_consensus(consensus_flavor_t flav)
 
 /** Return the signatures that we know for the consensus that we're currently
  * trying to build. */
-const char *
-dirvote_get_pending_detached_signatures(void)
+MOCK_IMPL(const char *,
+dirvote_get_pending_detached_signatures, (void))
 {
   return pending_consensus_signatures;
 }
