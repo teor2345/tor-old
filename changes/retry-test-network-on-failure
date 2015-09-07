@@ -1,0 +1,4 @@
+  o Minor features (testing):
+    - Retry chutney network bootstrap and verify if they fail
+      in src/test/test-network.sh.
+      Closes ticket 16952. Patch by "teor".
