@@ -91,8 +91,9 @@ export CHUTNEY_TOR_GENCERT="${TOR_DIR}/src/tools/${tor_gencert_name}"
 
 CHUTNEY_RECONFIGURES=${CHUTNEY_RECONFIGURES:-2}
 c=0
+echo "$myname: Configuring and starting network..."
 while [ $c -lt $CHUTNEY_RECONFIGURES ]; do
-  echo "$myname: Configuring and starting network..."
+  c=$(expr $c + 1)
   # bootstrap-network.sh exits with the result of chutney status,
   # which is -1 on failure
   ./tools/bootstrap-network.sh $NETWORK_FLAVOUR
@@ -100,12 +101,13 @@ while [ $c -lt $CHUTNEY_RECONFIGURES ]; do
 
   if [ $BOOTSTRAP_EXIT_STATUS -ne 0 ]; then
     echo "$myname: Retrying configuring and starting network..."
-    c=$(expr $c + 1)
     continue
   fi
 
   # Sleep some, waiting for the network to bootstrap.
   # TODO: Add chutney command 'bootstrap-status' and use that instead.
+  # With MAX_BOOTSTRAP_TIME 60 and 2 retries, maximum script runtime is about
+  # 3 minutes, due to the chutney verify running time & network timeouts
   BOOTSTRAP_TIME=${BOOTSTRAP_TIME:-20}
   MAX_BOOTSTRAP_TIME=${MAX_BOOTSTRAP_TIME:-60}
   # Trying every 5 seconds seems reasonable, most systems will take 1-2 tries
@@ -113,12 +115,13 @@ while [ $c -lt $CHUTNEY_RECONFIGURES ]; do
   VERIFY_INTERVAL=5
   $ECHO_N "$myname: sleeping for $BOOTSTRAP_TIME seconds"
   n=0
+  t=$BOOTSTRAP_TIME
   while [ $n -le $MAX_BOOTSTRAP_TIME ]; do
     sleep 1;
     n=$(expr $n + 1);
     $ECHO_N .
 
-    if [ $n -ge $BOOTSTRAP_TIME ]; then
+    if [ $n -ge $t ]; then
       echo ""
       ./chutney verify $CHUTNEY_NETWORK
       VERIFY_EXIT_STATUS=$?
@@ -130,13 +133,19 @@ while [ $c -lt $CHUTNEY_RECONFIGURES ]; do
         exit $VERIFY_EXIT_STATUS
       else
         $ECHO_N "$myname: sleeping for $VERIFY_INTERVAL seconds"
-        BOOTSTRAP_TIME=$(expr $BOOTSTRAP_TIME + $VERIFY_INTERVAL);
+        t=$(expr $t + $VERIFY_INTERVAL);
       fi
     fi
   done # while [ $n -le $MAX_BOOTSTRAP_TIME ]
-  echo "" 
+  echo ""
+
+  if [ $c -lt $CHUTNEY_RECONFIGURES ]; then
+    echo "$myname: Retrying configuring and starting network..."
+    continue
+  fi
 
   # at this point, we have failed by exceeding the maximum bootstrap time
+  # on our last configure retry
   echo "Maximum bootstrap time ($MAX_BOOTSTRAP_TIME) exceeded."
   echo "Use --max-time N or MAX_BOOTSTRAP_TIME=N to add more time."
   # work around a bug/feature in make -j2 (or more)
@@ -146,6 +155,7 @@ while [ $c -lt $CHUTNEY_RECONFIGURES ]; do
 done # while [ $c -lt "$try_chutney_configure" ]
 
 # at this point, we have failed by exceeding the configure retries
+# (without running a verify on our last retry)
 echo "Maximum number of configuration tries ($CHUTNEY_RECONFIGURES) exceeded."
 echo "Use --configure N or CHUTNEY_RECONFIGURES=N to add more attempts."
 exit 2
