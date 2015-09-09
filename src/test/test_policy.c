@@ -77,7 +77,8 @@ test_policies_general(void *arg)
   int i;
   smartlist_t *policy = NULL, *policy2 = NULL, *policy3 = NULL,
               *policy4 = NULL, *policy5 = NULL, *policy6 = NULL,
-              *policy7 = NULL;
+              *policy7 = NULL, *policy8 = NULL, *policy9 = NULL,
+              *policy10 = NULL;
   addr_policy_t *p;
   tor_addr_t tar;
   config_line_t line;
@@ -174,6 +175,24 @@ test_policies_general(void *arg)
   tt_assert(p != NULL);
   smartlist_add(policy7, p);
 
+  tt_int_op(0, OP_EQ, policies_parse_exit_policy(NULL, &policy8,
+                                                 ~EXIT_POLICY_IPV6_ENABLED |
+                                                 EXIT_POLICY_REJECT_PRIVATE |
+                                                 EXIT_POLICY_ADD_DEFAULT, 0));
+
+  tt_assert(policy8);
+
+  /* accept6 * and reject6 * produce IPv6 wildcards only */
+  policy9 = smartlist_new();
+  p = router_parse_addr_policy_item_from_string("accept6 *:*",-1);
+  tt_assert(p != NULL);
+  smartlist_add(policy9, p);
+
+  policy10 = smartlist_new();
+  p = router_parse_addr_policy_item_from_string("reject6 *:*",-1);
+  tt_assert(p != NULL);
+  smartlist_add(policy10, p);
+
   tt_assert(!exit_policy_is_general_exit(policy));
   tt_assert(exit_policy_is_general_exit(policy2));
   tt_assert(!exit_policy_is_general_exit(NULL));
@@ -182,6 +201,9 @@ test_policies_general(void *arg)
   tt_assert(!exit_policy_is_general_exit(policy5));
   tt_assert(!exit_policy_is_general_exit(policy6));
   tt_assert(!exit_policy_is_general_exit(policy7));
+  tt_assert(exit_policy_is_general_exit(policy8));
+  tt_assert(!exit_policy_is_general_exit(policy9));
+  tt_assert(!exit_policy_is_general_exit(policy10));
 
   tt_assert(cmp_addr_policies(policy, policy2));
   tt_assert(cmp_addr_policies(policy, NULL));
@@ -190,7 +212,12 @@ test_policies_general(void *arg)
 
   tt_assert(!policy_is_reject_star(policy2, AF_INET));
   tt_assert(policy_is_reject_star(policy, AF_INET));
+  tt_assert(policy_is_reject_star(policy9, AF_INET));
+  tt_assert(!policy_is_reject_star(policy9, AF_INET6));
+  tt_assert(policy_is_reject_star(policy10, AF_INET));
+  tt_assert(policy_is_reject_star(policy10, AF_INET6));
   tt_assert(policy_is_reject_star(NULL, AF_INET));
+  tt_assert(policy_is_reject_star(NULL, AF_INET6));
 
   addr_policy_list_free(policy);
   policy = NULL;
@@ -201,13 +228,13 @@ test_policies_general(void *arg)
   line.value = (char*)"accept *:80,reject private:*,reject *:*";
   line.next = NULL;
   tt_int_op(0, OP_EQ, policies_parse_exit_policy(&line,&policy,
-                                              EXIT_POLICY_IPV6_ENABLED |
+                                              ~EXIT_POLICY_IPV6_ENABLED |
                                               EXIT_POLICY_ADD_DEFAULT,0));
   tt_assert(policy);
 
   //test_streq(policy->string, "accept *:80");
   //test_streq(policy->next->string, "reject *:*");
-  tt_int_op(smartlist_len(policy),OP_EQ, 4);
+  tt_int_op(smartlist_len(policy),OP_EQ, 9);
 
   /* test policy summaries */
   /* check if we properly ignore private IP addresses */
