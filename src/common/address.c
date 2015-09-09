@@ -687,7 +687,14 @@ tor_addr_parse_mask_ports(const char *s,
   memset(addr_out, 0, sizeof(tor_addr_t));
 
   if (!strcmp(address, "*")) {
-    if (flags & TAPMP_EXTENDED_STAR) {
+    if (flags & TAPMP_IPV4_ONLY) {
+      family = AF_INET;
+      tor_addr_from_ipv4h(addr_out, 0);
+    } else if (flags & TAPMP_IPV6_ONLY) {
+      static char nil_bytes[16] = { [0]=0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 };
+      family = AF_INET6;
+      tor_addr_from_ipv6_bytes(addr_out, nil_bytes);
+    } else if (flags & TAPMP_EXTENDED_STAR) {
       family = AF_UNSPEC;
       tor_addr_make_unspec(addr_out);
     } else {

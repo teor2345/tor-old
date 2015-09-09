@@ -1552,10 +1552,14 @@ is non-zero):
     public (external) IP address. See RFC 1918 and RFC 3330 for more details
     about internal and reserved IP address space. +
  +
-    Tor also allow IPv6 exit policy entries. For instance, "reject6 [FC00::]/7:*"
+    Tor also allows IPv6 exit policy entries. For instance, "reject6 [FC00::]/7:*"
     rejects all destinations that share 7 most significant bit prefix with 
     address FC00::. Respectively, "accept6 [C000::]/3:*" accepts all destinations
     that share 3 most significant bit prefix with address C000::. +
+ +
+    accept and reject produce IPv4 exit policy entries, while accept6 and
+    reject6 produce IPv6 exit policy entries. The IPv4 and IPv6 entries
+    operate completely independently of one another. +
  +
     This directive can be specified multiple times so you don't have to put it
     all on one line. +
@@ -1575,7 +1579,11 @@ is non-zero):
        reject *:6346-6429
        reject *:6699
        reject *:6881-6999
-       accept *:*
+       accept *:* +
+ +
+    Similar reject6/accept6 entries exist for IPv6 hosts in the default exit
+    policy. If you want to \_replace_ the default IPv6 exit policy, you must
+    also end your exit policy with either a reject6 \*:* or an accept6 \*:*.
 
 [[ExitPolicyRejectPrivate]] **ExitPolicyRejectPrivate** **0**|**1**::
     Reject all private (local) networks, along with your own public IP address,

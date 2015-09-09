@@ -3767,6 +3767,12 @@ router_parse_addr_policy(directory_token_t *tok, unsigned fmt_flags)
   else
     newe.policy_type = ADDR_POLICY_ACCEPT;
 
+  if (tok->tp == K_REJECT || tok->tp == K_ACCEPT) {
+    fmt_flags |= TAPMP_IPV4_ONLY;
+  } else /* REJECT6 || ACCEPT6 */ {
+    fmt_flags |= TAPMP_IPV6_ONLY;
+  }
+
   if (tor_addr_parse_mask_ports(arg, fmt_flags, &newe.addr, &newe.maskbits,
                                 &newe.prt_min, &newe.prt_max) < 0) {
     log_warn(LD_DIR,"Couldn't parse line %s. Dropping", escaped(arg));
