@@ -3676,10 +3676,12 @@ router_parse_addr_policy_item_from_string,(const char *s, int assume_action))
   directory_token_t *tok = NULL;
   const char *cp, *eos;
   /* Longest possible policy is
-   * "accept6 ffff:ffff:..255/ffff:...255:10000-65535",
-   * which contains 2 max-length IPv6 addresses, plus 21 characters.
+   * "accept6 ffff:ffff:..255/128:10000-65535",
+   * which contains a max-length IPv6 address, plus 24 characters.
    * But note that there can be an arbitrary amount of space between the
-   * accept and the address:mask/port element. */
+   * accept and the address:mask/port element. 
+   * (We could remove the *2 below, but that might cause existing long lines
+   * with lots of whitespace to fail to parse.) */
   char line[TOR_ADDR_BUF_LEN*2 + 32];
   addr_policy_t *r;
   memarea_t *area = NULL;
@@ -3735,17 +3737,6 @@ router_add_exit_policy(routerinfo_t *router, directory_token_t *tok)
   if (! router->exit_policy)
     router->exit_policy = smartlist_new();
 
-  if (((tok->tp == K_ACCEPT6 || tok->tp == K_REJECT6) &&
-       tor_addr_family(&newe->addr) == AF_INET)
-      ||
-      ((tok->tp == K_ACCEPT || tok->tp == K_REJECT) &&
-       tor_addr_family(&newe->addr) == AF_INET6)) {
-    log_warn(LD_DIR, "Mismatch between field type and address type in exit "
-             "policy");
-    addr_policy_free(newe);
-    return -1;
-  }
-
   smartlist_add(router->exit_policy, newe);
 
   return 0;
@@ -3779,6 +3770,19 @@ router_parse_addr_policy(directory_token_t *tok, unsigned fmt_flags)
   if (tor_addr_parse_mask_ports(arg, fmt_flags, &newe.addr, &newe.maskbits,
                                 &newe.prt_min, &newe.prt_max) < 0) {
     log_warn(LD_DIR,"Couldn't parse line %s. Dropping", escaped(arg));
+    return NULL;
+  }
+
+  /* Ensure that accept/reject fields are followed by IPv4 addresses,
+   * and accept6/reject6 fields are followed by IPv6 addresses.
+   * AF_UNSPEC addresses are permitted on any field type. */
+  if (((tok->tp == K_ACCEPT6 || tok->tp == K_REJECT6) &&
+       tor_addr_family(&newe.addr) == AF_INET)
+      ||
+      ((tok->tp == K_ACCEPT || tok->tp == K_REJECT) &&
+       tor_addr_family(&newe.addr) == AF_INET6)) {
+    log_warn(LD_DIR, "Mismatch between field type and address type in exit "
+                 "policy. Dropping");
     return NULL;
   }
 
