@@ -1537,12 +1537,24 @@ is non-zero):
     "\*". +
  +
     For example, "accept 18.7.22.69:\*,reject 18.0.0.0/8:\*,accept \*:\*" would
-    reject any traffic destined for MIT except for web.mit.edu, and accept
-    anything else. +
+    reject any IPv4 traffic destined for MIT except for web.mit.edu, and accept
+    any other IPv4 traffic. +
  +
-    To specify all internal and link-local networks (including 0.0.0.0/8,
-    169.254.0.0/16,    127.0.0.0/8,    192.168.0.0/16, 10.0.0.0/8, and
-    172.16.0.0/12), you can use the "private" alias instead of an address.
+    Tor also allows IPv6 exit policy entries. For instance, "reject6 [fc00::]/7:*"
+    rejects all destinations that share 7 most significant bit prefix with 
+    address fc00::. Respectively, "accept6 [c000::]/3:*" accepts all destinations
+    that share 3 most significant bit prefix with address c000::. +
+ +
+    accept and reject produce IPv4 exit policy entries, while accept6 and
+    reject6 produce IPv6 exit policy entries. (Except when using the "private"
+    alias (see below), which always produces both IPv4 and IPv6 exit policy
+    entries.) accept/reject IPv4 entries and accept6/reject6 IPv6 entries
+    operate completely independently of one another. +
+ +
+    To specify all IPv4 and IPv6 internal and link-local networks (including
+    0.0.0.0/8, 169.254.0.0/16, 127.0.0.0/8, 192.168.0.0/16, 10.0.0.0/8,
+    172.16.0.0/12, [::]/8, [fc00::]/7, [fe80::]/10, [fec0::]/10, [ff00::]/8,
+    and [::]/127), you can use the "private" alias instead of an address.
     These addresses are rejected by default (at the beginning of your exit
     policy), along with your public IP address, unless you set the
     ExitPolicyRejectPrivate config option to 0. For example, once you've done
@@ -1552,11 +1564,6 @@ is non-zero):
     public (external) IP address. See RFC 1918 and RFC 3330 for more details
     about internal and reserved IP address space. +
  +
-    Tor also allow IPv6 exit policy entries. For instance, "reject6 [FC00::]/7:*"
-    rejects all destinations that share 7 most significant bit prefix with 
-    address FC00::. Respectively, "accept6 [C000::]/3:*" accepts all destinations
-    that share 3 most significant bit prefix with address C000::. +
- +
     This directive can be specified multiple times so you don't have to put it
     all on one line. +
  +
@@ -1564,7 +1571,7 @@ is non-zero):
     want to \_replace_ the default exit policy, end your exit policy with
     either a reject \*:* or an accept \*:*. Otherwise, you're \_augmenting_
     (prepending to) the default exit policy. The default exit policy is: +
-
+ +
        reject *:25
        reject *:119
        reject *:135-139
@@ -1575,7 +1582,11 @@ is non-zero):
        reject *:6346-6429
        reject *:6699
        reject *:6881-6999
-       accept *:*
+       accept *:* +
+ +
+    Similar reject6/accept6 entries exist for IPv6 hosts in the default exit
+    policy. If you want to \_replace_ the default IPv6 exit policy, you must
+    also end your exit policy with either a reject6 \*:* or an accept6 \*:*.
 
 [[ExitPolicyRejectPrivate]] **ExitPolicyRejectPrivate** **0**|**1**::
     Reject all private (local) networks, along with your own public IP address,

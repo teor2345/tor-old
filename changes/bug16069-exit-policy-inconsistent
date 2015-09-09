@@ -1,0 +1,10 @@
+  o Major bug fixes (exit policies):
+    - Warn if accept/reject ExitPolicy lines have an IPv6 address,
+      or if accept6/reject6 ExitPolicy lines have an IPv4 address when
+      parsing the torrc file. (Previously, we only warned when parsing
+      descriptors.)
+    - accept/reject * lines only produce IPv4 wildcard addresses,
+      previously they would produce both IPv4 and IPv6 wildcard addresses.
+      Closes ticket 16069. Patch by "teor".
+      Patch on 2eb7eafc9d78 and a96c0affcb4c (25 Oct 2012),
+      released in 0.2.4.7-alpha.

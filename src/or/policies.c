@@ -964,10 +964,13 @@ exit_policy_remove_redundancies(smartlist_t *dest)
   }
 }
 
-#define DEFAULT_EXIT_POLICY                                         \
-  "reject *:25,reject *:119,reject *:135-139,reject *:445,"         \
-  "reject *:563,reject *:1214,reject *:4661-4666,"                  \
-  "reject *:6346-6429,reject *:6699,reject *:6881-6999,accept *:*"
+#define DEFAULT_EXIT_POLICY                                             \
+  "reject *4:25,reject *4:119,reject *4:135-139,reject *4:445,"         \
+  "reject *4:563,reject *4:1214,reject *4:4661-4666,"                   \
+  "reject *4:6346-6429,reject *4:6699,reject *4:6881-6999,accept *4:*," \
+  "reject6 *6:25,reject6 *6:119,reject6 *6:135-139,reject6 *6:445,"     \
+  "reject6 *6:563,reject6 *6:1214,reject6 *6:4661-4666,"                \
+  "reject6 *6:6346-6429,reject6 *6:6699,reject6 *6:6881-6999,accept6 *6:*"
 
 /** Parse the exit policy <b>cfg</b> into the linked list *<b>dest</b>. If
  * cfg doesn't end in an absolute accept or reject and if
@@ -988,7 +991,7 @@ policies_parse_exit_policy_internal(config_line_t *cfg, smartlist_t **dest,
                                     int add_default_policy)
 {
   if (!ipv6_exit) {
-    append_exit_policy_string(dest, "reject *6:*");
+    append_exit_policy_string(dest, "reject6 *6:*");
   }
   if (rejectprivate) {
     append_exit_policy_string(dest, "reject private:*");
@@ -1004,7 +1007,7 @@ policies_parse_exit_policy_internal(config_line_t *cfg, smartlist_t **dest,
     append_exit_policy_string(dest, DEFAULT_EXIT_POLICY);
   } else {
     append_exit_policy_string(dest, "reject *4:*");
-    append_exit_policy_string(dest, "reject *6:*");
+    append_exit_policy_string(dest, "reject6 *6:*");
   }
   exit_policy_remove_redundancies(*dest);
 
@@ -1062,7 +1065,7 @@ policies_parse_exit_policy_from_options(const or_options_t *or_options,
 
   if (or_options->ExitRelay == 0) {
     append_exit_policy_string(result, "reject *4:*");
-    append_exit_policy_string(result, "reject *6:*");
+    append_exit_policy_string(result, "reject6 *6:*");
     return 0;
   }
 
@@ -1088,7 +1091,7 @@ void
 policies_exit_policy_append_reject_star(smartlist_t **dest)
 {
   append_exit_policy_string(dest, "reject *4:*");
-  append_exit_policy_string(dest, "reject *6:*");
+  append_exit_policy_string(dest, "reject6 *6:*");
 }
 
 /** Replace the exit policy of <b>node</b> with reject *:* */
