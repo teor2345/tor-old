@@ -77,7 +77,7 @@ test_policies_general(void *arg)
   int i;
   smartlist_t *policy = NULL, *policy2 = NULL, *policy3 = NULL,
               *policy4 = NULL, *policy5 = NULL, *policy6 = NULL,
-              *policy7 = NULL;
+              *policy7 = NULL, *policy8 = NULL;
   addr_policy_t *p;
   tor_addr_t tar;
   config_line_t line;
@@ -174,6 +174,13 @@ test_policies_general(void *arg)
   tt_assert(p != NULL);
   smartlist_add(policy7, p);
 
+  tt_int_op(0, OP_EQ, policies_parse_exit_policy(NULL, &policy8,
+                                                 ~EXIT_POLICY_IPV6_ENABLED |
+                                                 EXIT_POLICY_REJECT_PRIVATE |
+                                                 EXIT_POLICY_ADD_DEFAULT, 0));
+
+  tt_assert(policy8);
+
   tt_assert(!exit_policy_is_general_exit(policy));
   tt_assert(exit_policy_is_general_exit(policy2));
   tt_assert(!exit_policy_is_general_exit(NULL));
@@ -182,6 +189,7 @@ test_policies_general(void *arg)
   tt_assert(!exit_policy_is_general_exit(policy5));
   tt_assert(!exit_policy_is_general_exit(policy6));
   tt_assert(!exit_policy_is_general_exit(policy7));
+  tt_assert(exit_policy_is_general_exit(policy8));
 
   tt_assert(cmp_addr_policies(policy, policy2));
   tt_assert(cmp_addr_policies(policy, NULL));
@@ -201,13 +209,13 @@ test_policies_general(void *arg)
   line.value = (char*)"accept *:80,reject private:*,reject *:*";
   line.next = NULL;
   tt_int_op(0, OP_EQ, policies_parse_exit_policy(&line,&policy,
-                                              EXIT_POLICY_IPV6_ENABLED |
+                                              ~EXIT_POLICY_IPV6_ENABLED |
                                               EXIT_POLICY_ADD_DEFAULT,0));
   tt_assert(policy);
 
   //test_streq(policy->string, "accept *:80");
   //test_streq(policy->next->string, "reject *:*");
-  tt_int_op(smartlist_len(policy),OP_EQ, 4);
+  tt_int_op(smartlist_len(policy),OP_EQ, 9);
 
   /* test policy summaries */
   /* check if we properly ignore private IP addresses */
