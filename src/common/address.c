@@ -643,6 +643,9 @@ tor_addr_parse_mask_ports(const char *s,
 
   tor_assert(s);
   tor_assert(addr_out);
+  /* We can either only want an IPv4 address or only want an IPv6 address,
+   * but we can't only want IPv4 & IPv6 at the same time. */
+  tor_assert(!((flags & TAPMP_IPV4_ONLY) && (flags & TAPMP_IPV6_ONLY)));
 
   /** Longest possible length for an address, mask, and port-range combination.
    * Includes IP, [], /mask, :, ports */
