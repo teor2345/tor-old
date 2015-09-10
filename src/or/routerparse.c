@@ -3679,7 +3679,7 @@ router_parse_addr_policy_item_from_string,(const char *s, int assume_action))
    * "accept6 ffff:ffff:..255/128:10000-65535",
    * which contains a max-length IPv6 address, plus 24 characters.
    * But note that there can be an arbitrary amount of space between the
-   * accept and the address:mask/port element. 
+   * accept and the address:mask/port element.
    * (We could remove the *2 below, but that might cause existing long lines
    * with lots of whitespace to fail to parse.) */
   char line[TOR_ADDR_BUF_LEN*2 + 32];
