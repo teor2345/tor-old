@@ -1,0 +1,13 @@
+  o Minor bug fixes (torrc exit policies):
+    - When parsing torrc ExitPolicies, we now warn if:
+      * an IPv4 address is used on an accept6 or reject6 line, and ignore
+        that line. (accept/reject continue to allow both IPv4 and IPv6
+        addresses in torrcs.)
+      * a "private" address alias is used on an accept6 or reject6 line,
+        and include both IPv4 and IPv6 private addresses in that line.
+    - When parsing torrc ExitPolicies, we now issue a notice when:
+      * expanding an accept/reject * line to include both IPv4 and IPv6
+        wildcard addresses.
+      Partial fix for ticket 16069. Patch by "teor".
+      Patch on 2eb7eafc9d78 and a96c0affcb4c (25 Oct 2012),
+      released in 0.2.4.7-alpha.

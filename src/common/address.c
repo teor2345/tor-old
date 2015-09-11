@@ -690,6 +690,9 @@ tor_addr_parse_mask_ports(const char *s,
     if (flags & TAPMP_EXTENDED_STAR) {
       family = AF_UNSPEC;
       tor_addr_make_unspec(addr_out);
+      log_notice(LD_GENERAL,
+                 "accept/reject * expands into rules which apply to all IPv4 "
+                 "and IPv6 addresses.");
     } else {
       family = AF_INET;
       tor_addr_from_ipv4h(addr_out, 0);
