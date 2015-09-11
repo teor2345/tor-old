@@ -1898,6 +1898,11 @@ typedef struct addr_policy_t {
   unsigned int is_canonical:1; /**< True iff this policy is the canonical
                                 * copy (stored in a hash table to avoid
                                 * duplication of common policies) */
+  unsigned int is_ignored:1; /**< True iff this policy is to be ignored.
+                              * It must be discarded, rather than added to a
+                              * list of policies. Used for minor issues that
+                              * do not require the entire policy list to be
+                              * discarded. */
   maskbits_t maskbits; /**< Accept/reject all addresses <b>a</b> such that the
                  * first <b>maskbits</b> bits of <b>a</b> match
                  * <b>addr</b>. */

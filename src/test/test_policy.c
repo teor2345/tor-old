@@ -297,6 +297,19 @@ test_policies_general(void *arg)
   TT_BAD_SHORT_POLICY("accept 1-,3");
   TT_BAD_SHORT_POLICY("accept 1-,3");
 
+  /* Make sure that IPv4 addresses are ignored in accept6/reject6 lines. */
+  p = router_parse_addr_policy_item_from_string("accept6 1.2.3.4:*",-1);
+  tt_assert(p != NULL);
+  tt_assert(p->is_ignored);
+
+  p = router_parse_addr_policy_item_from_string("reject6 2.4.6.0/24:*",-1);
+  tt_assert(p != NULL);
+  tt_assert(p->is_ignored);
+
+  p = router_parse_addr_policy_item_from_string("accept6 *4:*",-1);
+  tt_assert(p != NULL);
+  tt_assert(p->is_ignored);
+
   /* Test a too-long policy. */
   {
     int i;
