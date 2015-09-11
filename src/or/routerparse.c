@@ -3714,7 +3714,23 @@ router_parse_addr_policy_item_from_string,(const char *s, int assume_action))
     goto err;
   }
 
+  /* Use the extended interpretation of accept/reject *,
+   * expanding it into an IPv4 wildcard and an IPv6 wildcard.
+   * Also permit *4 and *6 for IPv4 and IPv6 only wildcards. */
   r = router_parse_addr_policy(tok, TAPMP_EXTENDED_STAR);
+
+  /* Ensure that accept6/reject6 fields are followed by IPv6 addresses.
+   * AF_UNSPEC addresses are only permitted on the accept/reject field type.
+   * Unlike descriptors, torrcs exit policy accept/reject can be followed by
+   * either an IPv4 or IPv6 address. */
+  if ((tok->tp == K_ACCEPT6 || tok->tp == K_REJECT6) &&
+       tor_addr_family(&r->addr) != AF_INET6) {
+    log_warn(LD_DIR, "IPv4 address '%s' with accept6/reject6 field type in "
+             "exit policy. Ignoring. (Use accept/reject with IPv4 "
+             "addresses.)", tok->n_args == 1 ? tok->args[0] : "");
+    return NULL;
+  }
+
   goto done;
  err:
   r = NULL;
@@ -3733,19 +3749,26 @@ static int
 router_add_exit_policy(routerinfo_t *router, directory_token_t *tok)
 {
   addr_policy_t *newe;
+  /* Use the standard interpretation of accept/reject *, an IPv4 wildcard. */
   newe = router_parse_addr_policy(tok, 0);
   if (!newe)
     return -1;
   if (! router->exit_policy)
     router->exit_policy = smartlist_new();
 
+  /* Ensure that in descriptors, accept/reject fields are followed by
+   * IPv4 addresses, and accept6/reject6 fields are followed by
+   * IPv6 addresses. Unlike torrcs, descriptor exit policies do not permit
+   * accept/reject followed by IPv6. */
   if (((tok->tp == K_ACCEPT6 || tok->tp == K_REJECT6) &&
        tor_addr_family(&newe->addr) == AF_INET)
       ||
       ((tok->tp == K_ACCEPT || tok->tp == K_REJECT) &&
        tor_addr_family(&newe->addr) == AF_INET6)) {
+    /* There's nothing the user can do about other relays' descriptors,
+     * so we don't provide usage advice here. */
     log_warn(LD_DIR, "Mismatch between field type and address type in exit "
-             "policy");
+             "policy '%s'. Ignoring.", tok->n_args == 1 ? tok->args[0] : "");
     addr_policy_free(newe);
     return -1;
   }
@@ -3820,6 +3843,13 @@ router_parse_addr_policy_private(directory_token_t *tok)
   result.is_private = 1;
   result.prt_min = port_min;
   result.prt_max = port_max;
+
+  if (tok->tp == K_ACCEPT6 || tok->tp == K_REJECT6) {
+    log_warn(LD_GENERAL,
+             "'%s' expands into rules which apply to all private IPv4 and "
+             "IPv6 addresses. (Use accept/reject private:* for IPv4 and "
+             "IPv6.)", tok->n_args == 1 ? tok->args[0] : "");
+  }
 
   return addr_policy_get_canonical_entry(&result);
 }
