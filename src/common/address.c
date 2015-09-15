@@ -1631,7 +1631,9 @@ get_interface_address6,(int severity, sa_family_t family, tor_addr_t *addr))
 
 /** Free a smartlist of IP addresses returned by get_interface_address6_list.
  */
-void free_interface_address6_list(smartlist_t *addrs) {
+void
+free_interface_address6_list(smartlist_t *addrs)
+{
   SMARTLIST_FOREACH(addrs, tor_addr_t *, a, tor_free(a));
   smartlist_free(addrs);
 }
@@ -1654,8 +1656,9 @@ MOCK_IMPL(smartlist_t *,get_interface_address6_list,(int severity,
 
   /* Try to do this the smart way if possible. */
   if ((addrs = get_interface_addresses_raw(severity))) {
-    SMARTLIST_FOREACH_BEGIN(addrs, tor_addr_t *, a) {
-      if (family != AF_UNSPEC && family != tor_addr_family(a)){
+    SMARTLIST_FOREACH_BEGIN(addrs, tor_addr_t *, a)
+    {
+      if (family != AF_UNSPEC && family != tor_addr_family(a)) {
         SMARTLIST_DEL_CURRENT(addrs, a);
         tor_free(a);
         continue;
@@ -1668,7 +1671,7 @@ MOCK_IMPL(smartlist_t *,get_interface_address6_list,(int severity,
         continue;
       }
 
-      if (!include_internal && tor_addr_is_internal(a, 0)){
+      if (!include_internal && tor_addr_is_internal(a, 0)) {
         SMARTLIST_DEL_CURRENT(addrs, a);
         tor_free(a);
         continue;
