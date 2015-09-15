@@ -115,7 +115,6 @@ test_policies_general(void *arg)
                                               EXIT_POLICY_ADD_DEFAULT, 0,
                                               NULL, 0));
 
-
   tt_assert(policy2);
 
   tor_addr_parse(&tar, "[2000::1234]");
@@ -125,9 +124,7 @@ test_policies_general(void *arg)
                                                  EXIT_POLICY_ADD_DEFAULT,
                                                  0x0306090cu, &tar, 1));
 
-
   tt_assert(policy12);
-
 
   policy3 = smartlist_new();
   p = router_parse_addr_policy_item_from_string("reject *:*",-1);
