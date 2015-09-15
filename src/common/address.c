@@ -1488,7 +1488,7 @@ get_interface_addresses_raw(int severity)
 }
 
 /** Return true iff <b>a</b> is a multicast address.  */
-static int
+STATIC int
 tor_addr_is_multicast(const tor_addr_t *a)
 {
   sa_family_t family = tor_addr_family(a);
@@ -1504,47 +1504,22 @@ tor_addr_is_multicast(const tor_addr_t *a)
   return 0;
 }
 
-/** Set *<b>addr</b> to the IP address (if any) of whatever interface
- * connects to the Internet.  This address should only be used in checking
- * whether our address has changed.  Return 0 on success, -1 on failure.
+/** Attempt to retrieve IP address of current host by utilizing some
+ * UDP socket trickery. Only look for address of given <b>family</b>.
+ * Set result to *<b>addr</b>. Return 0 on success, -1 on failure.
  */
 MOCK_IMPL(int,
-get_interface_address6,(int severity, sa_family_t family, tor_addr_t *addr))
+get_interface_address6_via_udp_socket_hack,(int severity,
+                                            sa_family_t family,
+                                            tor_addr_t *addr))
 {
-  /* XXX really, this function should yield a smartlist of addresses. */
-  smartlist_t *addrs;
-  int sock=-1, r=-1;
   struct sockaddr_storage my_addr, target_addr;
+  int sock=-1, r=-1;
   socklen_t addr_len;
-  tor_assert(addr);
 
-  /* Try to do this the smart way if possible. */
-  if ((addrs = get_interface_addresses_raw(severity))) {
-    int rv = -1;
-    SMARTLIST_FOREACH_BEGIN(addrs, tor_addr_t *, a) {
-      if (family != AF_UNSPEC && family != tor_addr_family(a))
-        continue;
-      if (tor_addr_is_loopback(a) ||
-          tor_addr_is_multicast(a))
-        continue;
-
-      tor_addr_copy(addr, a);
-      rv = 0;
-
-      /* If we found a non-internal address, declare success.  Otherwise,
-       * keep looking. */
-      if (!tor_addr_is_internal(a, 0))
-        break;
-    } SMARTLIST_FOREACH_END(a);
-
-    SMARTLIST_FOREACH(addrs, tor_addr_t *, a, tor_free(a));
-    smartlist_free(addrs);
-    return rv;
-  }
-
-  /* Okay, the smart way is out. */
   memset(addr, 0, sizeof(tor_addr_t));
   memset(&target_addr, 0, sizeof(target_addr));
+
   /* Don't worry: no packets are sent. We just need to use a real address
    * on the actual Internet. */
   if (family == AF_INET6) {
@@ -1566,6 +1541,7 @@ get_interface_address6,(int severity, sa_family_t family, tor_addr_t *addr))
   } else {
     return -1;
   }
+
   if (sock < 0) {
     int e = tor_socket_errno(-1);
     log_fn(severity, LD_NET, "unable to create socket: %s",
@@ -1586,12 +1562,130 @@ get_interface_address6,(int severity, sa_family_t family, tor_addr_t *addr))
     goto err;
   }
 
-  tor_addr_from_sockaddr(addr, (struct sockaddr*)&my_addr, NULL);
-  r=0;
+ if (tor_addr_from_sockaddr(addr, (struct sockaddr*)&my_addr, NULL) == 0) {
+    if (tor_addr_is_loopback(addr) || tor_addr_is_multicast(addr)) {
+      log_fn(severity, LD_NET, "Address that we determined via UDP socket"
+                               " magic is unsuitable for public comms.");
+    } else {
+      r=0;
+    }
+ }
+
  err:
   if (sock >= 0)
     tor_close_socket(sock);
+  if (r == -1)
+    memset(addr, 0, sizeof(tor_addr_t));
   return r;
+}
+
+/** Set *<b>addr</b> to an arbitrary IP address (if any) of an interface that
+ * connects to the Internet.  Prefer public IP addresses to internal IP
+ * addresses.  This address should only be used in checking whether our
+ * address has changed, as it may be an internal IP address.  Return 0 on
+ * success, -1 on failure.
+ * Prefer get_interface_address6_list for a list of all addresses on all
+ * interfaces which connect to the Internet.
+ */
+MOCK_IMPL(int,
+get_interface_address6,(int severity, sa_family_t family, tor_addr_t *addr))
+{
+  smartlist_t *addrs;
+  int rv = -1;
+  tor_assert(addr);
+
+  memset(addr, 0, sizeof(tor_addr_t));
+
+  /* Get a list of public or internal IPs in arbitrary order */
+  addrs = get_interface_address6_list(severity, family, 1);
+
+  /* Find the first non-internal address, or the last internal address
+   * Ideally, we want the default route, see #12377 for details */
+  SMARTLIST_FOREACH_BEGIN(addrs, tor_addr_t *, a) {
+    tor_addr_copy(addr, a);
+    rv = 0;
+
+    /* If we found a non-internal address, declare success.  Otherwise,
+     * keep looking. */
+    if (!tor_addr_is_internal(a, 0))
+      break;
+  } SMARTLIST_FOREACH_END(a);
+
+  free_interface_address6_list(addrs);
+  return rv;
+}
+
+/** Free a smartlist of IP addresses returned by get_interface_address6_list.
+ */
+void
+free_interface_address6_list(smartlist_t *addrs)
+{
+  if (addrs != NULL) {
+    SMARTLIST_FOREACH(addrs, tor_addr_t *, a, tor_free(a));
+    smartlist_free(addrs);
+  }
+}
+
+/** Return a smartlist of the IP addresses of type family from all interfaces
+ * on the server. Excludes loopback and multicast addresses. Only includes
+ * internal addresses if include_internal is true. (Note that a relay behind
+ * NAT may use an internal address to connect to the Internet.)
+ * An empty smartlist means that there are no addresses of the selected type
+ * matching these criteria.
+ * Returns NULL on failure.
+ * Use free_interface_address6_list to free the returned list.
+ */
+MOCK_IMPL(smartlist_t *,get_interface_address6_list,(int severity,
+                                                     sa_family_t family,
+                                                     int include_internal))
+{
+  smartlist_t *addrs;
+  tor_addr_t addr;
+
+  /* Try to do this the smart way if possible. */
+  if ((addrs = get_interface_addresses_raw(severity))) {
+    SMARTLIST_FOREACH_BEGIN(addrs, tor_addr_t *, a)
+    {
+      if (family != AF_UNSPEC && family != tor_addr_family(a)) {
+        SMARTLIST_DEL_CURRENT(addrs, a);
+        tor_free(a);
+        continue;
+      }
+
+      if (tor_addr_is_loopback(a) ||
+          tor_addr_is_multicast(a)) {
+        SMARTLIST_DEL_CURRENT(addrs, a);
+        tor_free(a);
+        continue;
+      }
+
+      if (!include_internal && tor_addr_is_internal(a, 0)) {
+        SMARTLIST_DEL_CURRENT(addrs, a);
+        tor_free(a);
+        continue;
+      }
+    } SMARTLIST_FOREACH_END(a);
+  }
+
+  if (addrs && smartlist_len(addrs) > 0) {
+    return addrs;
+  }
+
+  /* if we removed all entries as unsuitable */
+  if (addrs) {
+    smartlist_free(addrs);
+  }
+
+  /* Okay, the smart way is out. */
+  if (get_interface_address6_via_udp_socket_hack(severity,family,&addr))
+     return smartlist_new();
+  if (!include_internal && tor_addr_is_internal(&addr, 0)) {
+    return smartlist_new();
+  } else {
+    addrs = smartlist_new();
+    smartlist_add(addrs, tor_dup_addr(&addr));
+    return addrs;
+  }
 }
 
 /* ======
@@ -1833,10 +1927,13 @@ tor_dup_ip(uint32_t addr)
 }
 
 /**
- * Set *<b>addr</b> to the host-order IPv4 address (if any) of whatever
- * interface connects to the Internet.  This address should only be used in
- * checking whether our address has changed.  Return 0 on success, -1 on
- * failure.
+ * Set *<b>addr</b> to a host-order IPv4 address (if any) of an
+ * interface that connects to the Internet.  Prefer public IP addresses to
+ * internal IP addresses.  This address should only be used in checking
+ * whether our address has changed, as it may be an internal IPv4 address.
+ * Return 0 on success, -1 on failure.
+ * Prefer get_interface_address_list6 for a list of all IPv4 and IPv6
+ * addresses on all interfaces which connect to the Internet.
  */
 MOCK_IMPL(int,
 get_interface_address,(int severity, uint32_t *addr))
