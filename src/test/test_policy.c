@@ -255,13 +255,13 @@ test_policies_general(void *arg)
   line.value = (char*)"accept *:80,reject private:*,reject *:*";
   line.next = NULL;
   tt_int_op(0, OP_EQ, policies_parse_exit_policy(&line,&policy,
-                                              ~EXIT_POLICY_IPV6_ENABLED |
+                                              EXIT_POLICY_IPV6_ENABLED |
                                               EXIT_POLICY_ADD_DEFAULT,0));
   tt_assert(policy);
 
   //test_streq(policy->string, "accept *:80");
   //test_streq(policy->next->string, "reject *:*");
-  tt_int_op(smartlist_len(policy),OP_EQ, 9);
+  tt_int_op(smartlist_len(policy),OP_EQ, 4);
 
   /* test policy summaries */
   /* check if we properly ignore private IP addresses */
