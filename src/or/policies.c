@@ -1040,40 +1040,36 @@ policies_parse_exit_policy_internal(config_line_t *cfg, smartlist_t **dest,
       /* Reject public IPv4 addresses on any interface,
        * but don't reject our published IPv4 address twice */
       public_addresses = get_interface_address6_list(LOG_INFO, AF_INET, 0);
-      if (public_addresses) {
-        SMARTLIST_FOREACH_BEGIN(public_addresses, tor_addr_t *, a) {
-          if (!tor_addr_eq_ipv4h(a, local_address)) {
-            tor_snprintf(bufif, sizeof(bufif), "reject %s:*",
-                         fmt_addr(a));
-            append_exit_policy_string(dest, bufif);
-            log_info(LD_CONFIG, "Adding a reject ExitPolicy '%s' for a local "
-                     "interface's public IPv4 address", bufif);
-          }
-        } SMARTLIST_FOREACH_END(a);
-        free_interface_address6_list(public_addresses);
-      }
+      SMARTLIST_FOREACH_BEGIN(public_addresses, tor_addr_t *, a) {
+        if (!tor_addr_eq_ipv4h(a, local_address)) {
+          tor_snprintf(bufif, sizeof(bufif), "reject %s:*",
+                       fmt_addr(a));
+          append_exit_policy_string(dest, bufif);
+          log_info(LD_CONFIG, "Adding a reject ExitPolicy '%s' for a local "
+                   "interface's public IPv4 address", bufif);
+        }
+      } SMARTLIST_FOREACH_END(a);
+      free_interface_address6_list(public_addresses);
 
       if (ipv6_exit) {
         /* Reject public IPv6 addresses on any interface,
          * but don't reject our published IPv6 address (if any) twice */
         public_addresses = get_interface_address6_list(LOG_INFO, AF_INET6, 0);
-        if (public_addresses) {
-          SMARTLIST_FOREACH_BEGIN(public_addresses, tor_addr_t *, a) {
-            /* if we don't have an IPv6 local address, we won't have rejected
-             * it above. This could happen if a future release does IPv6
-             * autodiscovery, and we are waiting to discover our external IPv6
-             * address */
-            if (ipv6_local_address == NULL
-                || !tor_addr_eq(ipv6_local_address, a)) {
-              tor_snprintf(bufif, sizeof(bufif), "reject6 %s:*",
-                           fmt_addr(a));
-              append_exit_policy_string(dest, bufif);
-              log_info(LD_CONFIG, "Adding a reject ExitPolicy '%s' for a "
-                       "local interface's public IPv6 address", bufif);
-            }
-          } SMARTLIST_FOREACH_END(a);
-          free_interface_address6_list(public_addresses);
-        }
+        SMARTLIST_FOREACH_BEGIN(public_addresses, tor_addr_t *, a) {
+          /* if we don't have an IPv6 local address, we won't have rejected
+           * it above. This could happen if a future release does IPv6
+           * autodiscovery, and we are waiting to discover our external IPv6
+           * address */
+          if (ipv6_local_address == NULL
+              || !tor_addr_eq(ipv6_local_address, a)) {
+            tor_snprintf(bufif, sizeof(bufif), "reject6 %s:*",
+                         fmt_addr(a));
+            append_exit_policy_string(dest, bufif);
+            log_info(LD_CONFIG, "Adding a reject ExitPolicy '%s' for a "
+                     "local interface's public IPv6 address", bufif);
+          }
+        } SMARTLIST_FOREACH_END(a);
+        free_interface_address6_list(public_addresses);
       }
     }
   }
