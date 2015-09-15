@@ -1016,7 +1016,7 @@ policies_parse_exit_policy_internal(config_line_t *cfg, smartlist_t **dest,
       append_exit_policy_string(dest, buf);
     }
     /* Reject our local IPv6 address */
-    if (ipv6_local_address) {
+    if (ipv6_exit && ipv6_local_address != NULL) {
       if (tor_addr_is_v4(ipv6_local_address)) {
         log_warn(LD_CONFIG, "IPv4 address '%s' provided as our IPv6 local "
                  "address", fmt_addr(ipv6_local_address));
