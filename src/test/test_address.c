@@ -149,7 +149,6 @@ smartlist_contains_ipv6_tor_addr(smartlist_t *smartlist)
   return 0;
 }
 
-
 #ifdef HAVE_IFADDRS_TO_SMARTLIST
 static void
 test_address_ifaddrs_to_smartlist(void *arg)
@@ -587,7 +586,7 @@ test_address_get_if_addrs_list_internal(void *arg)
   tt_assert(smartlist_contains_ipv4_tor_addr(results));
   tt_assert(!smartlist_contains_ipv6_tor_addr(results));
 
-done:
+ done:
   free_interface_address_list(results);
   return;
 }
@@ -612,7 +611,7 @@ test_address_get_if_addrs_list_no_internal(void *arg)
     /* The list may or may not contain IPv4 addresses */
   tt_assert(!smartlist_contains_ipv6_tor_addr(results));
 
-done:
+ done:
   free_interface_address_list(results);
   return;
 }
@@ -637,7 +636,7 @@ test_address_get_if_addrs6_list_internal(void *arg)
   tt_assert(!smartlist_contains_ipv4_tor_addr(results));
   /* The list may or may not contain IPv6 addresses */
 
-done:
+ done:
   free_interface_address6_list(results);
   return;
 }
@@ -662,7 +661,7 @@ test_address_get_if_addrs6_list_no_internal(void *arg)
   tt_assert(!smartlist_contains_ipv4_tor_addr(results));
   /* The list may or may not contain IPv6 addresses */
 
-done:
+ done:
   free_interface_address6_list(results);
   return;
 }
@@ -689,7 +688,7 @@ test_address_get_if_addrs(void *arg)
 
   tt_assert(tor_addr_is_v4(&tor_addr));
 
-done:
+ done:
   return;
 }
 
@@ -712,7 +711,7 @@ test_address_get_if_addrs6(void *arg)
     tt_assert(!tor_addr_is_v4(&tor_addr));
   }
 
-done:
+ done:
   return;
 }
 
