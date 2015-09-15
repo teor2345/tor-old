@@ -274,6 +274,7 @@ tor_addr_port_t *tor_addr_port_new(const tor_addr_t *addr, uint16_t port);
 
 #ifdef ADDRESS_PRIVATE
 STATIC smartlist_t *get_interface_addresses_raw(int severity);
+STATIC int tor_addr_is_multicast(const tor_addr_t *a);
 
 #ifdef HAVE_IFADDRS_TO_SMARTLIST
 STATIC smartlist_t *ifaddrs_to_smartlist(const struct ifaddrs *ifa);

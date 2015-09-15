@@ -452,10 +452,61 @@ test_address_get_if_addrs_ioctl(void *arg)
 
 #endif
 
+static void
+test_address_get_if_addrs(void *arg)
+{
+  int rv;
+  uint32_t addr_h = 0;
+  tor_addr_t tor_addr;
+
+  (void)arg;
+
+  rv = get_interface_address(LOG_ERR, &addr_h);
+
+  /* Work even on systems without IPv4 interfaces */
+  if (rv == 0) {
+    tor_addr_from_ipv4h(&tor_addr, addr_h);
+
+    tt_assert(!tor_addr_is_loopback(&tor_addr));
+    tt_assert(!tor_addr_is_multicast(&tor_addr));
+    /* The address may or may not be an internal address */
+  }
+
+  tt_assert(tor_addr_is_v4(&tor_addr));
+
+done:
+  return;
+}
+
+static void
+test_address_get_if_addrs6(void *arg)
+{
+  int rv;
+  tor_addr_t tor_addr;
+
+  (void)arg;
+
+  rv = get_interface_address6(LOG_ERR, AF_INET6, &tor_addr);
+
+  /* Work even on systems without IPv6 interfaces */
+  if (rv == 0) {
+    tt_assert(!tor_addr_is_loopback(&tor_addr));
+    tt_assert(!tor_addr_is_multicast(&tor_addr));
+    /* The address may or may not be an internal address */
+
+    tt_assert(!tor_addr_is_v4(&tor_addr));
+  }
+
+done:
+  return;
+}
+
 #define ADDRESS_TEST(name, flags) \
   { #name, test_address_ ## name, flags, NULL, NULL }
 
 struct testcase_t address_tests[] = {
+  ADDRESS_TEST(get_if_addrs, 0),
+  ADDRESS_TEST(get_if_addrs6, 0),
 #ifdef HAVE_IFADDRS_TO_SMARTLIST
   ADDRESS_TEST(get_if_addrs_ifaddrs, TT_FORK),
   ADDRESS_TEST(ifaddrs_to_smartlist, 0),
