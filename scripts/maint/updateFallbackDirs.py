@@ -1,13 +1,14 @@
 #!/usr/bin/python
 
 # Usage: scripts/maint/updateFallbackDirs.py > src/or/fallback_dirs.inc
-# Then read the generated list of string to ensure no-one slipped
-# anything funny into it
+#
+# Then read the generated list to ensure no-one slipped anything funny into
+# their name or contactinfo
 
 # Script by weasel, April 2015
 # Portions by gsathya & karsten, 2013
 # https://trac.torproject.org/projects/tor/attachment/ticket/8374/dir_list.2.py
-# Modifications by teor, May-August 2015
+# Modifications by teor, May-October 2015
 
 import StringIO
 import string
@@ -27,11 +28,43 @@ import hashlib
 import logging
 logging.basicConfig(level=logging.INFO)
 
+## OnionOO Settings
+
 ONIONOO = 'https://onionoo.torproject.org/'
 
 # Don't bother going out to the Internet, just use the files available locally,
 # even if they're very old
 LOCAL_FILES_ONLY = False
+
+## Whitelist / Blacklist Filter Settings
+
+# The whitelist contains entries that are included if all attributes match
+# (IPv4, dirport, orport, id, and optionally IPv6)
+# The blacklist contains (partial) entries that are excluded if any
+# sufficiently specific group of attributes matches:
+# IPv4 & DirPort
+# IPv4 & ORPort
+# ID
+# IPv6 & DirPort
+# IPv6 & ORPort
+# If neither port is included in the blacklist, the entire IP address is
+# blacklisted.
+
+# What happens to entries in neither list?
+# When True, they are included, when False, they are excluded
+INCLUDE_UNLISTED_ENTRIES = False
+
+# If an entry is in both lists, what happens?
+# When True, it is excluded, when False, it is included
+BLACKLIST_EXCLUDES_WHITELIST_ENTRIES = True
+
+WHITELIST_FILE_NAME = 'scripts/maint/fallback.whitelist'
+BLACKLIST_FILE_NAME = 'scripts/maint/fallback.blacklist'
+
+# The number of bytes we'll read from a filter file before giving up
+MAX_LIST_FILE_SIZE = 1024 * 1024
+
+## Eligibility Settings
 
 ADDRESS_AND_PORT_STABLE_DAYS = 120
 # What time-weighted-fraction of these flags must FallbackDirs
@@ -44,14 +77,17 @@ CUTOFF_GUARD = .95
 # .00 means no bad exits
 PERMITTED_BADEXIT = .00
 
+## List Length Limits
+
 # Limit the number of fallbacks (eliminating lowest by weight)
 MAX_FALLBACK_COUNT = 500
 # Emit a C #error if the number of fallbacks is below
-MIN_FALLBACK_COUNT = 100
+MIN_FALLBACK_COUNT = 10
 
 ## Target Fallback Weight Settings
 
-# Emit a C #error if TARGET_MAX_WEIGHT_FRACTION can't be satisfied
+# If True, emit a C #error if we can't satisfy various constraints
+# If False, emit a C comment instead
 STRICT_FALLBACK_WEIGHTS = False
 
 # Limit the proportional weight
@@ -60,24 +96,27 @@ STRICT_FALLBACK_WEIGHTS = False
 # * elimination of low weight relays
 # * consensus weight changes
 # * fallback directory losses over time
-# With 2 million users per day, a relay weighted at 1 in 50 fallbacks will
-# receive 40,000 requests per day, or about 1 request every two seconds.
-# It will see about 2% of clients.
-TARGET_MAX_WEIGHT_FRACTION = 1/50.0
+# A relay weighted at 1 in 10 fallbacks will see about 10% of clients that
+# use the fallback directories. (The 9 directory authorities see a similar
+# proportion of clients.)
+TARGET_MAX_WEIGHT_FRACTION = 1/10.0
 REWEIGHTING_FUDGE_FACTOR = 0.8
 MAX_WEIGHT_FRACTION = TARGET_MAX_WEIGHT_FRACTION * REWEIGHTING_FUDGE_FACTOR
 # If a single fallback's weight is too low, it's pointless adding it.
 # (Final weights may be slightly higher than this, due to low weight relays
 # being excluded.)
-# With 2 million users per day, a relay weighted at 1 in 2000 fallbacks will
-# receive 1000 requests per day, or about 1 request every minute or two.
-# It will see less than 0.1% of clients.
-MIN_WEIGHT_FRACTION = 1/2000.0
+# A relay weighted at 1 in 1000 fallbacks will see about 0.1% of clients.
+MIN_WEIGHT_FRACTION = 1/1000.0
 
-AGE_ALPHA = 0.99 # older entries' weights are adjusted with ALPHA^(age in days)
+## Other Configuration Parameters
 
+# older entries' weights are adjusted with ALPHA^(age in days)
+AGE_ALPHA = 0.99
+
+# this factor is used to scale OnionOO entries to [0,1]
 ONIONOO_SCALE_ONE = 999.
 
+## Parsing Functions
 
 def parse_ts(t):
   return datetime.datetime.strptime(t, "%Y-%m-%d %H:%M:%S")
@@ -130,6 +169,8 @@ def cleanse_c_string(raw_string):
   # But this typically only results in changes to the string data
   return escaped_string
 
+## OnionOO Source Functions
+
 # a dictionary of source metadata for each onionoo query we've made
 fetch_source = {}
 
@@ -161,6 +202,8 @@ def describe_fetch_source(what):
   desc += '\n'
   desc += '*/'
   return desc
+
+## File Processing Functions
 
 def write_to_file(str, file_name, max_len):
   try:
@@ -206,6 +249,8 @@ def load_json_from_file(json_file_name):
                      error.errno,
                      error.strerror)
                     )
+
+## OnionOO Functions
 
 def onionoo_fetch(what, **kwargs):
   params = kwargs
@@ -286,10 +331,6 @@ def onionoo_fetch(what, **kwargs):
 
   return response_json
 
-def dummy_fetch(what, **kwargs):
-  with open('x-'+what) as f:
-    return json.load(f)
-
 def fetch(what, **kwargs):
   #x = onionoo_fetch(what, **kwargs)
   # don't use sort_keys, as the order of or_addresses is significant
@@ -297,8 +338,8 @@ def fetch(what, **kwargs):
   #sys.exit(0)
 
   return onionoo_fetch(what, **kwargs)
-  #return dummy_fetch(what, **kwargs)
 
+## Fallback Candidate Class
 
 class Candidate(object):
   CUTOFF_ADDRESS_AND_PORT_STABLE = (datetime.datetime.now()
@@ -318,6 +359,7 @@ class Candidate(object):
 
     self._fpr = self._data['fingerprint']
     self._running = self._guard = self._v2dir = 0.
+    self._split_dirport()
     self._compute_orport()
     if self.orport is None:
       raise Exception("Failed to get an orport for %s."%(self._fpr,))
@@ -394,18 +436,23 @@ class Candidate(object):
 
     return True
 
+  def _split_dirport(self):
+    # Split the dir_address into dirip and dirport
+    (self.dirip, _dirport) = self._data['dir_address'].split(':', 2)
+    self.dirport = int(_dirport)
+
   def _compute_orport(self):
     # Choose the first ORPort that's on the same IPv4 address as the DirPort.
     # In rare circumstances, this might not be the primary ORPort address.
     # However, _stable_sort_or_addresses() ensures we choose the same one
     # every time, even if onionoo changes the order of the secondaries.
-    (diripaddr, dirport) = self._data['dir_address'].split(':', 2)
+    self._split_dirport()
     self.orport = None
     for i in self._data['or_addresses']:
       if i != self._data['or_addresses'][0]:
         logging.debug('Secondary IPv4 Address Used for %s: %s'%(self._fpr, i))
       (ipaddr, port) = i.rsplit(':', 1)
-      if (ipaddr == diripaddr) and Candidate.is_valid_ipv4_address(ipaddr):
+      if (ipaddr == self.dirip) and Candidate.is_valid_ipv4_address(ipaddr):
         self.orport = int(port)
         return
 
@@ -509,8 +556,11 @@ class Candidate(object):
   def _avg_generic_history(generic_history):
     a = []
     for i in generic_history:
-      w = i['length'] * math.pow(AGE_ALPHA, i['age']/(3600*24))
-      a.append( (i['value'] * w, w) )
+      if (i['length'] is not None
+          and i['age'] is not None
+          and i['value'] is not None):
+        w = i['length'] * math.pow(AGE_ALPHA, i['age']/(3600*24))
+        a.append( (i['value'] * w, w) )
 
     sv = math.fsum(map(lambda x: x[0], a))
     sw = math.fsum(map(lambda x: x[1], a))
@@ -584,6 +634,81 @@ class Candidate(object):
       return False
     return True
 
+  def is_in_whitelist(self, relaylist):
+    """ A fallback matches if each key in the whitelist line matches:
+          ipv4
+          dirport
+          orport
+          id
+          ipv6 (if present)
+        If the fallback has an ipv6 key, the whitelist line must also have
+        it, and vice versa, otherwise they don't match. """
+    for entry in relaylist:
+      if entry['ipv4'] != self.dirip:
+        continue
+      if int(entry['dirport']) != self.dirport:
+        continue
+      if int(entry['orport']) != self.orport:
+        continue
+      if  entry['id'] != self._fpr:
+        continue
+      if entry.has_key('ipv6') and self.ipv6addr is not None:
+        # if both entry and fallback have an ipv6 address, compare them
+        if entry['ipv6'] != self.ipv6addr:
+          continue
+      # if the fallback has an IPv6 address but the whitelist entry
+      # doesn't, or vice versa, the whitelist entry doesn't match
+      elif entry.has_key('ipv6') and self.ipv6addr is None:
+        continue
+      elif not entry.has_key('ipv6') and self.ipv6addr is not None:
+        continue
+      return True
+    return False
+
+  def is_in_blacklist(self, relaylist):
+    """ A fallback matches a blacklist line if a sufficiently specific group
+        of attributes matches:
+          ipv4 & dirport
+          ipv4 & orport
+          id
+          ipv6 & dirport
+          ipv6 & orport
+        If the fallback and the blacklist line both have an ipv6 key,
+        their values will be compared, otherwise, they will be ignored.
+        If there is no dirport and no orport, the entry matches all relays on
+        that ip. """
+    for entry in relaylist:
+      for key in entry:
+        value = entry[key]
+        if key == 'ipv4' and value == self.dirip:
+          # if the dirport is present, check it too
+          if entry.has_key('dirport'):
+            if int(entry['dirport']) == self.dirport:
+              return True
+          # if the orport is present, check it too
+          elif entry.has_key('orport'):
+            if int(entry['orport']) == self.orport:
+              return True
+          else:
+            return True
+        if key == 'id' and value == self._fpr:
+          return True
+        if key == 'ipv6' and self.ipv6addr is not None:
+        # if both entry and fallback have an ipv6 address, compare them,
+        # otherwise, disregard ipv6 addresses
+          if value == self.ipv6addr:
+            # if the dirport is present, check it too
+            if entry.has_key('dirport'):
+              if int(entry['dirport']) == self.dirport:
+                return True
+            # if the orport is present, check it too
+            elif entry.has_key('orport'):
+              if int(entry['orport']) == self.orport:
+                return True
+            else:
+              return True
+    return False
+
   def fallback_weight_fraction(self, total_weight):
     return float(self._data['consensus_weight']) / total_weight
 
@@ -646,6 +771,8 @@ class Candidate(object):
     s += '" weight=%d",'%(weight)
     return s
 
+## Fallback Candidate List Class
+
 class CandidateList(dict):
   def __init__(self):
     pass
@@ -702,6 +829,108 @@ class CandidateList(dict):
                         reverse=True)
                       )
 
+  @staticmethod
+  def load_relaylist(file_name):
+    """ Read each line in the file, and parse it like a FallbackDir line:
+        an IPv4 address and optional port:
+          <IPv4 address>:<port>
+        which are parsed into dictionary entries:
+          ipv4=<IPv4 address>
+          dirport=<port>
+        followed by a series of key=value entries:
+          orport=<port>
+          id=<fingerprint>
+          ipv6=<IPv6 address>
+        each line's key/value pairs are placed in a dictonary,
+        (of string -> string key/value pairs),
+        and these dictionaries are placed in an array.
+        comments start with # and are ignored """
+    relaylist = []
+    file_data = read_from_file(file_name, MAX_LIST_FILE_SIZE)
+    if file_data is None:
+      return relaylist
+    for line in file_data.split('\n'):
+      relay_entry = {}
+      # ignore comments
+      line_comment_split = line.split('#')
+      line = line_comment_split[0]
+      # cleanup whitespace
+      line = cleanse_whitespace(line)
+      line = line.strip()
+      if len(line) == 0:
+        continue
+      for item in line.split(' '):
+        item = item.strip()
+        if len(item) == 0:
+          continue
+        key_value_split = item.split('=')
+        kvl = len(key_value_split)
+        if kvl < 1 or kvl > 2:
+          print '#error Bad %s item: %s, format is key=value.'%(
+                                                 file_name, item)
+        if kvl == 1:
+          # assume that entries without a key are the ipv4 address,
+          # perhaps with a dirport
+          ipv4_maybe_dirport = key_value_split[0]
+          ipv4_maybe_dirport_split = ipv4_maybe_dirport.split(':')
+          dirl = len(ipv4_maybe_dirport_split)
+          if dirl < 1 or dirl > 2:
+            print '#error Bad %s IPv4 item: %s, format is ipv4:port.'%(
+                                                        file_name, item)
+          if dirl >= 1:
+            relay_entry['ipv4'] = ipv4_maybe_dirport_split[0]
+          if dirl == 2:
+            relay_entry['dirport'] = ipv4_maybe_dirport_split[1]
+        elif kvl == 2:
+           relay_entry[key_value_split[0]] = key_value_split[1]
+      relaylist.append(relay_entry)
+    return relaylist
+
+  # apply the fallback whitelist and blacklist
+  def apply_filter_lists(self):
+    excluded_count = 0
+    logging.debug('Applying whitelist and blacklist.')
+    # parse the whitelist and blacklist
+    whitelist = self.load_relaylist(WHITELIST_FILE_NAME)
+    blacklist = self.load_relaylist(BLACKLIST_FILE_NAME)
+    filtered_fallbacks = []
+    for f in self.fallbacks:
+      in_whitelist = f.is_in_whitelist(whitelist)
+      in_blacklist = f.is_in_blacklist(blacklist)
+      if in_whitelist and in_blacklist:
+        if BLACKLIST_EXCLUDES_WHITELIST_ENTRIES:
+          # exclude
+          excluded_count += 1
+          logging.debug('Excluding %s: in both blacklist and whitelist.' %
+                        f._fpr)
+        else:
+          # include
+          filtered_fallbacks.append(f)
+      elif in_whitelist:
+        # include
+        filtered_fallbacks.append(f)
+      elif in_blacklist:
+        # exclude
+        excluded_count += 1
+        logging.debug('Excluding %s: in blacklist.' %
+                      f._fpr)
+      else:
+        if INCLUDE_UNLISTED_ENTRIES:
+          # include
+          filtered_fallbacks.append(f)
+        else:
+          # exclude
+          excluded_count += 1
+          logging.debug('Excluding %s: in neither blacklist nor whitelist.' %
+                        f._fpr)
+    self.fallbacks = filtered_fallbacks
+    return excluded_count
+
+  @staticmethod
+  def summarise_filters(initial_count, excluded_count):
+    return '/* Whitelist & blacklist excluded %d of %d candidates. */'%(
+                                                excluded_count, initial_count)
+
   # Remove any fallbacks in excess of MAX_FALLBACK_COUNT,
   # starting with the lowest-weighted fallbacks
   # total_weight should be recalculated after calling this
@@ -743,10 +972,16 @@ class CandidateList(dict):
     return sum(f._data['consensus_weight'] for f in self.fallbacks)
 
   def fallback_min_weight(self):
-    return self.fallbacks[-1]
+    if len(self.fallbacks) > 0:
+      return self.fallbacks[-1]
+    else:
+      return None
 
   def fallback_max_weight(self):
-    return self.fallbacks[0]
+    if len(self.fallbacks) > 0:
+      return self.fallbacks[0]
+    else:
+      return None
 
   def summarise_fallbacks(self, eligible_count, eligible_weight,
                           relays_clamped, clamped_weight):
@@ -773,7 +1008,9 @@ class CandidateList(dict):
       # We must have a minimum number of fallbacks so they are always
       # reachable, and are in diverse locations
       s += '#error Fallback Count %d is too low. '%(fallback_count)
-      s += 'Must be at least %d for diversity.'%(MIN_FALLBACK_COUNT)
+      s += 'Must be at least %d for diversity. '%(MIN_FALLBACK_COUNT)
+      s += 'Try adding entries to the whitelist, '
+      s += 'or setting INCLUDE_UNLISTED_ENTRIES = True.'
       s += '\n'
       s += '/*'
       s += '\n'
@@ -798,7 +1035,7 @@ class CandidateList(dict):
                                                 MIN_WEIGHT_FRACTION*100)
     s += '\n'
     if eligible_count != fallback_count:
-      s += 'Excluded:     %d (Excess or Low Weight)'%(
+      s += 'Excluded:     %d (Clamped or Low Weight)'%(
                                               eligible_count - fallback_count)
       s += '\n'
     if relays_clamped > 0:
@@ -823,6 +1060,8 @@ class CandidateList(dict):
         s += '/* ' + error_str + ' */'
     return s
 
+## Main Function
+
 def list_fallbacks():
   """ Fetches required onionoo documents and evaluates the
       fallback directory criteria for each of the relays """
@@ -830,6 +1069,11 @@ def list_fallbacks():
   candidates = CandidateList()
   candidates.add_relays()
   candidates.compute_fallbacks()
+
+  initial_count = len(candidates.fallbacks)
+  excluded_count = candidates.apply_filter_lists()
+  print candidates.summarise_filters(initial_count, excluded_count)
+
   eligible_count = len(candidates.fallbacks)
   eligible_weight = candidates.fallback_weight_total()
 
@@ -871,9 +1115,9 @@ def list_fallbacks():
                                                     TARGET_MAX_WEIGHT_FRACTION)
       error_str += 'Try decreasing REWEIGHTING_FUDGE_FACTOR.'
       if STRICT_FALLBACK_WEIGHTS:
-        s += '#error ' + error_str
+        print '#error ' + error_str
       else:
-        s += '/* ' + error_str + ' */'
+        print '/* ' + error_str + ' */'
 
     print candidates.summarise_fallbacks(eligible_count, eligible_weight,
                                          relays_clamped,
