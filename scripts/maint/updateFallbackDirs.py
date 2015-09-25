@@ -27,11 +27,33 @@ import hashlib
 import logging
 logging.basicConfig(level=logging.INFO)
 
+## OnionOO Settings
+
 ONIONOO = 'https://onionoo.torproject.org/'
 
 # Don't bother going out to the Internet, just use the files available locally,
 # even if they're very old
 LOCAL_FILES_ONLY = False
+
+## Whitelist / Blacklist Settings
+
+# The whitelist contains entries that are included if all attributes match
+# (IPv4, port, id, and optionally IPv6)
+# The blacklist contains (partial) entries that are excluded if any attribute matches
+# (IPv4 (with optional port), id, or IPv6)
+
+# What happens to entries in neither list?
+# When True, they are included, when False, they are excluded
+INCLUDE_UNLISTED_ENTRIES = False
+
+# If an entry is in both lists, what happens?
+# When True, it is excluded, when False, it is included
+BLACKLIST_EXCLUDES_WHITELIST_ENTRIES = True
+
+WHITELIST_FILE_NAME = 'fallback.whitelist'
+BLACKLIST_FILE_NAME = 'fallback.blacklist'
+
+## Eligibility Settings
 
 ADDRESS_AND_PORT_STABLE_DAYS = 120
 # What time-weighted-fraction of these flags must FallbackDirs
@@ -44,10 +66,14 @@ CUTOFF_GUARD = .95
 # .00 means no bad exits
 PERMITTED_BADEXIT = .00
 
+## List Length Limits
+
 # Limit the number of fallbacks (eliminating lowest by weight)
 MAX_FALLBACK_COUNT = 500
 # Emit a C #error if the number of fallbacks is below
 MIN_FALLBACK_COUNT = 100
+
+## Target Fallback Weight Settings
 
 # Limit the proportional weight
 # If a single fallback's weight is too high, it will see too many clients
@@ -69,10 +95,13 @@ MAX_WEIGHT_FRACTION = TARGET_MAX_WEIGHT_FRACTION * REWEIGHTING_FUDGE_FACTOR
 # It will see less than 0.1% of clients.
 MIN_WEIGHT_FRACTION = 1/2000.0
 
+## Other Configuration Parameters
+
 AGE_ALPHA = 0.99 # older entries' weights are adjusted with ALPHA^(age in days)
 
 ONIONOO_SCALE_ONE = 999.
 
+## Parsing Functions
 
 def parse_ts(t):
   return datetime.datetime.strptime(t, "%Y-%m-%d %H:%M:%S")
@@ -125,6 +154,8 @@ def cleanse_c_string(raw_string):
   # But this typically only results in changes to the string data
   return escaped_string
 
+## OnionOO Source Functions
+
 # a dictionary of source metadata for each onionoo query we've made
 fetch_source = {}
 
@@ -156,6 +187,8 @@ def describe_fetch_source(what):
   desc += '\n'
   desc += '*/'
   return desc
+
+## File Processing Functions
 
 def write_to_file(str, file_name, max_len):
   try:
@@ -201,6 +234,8 @@ def load_json_from_file(json_file_name):
                      error.errno,
                      error.strerror)
                     )
+
+## OnionOO Functions
 
 def onionoo_fetch(what, **kwargs):
   params = kwargs
@@ -294,6 +329,7 @@ def fetch(what, **kwargs):
   return onionoo_fetch(what, **kwargs)
   #return dummy_fetch(what, **kwargs)
 
+## Fallback Candidate Class
 
 class Candidate(object):
   CUTOFF_ADDRESS_AND_PORT_STABLE = (datetime.datetime.now()
@@ -641,6 +677,8 @@ class Candidate(object):
     s += '" weight=%d",'%(weight)
     return s
 
+## Fallback Candidate List Class
+
 class CandidateList(dict):
   def __init__(self):
     pass
@@ -696,6 +734,30 @@ class CandidateList(dict):
                         key=lambda x: self[x]._data['consensus_weight'],
                         reverse=True)
                       )
+
+  # apply the fallback whitelist and blacklist
+  def apply_filter_lists(self):
+    logging.debug('Applying whitelist and blacklist.')
+    WHITELIST_FILE_NAME
+    BLACKLIST_FILE_NAME
+    # for each candidate
+      # parse then cache the whitelist and blacklist
+      # there has to be a clever way of doing this, as we're essentially
+      # just parsing another list of relays
+      if c.is_in_whitelist() and c.is_in_blacklist():
+        if BLACKLIST_EXCLUDES_WHITELIST_ENTRIES:
+          # exclude
+        else:
+          # include
+      elif c.is_in_whitelist():
+        # include
+      elif c.is_in_blacklist():
+        # exclude
+      else:
+        if INCLUDE_UNLISTED_ENTRIES:
+          # include
+        else:
+          # exclude
 
   # Remove any fallbacks in excess of MAX_FALLBACK_COUNT,
   # starting with the lowest-weighted fallbacks
@@ -848,6 +910,8 @@ class CandidateList(dict):
                                                 TARGET_MAX_WEIGHT_FRACTION*100)
     return s
 
+## Main Function
+
 def list_fallbacks():
   """ Fetches required onionoo documents and evaluates the
       fallback directory criteria for each of the relays """
@@ -855,6 +919,9 @@ def list_fallbacks():
   candidates = CandidateList()
   candidates.add_relays()
   candidates.compute_fallbacks()
+
+  candidates.apply_filter_lists()
+
   eligible_count = len(candidates.fallbacks)
   eligible_weight = candidates.fallback_weight_total()
 

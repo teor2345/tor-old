@@ -1,0 +1,26 @@
+# updateFallbackDirs.py directory mirror blacklist
+# Format:
+# [ IPv4 [ :DirPort ]] [ id=<id> ] [ ipv6=<IPv6> ]
+# (This may need to be modified for ed25519 keys or IPv6-only relays)
+# Any matching attribute will cause the directory mirror to be excluded
+# (The blacklist overrides the whitelist)
+# Any other text on the line is ignored when matching
+# This allows the format to be extended
+
+# Sample entries only - blacklisting not requested:
+77.109.141.138:80 id=21ABB9584677EEB54514265F24756AD0B04E0EFA
+194.150.168.95:80 id=B486925DC901969CCE2B371E93740CF98C30539D
+
+# An entry in both lists
+124.6.36.230:80 id=B9B927347E005256D5D48007C38208FE8F7CC3BE
+
+# Partial entries
+192.42.116.16:9030
+185.21.217.5
+id=BF0FB582E37F738CD33C3651125F2772705BB8E8
+ipv6=[2a02:2498:e001:3c::133]
+
+# Test entries
+127.0.0.1:12345 id=0000000000000000000000000000000000000000
+127.0.0.1:12345 id=0000000000000000000000000000000000000000 extra stuff
+127.0.0.1:12345 id=0000000000000000000000000000000000000000 extra=stuff
