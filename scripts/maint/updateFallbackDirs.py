@@ -29,6 +29,10 @@ logging.basicConfig(level=logging.INFO)
 
 ONIONOO = 'https://onionoo.torproject.org/'
 
+# Don't bother going out to the Internet, just use the files available locally,
+# even if they're very old
+LOCAL_FILES_ONLY = False
+
 ADDRESS_AND_PORT_STABLE_DAYS = 120
 # What time-weighted-fraction of these flags must FallbackDirs
 # Equal or Exceed?
@@ -219,52 +223,56 @@ def onionoo_fetch(what, **kwargs):
 
   json_file_name = base_file_name + '.json'
 
-  # store the full URL to a file for debugging
-  # no need to compare as long as you trust SHA-1
-  write_to_file(url, full_url_file_name, MAX_FULL_URL_LENGTH)
-
-  request = urllib2.Request(url)
-  request.add_header('Accept-encoding', 'gzip')
-
-  # load the last modified date from the file, if it exists
-  last_mod_date = read_from_file(last_modified_file_name,
-                                 MAX_LAST_MODIFIED_LENGTH)
-  if last_mod_date is not None:
-    request.add_header('If-modified-since', last_mod_date)
-
-  response_code = 0
-  try:
-    response = urllib2.urlopen(request)
-    response_code = response.getcode()
-  except urllib2.HTTPError, error:
-    response_code = error.code
-    if response_code == 304: # Not Modified
-      pass
-    else:
-      raise Exception("Could not get " + url + ": "
-                      + str(error.code) + ": " + error.reason)
-
-  if response_code == 200: # OK
-
-    response_json = load_possibly_compressed_response_json(response)
-
-    with open(json_file_name, 'w') as f:
-      # use the most compact json representation to save space
-      json.dump(response_json, f, separators=(',',':'))
-
-    # store the last modified date in its own file
-    if response.info().get('Last-modified') is not None:
-      write_to_file(response.info().get('Last-Modified'),
-                    last_modified_file_name,
-                    MAX_LAST_MODIFIED_LENGTH)
-
-  elif response_code == 304: # Not Modified
-
+  if LOCAL_FILES_ONLY:
+    # Read from the local file, don't write to anything
     response_json = load_json_from_file(json_file_name)
+  else:
+    # store the full URL to a file for debugging
+    # no need to compare as long as you trust SHA-1
+    write_to_file(url, full_url_file_name, MAX_FULL_URL_LENGTH)
 
-  else: # Unexpected HTTP response code not covered in the HTTPError above
-    raise Exception("Unexpected HTTP response code to " + url + ": "
-                    + str(response_code))
+    request = urllib2.Request(url)
+    request.add_header('Accept-encoding', 'gzip')
+
+    # load the last modified date from the file, if it exists
+    last_mod_date = read_from_file(last_modified_file_name,
+                                   MAX_LAST_MODIFIED_LENGTH)
+    if last_mod_date is not None:
+      request.add_header('If-modified-since', last_mod_date)
+
+    response_code = 0
+    try:
+      response = urllib2.urlopen(request)
+      response_code = response.getcode()
+    except urllib2.HTTPError, error:
+      response_code = error.code
+      if response_code == 304: # Not Modified
+        pass
+      else:
+        raise Exception("Could not get " + url + ": "
+                        + str(error.code) + ": " + error.reason)
+
+    if response_code == 200: # OK
+
+      response_json = load_possibly_compressed_response_json(response)
+
+      with open(json_file_name, 'w') as f:
+        # use the most compact json representation to save space
+        json.dump(response_json, f, separators=(',',':'))
+
+      # store the last modified date in its own file
+      if response.info().get('Last-modified') is not None:
+        write_to_file(response.info().get('Last-Modified'),
+                      last_modified_file_name,
+                      MAX_LAST_MODIFIED_LENGTH)
+
+    elif response_code == 304: # Not Modified
+
+      response_json = load_json_from_file(json_file_name)
+
+    else: # Unexpected HTTP response code not covered in the HTTPError above
+      raise Exception("Unexpected HTTP response code to " + url + ": "
+                      + str(response_code))
 
   register_fetch_source(what,
                         url,
