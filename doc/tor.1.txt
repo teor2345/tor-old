@@ -2140,6 +2140,24 @@ The following options are used to configure a hidden service.
     only owner is able to read the hidden service directory. (Default: 0)
     Has no effect on Windows.
 
+[[__OnionSrvIntroRouteLength]] **__OnionSrvIntroRouteLength** __NUM__::
+    **Experimental - Anonymity Risk** the number of hops between the hidden
+    service server and the introduction points, including the server-chosen
+    introduction point. Use -1 for the default length (3 hops), and 1 for
+    one-hop circuits (single onion services). One-hop circuits remove hidden
+    service server location anonymity (but clients remain anonymous). The
+    number of hops is limited to 7, or 8 with RELAY_EARLY warnings.
+    (Default: -1)
+
+[[__OnionSrvRendRouteLength]] **__OnionSrvRendRouteLength** __NUM__::
+    **Experimental - Anonymity Risk** the number of hops between the hidden
+    service server and the rendezvous point, not including the client-chosen
+    rendezvous point. Use -1 for the default length (3 hops for new circuits,
+    4 hops for cannibalized circuits), and 0 for one-hop circuits (single
+    onion services). One-hop circuits remove hidden service server location
+    anonymity (but clients remain anonymous). The number of hops is limited
+    to 7, or 8 with RELAY_EARLY warnings. (Default: -1)
+
 TESTING NETWORK OPTIONS
 -----------------------
 
