@@ -1,0 +1,8 @@
+  o Minor features (onion services):
+    - Add experimental __OnionSrvIntroRouteLength and
+      __OnionSrvRendRouteLength torrc options for one-hop single onion
+      services. These are backwards compatible with current hidden
+      service clients. Use -1 for the default length (3), and for one-hop
+      circuits:
+      __OnionSrvIntroRouteLength 1
+      __OnionSrvRendRouteLength 0
