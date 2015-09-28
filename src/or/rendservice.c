@@ -2761,6 +2761,7 @@ rend_service_intro_has_opened(origin_circuit_t *circuit)
   log_info(LD_REND,
            "Established circuit %u as introduction point for service %s",
            (unsigned)circuit->base_.n_circ_id, serviceid);
+  circuit_log_path(LOG_INFO, LD_REND, circuit);
 
   /* Use the intro key instead of the service key in ESTABLISH_INTRO. */
   intro_key = circuit->intro_key;

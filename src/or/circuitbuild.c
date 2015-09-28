@@ -1431,11 +1431,19 @@ new_route_len(uint8_t purpose, extend_info_t *exit, smartlist_t *nodes)
   tor_assert(nodes);
 
   routelen = DEFAULT_ROUTE_LEN;
-  /* a OnionSrvRendRouteLength of -1 means the default behavior:
-   * 3 hops for new circuits, and 4 for cannibalized circuits */
+
+  /* an OnionSrvIntroRouteLength of -1 means the default behavior: 3 hops
+   * (for new and cannibalized circuits) */
+  if (purpose == CIRCUIT_PURPOSE_S_ESTABLISH_INTRO &&
+      get_options()->OnionSrvIntroRouteLength >= MIN_ONION_SRV_INTRO_ROUTE_LEN)
+    routelen = get_options()->OnionSrvIntroRouteLength;
+
+  /* an OnionSrvRendRouteLength of -1 means the default behavior: 3 hops for
+   * new circuits, and 4 for cannibalized circuits */
   if (purpose == CIRCUIT_PURPOSE_S_CONNECT_REND &&
       get_options()->OnionSrvRendRouteLength >= MIN_ONION_SRV_REND_ROUTE_LEN)
     routelen = get_options()->OnionSrvRendRouteLength;
+
   if (exit &&
       purpose != CIRCUIT_PURPOSE_TESTING &&
       purpose != CIRCUIT_PURPOSE_S_ESTABLISH_INTRO)

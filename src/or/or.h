@@ -3627,8 +3627,14 @@ typedef struct {
    * they reach the normal circuit-build timeout. */
   int CloseHSServiceRendCircuitsImmediatelyOnTimeout;
 
+  /** How many hops does a Onion Service Server Introduction Point circuit
+   * have between the Onion Service Server & the Introduction Point,
+   * including the server-chosen Introduction Point. */
+  int OnionSrvIntroRouteLength;
+
   /** How many hops does a Onion Service Server Rendezvous circuit have
-   * between the Onion Service Server & the Rendezvous Point */
+   * between the Onion Service Server & the Rendezvous Point, excluding
+   * the client-chosen Rendezvous Point. */
   int OnionSrvRendRouteLength;
 
   int ConnLimit; /**< Demanded minimum number of simultaneous connections. */
@@ -4467,19 +4473,37 @@ struct socks_request_t {
 
 /** How many hops does a general-purpose circuit have by default? */
 #define DEFAULT_ROUTE_LEN 3
-/** How many hops does a Hidden Service Server Rendezvous circuit have?
- * This circuit is between the Hidden Service Server & the Rendezvous Point
+
+/** How many hops do Hidden/Onion Service Server Intro Point and Rendezvous
+ * circuits have? */
+
+/** This circuit is between the Hidden Service Server & the Introduction Point
+ * The hop count includes the Introduction Point
+ * For testing only, no proven anonymity gains past DEFAULT_ROUTE_LEN */
+/** Hidden Services - server anonymous Intro Point connections */
+#define DEFAULT_ONION_SRV_INTRO_ROUTE_LEN  DEFAULT_ROUTE_LEN
+/** Direct Onion Services - server can be located from Intro Point */
+#define MIN_ONION_SRV_INTRO_ROUTE_LEN     1
+/** Experimental Long Intro Point Circuits - Soft limited to 7 by RELAY_EARLY
+ * Circuits longer than 7 will log warnings */
+#define MAX_SOFT_ONION_SRV_INTRO_ROUTE_LEN \
+                                     ((MAX_RELAY_EARLY_CELLS_PER_CIRCUIT) - 1)
+/** Experimental Long Intro Point Circuits - Hard limited to 8 by RELAY_EARLY
+ * Circuits longer than 8 won't connect */
+#define MAX_HARD_ONION_SRV_INTRO_ROUTE_LEN MAX_RELAY_EARLY_CELLS_PER_CIRCUIT
+
+/** This circuit is between the Hidden Service Server & the Rendezvous Point
  * The hop count does not include the Rendezvous Point
  * For testing only, no proven anonymity gains past DEFAULT_ROUTE_LEN */
-/** Hidden Services - server anonymity */
+/** Hidden Services - server anonymous Rendezvous Point connections */
 #define DEFAULT_ONION_SRV_REND_ROUTE_LEN  DEFAULT_ROUTE_LEN
-/** Direct Onion Services - server can be located - for known services */
+/** Direct Onion Services - server can be located from Rendezvous Point */
 #define MIN_ONION_SRV_REND_ROUTE_LEN      0
-/** Experimental Only - Soft limited to 7 by RELAY_EARLY
+/** Experimental Long Rend Point Circuits - Soft limited to 7 by RELAY_EARLY
  * Circuits longer than 7 will log warnings */
 #define MAX_SOFT_ONION_SRV_REND_ROUTE_LEN \
-                                      ((MAX_RELAY_EARLY_CELLS_PER_CIRCUIT) - 1)
-/** Experimental Only - Hard limited to 8 by RELAY_EARLY
+                                     ((MAX_RELAY_EARLY_CELLS_PER_CIRCUIT) - 1)
+/** Experimental Long Rend Point Circuits - Hard limited to 8 by RELAY_EARLY
  * Circuits longer than 8 won't connect */
 #define MAX_HARD_ONION_SRV_REND_ROUTE_LEN MAX_RELAY_EARLY_CELLS_PER_CIRCUIT
 
