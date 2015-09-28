@@ -1705,15 +1705,26 @@ circuit_launch_by_extend_info(uint8_t purpose,
     need_specific_rp = 1;
   }
 
-  /* By default, CIRCUIT_PURPOSE_S_CONNECT_REND circuits are 4 hops long
-   * if cannibalized (and 3 hops long if new). So if OnionSrvRendRouteLength
-   * isn't negative (default) or 4, we don't want to cannibalize any circuits,
+  /* By default, CIRCUIT_PURPOSE_S_ESTABLISH_INTRO circuits are 3 hops long
+   * (whether new or cannibalized). So if OnionSrvIntroRouteLength isn't
+   * -1 (default) or 3, we don't want to cannibalize any circuits, as any
+   * returned cannibalized circuit is already DEFAULT_ROUTE_LEN (3). */
+  int hs_intro_route_len = get_options()->OnionSrvIntroRouteLength;
+  if (purpose == CIRCUIT_PURPOSE_S_ESTABLISH_INTRO &&
+      hs_intro_route_len >= MIN_ONION_SRV_INTRO_ROUTE_LEN &&
+      hs_intro_route_len != DEFAULT_ONION_SRV_INTRO_ROUTE_LEN) {
+    need_specific_len = 1;
+  }
+
+  /* By default, CIRCUIT_PURPOSE_S_CONNECT_REND circuits are 4 hops long if
+   * cannibalized (and 3 hops long if new). So if OnionSrvRendRouteLength
+   * isn't -1 (default) or 4, we don't want to cannibalize any circuits,
    * as any returned cannibalized circuit is already DEFAULT_ROUTE_LEN (3),
    * and would be extended by 1 to 4 hops long. */
   int hs_rend_route_len = get_options()->OnionSrvRendRouteLength;
   if (purpose == CIRCUIT_PURPOSE_S_CONNECT_REND &&
-      hs_rend_route_len >= MIN_ONION_SRV_REND_ROUTE_LEN &&
-      hs_rend_route_len != (DEFAULT_ONION_SRV_REND_ROUTE_LEN + 1)) {
+        hs_rend_route_len >= MIN_ONION_SRV_REND_ROUTE_LEN &&
+        hs_rend_route_len != (DEFAULT_ONION_SRV_REND_ROUTE_LEN + 1)) {
     need_specific_len = 1;
   }
 

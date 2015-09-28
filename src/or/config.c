@@ -290,6 +290,7 @@ static config_var_t option_vars_[] = {
   V(HidServAuth,                 LINELIST, NULL),
   V(CloseHSClientCircuitsImmediatelyOnTimeout, BOOL, "0"),
   V(CloseHSServiceRendCircuitsImmediatelyOnTimeout, BOOL, "0"),
+  VAR("__OnionSrvIntroRouteLength", INT, OnionSrvIntroRouteLength, "-1"),
   VAR("__OnionSrvRendRouteLength", INT, OnionSrvRendRouteLength, "-1"),
   V(HTTPProxy,                   STRING,   NULL),
   V(HTTPProxyAuthenticator,      STRING,   NULL),
@@ -3086,10 +3087,57 @@ options_validate(or_options_t *old_options, or_options_t *options,
              "http://freehaven.net/anonbib/#hs-attack06 for details.");
   }
 
-  /* OnionSrvRendRouteLength, in number of hops (0..8)
-   * -1 (or any negative number) means the default behaviour:
-   * 3 hops for new circuits, 4 for cannibalized */
+  /* OnionSrvIntroRouteLength & OnionSrvRendRouteLength: number of hops
+   * between the hidden/onion service server and intro / rendezvous points */
 
+  /* OnionSrvIntroRouteLength */
+  if (options->OnionSrvIntroRouteLength >= MIN_ONION_SRV_INTRO_ROUTE_LEN) {
+    log_warn(LD_CONFIG,
+             "OnionSrvIntroRouteLength %d is not the default setting %d."
+             " This can compromise anonymity, or lead to poor performance."
+             " This setting is for experimental use only.",
+             options->OnionSrvIntroRouteLength,
+             -1);
+  }
+
+  if (
+      options->OnionSrvIntroRouteLength >= MIN_ONION_SRV_INTRO_ROUTE_LEN &&
+      options->OnionSrvIntroRouteLength < DEFAULT_ONION_SRV_INTRO_ROUTE_LEN) {
+    log_warn(LD_CONFIG,
+             "OnionSrvIntroRouteLength %d is lower than default length %d."
+             " Your Hidden Service(s) can be located more easily.",
+             options->OnionSrvIntroRouteLength,
+             DEFAULT_ONION_SRV_INTRO_ROUTE_LEN);
+  } else if (
+      options->OnionSrvIntroRouteLength > DEFAULT_ONION_SRV_INTRO_ROUTE_LEN) {
+    log_warn(LD_CONFIG,
+             "OnionSrvIntroRouteLength %d is higher than default length %d."
+             " Performance of your Hidden Service(s) will suffer."
+             " Routes longer than %d have no known anonymity benefits.",
+             options->OnionSrvIntroRouteLength,
+             DEFAULT_ONION_SRV_INTRO_ROUTE_LEN,
+             DEFAULT_ONION_SRV_INTRO_ROUTE_LEN);
+  }
+
+  if (
+    options->OnionSrvIntroRouteLength > MAX_SOFT_ONION_SRV_INTRO_ROUTE_LEN &&
+    options->OnionSrvIntroRouteLength <= MAX_HARD_ONION_SRV_INTRO_ROUTE_LEN) {
+    log_warn(LD_CONFIG,
+             "OnionSrvIntroRouteLength %d will trigger RELAY_EARLY warnings."
+             " Set OnionSrvIntroRouteLength to %d or less.",
+             options->OnionSrvIntroRouteLength,
+             MAX_SOFT_ONION_SRV_INTRO_ROUTE_LEN);
+  } else if (
+    options->OnionSrvIntroRouteLength > MAX_HARD_ONION_SRV_INTRO_ROUTE_LEN) {
+    /* the values of the *_ONION_SRV_INTRO_ROUTE_LEN macros are hardcoded,
+     * because the macro doesn't support printf-style arguments */
+    REJECT("OnionSrvIntroRouteLength is higher than maximum permitted"
+           " length. Please choose either -1, or a number between 0 and 8."
+           " (-1 means the default behavior: 3 hops for new circuits"
+           " and 4 hops for cannibalized circuits.)");
+  }
+
+  /* OnionSrvRendRouteLength */
   if (options->OnionSrvRendRouteLength >= MIN_ONION_SRV_REND_ROUTE_LEN) {
     log_warn(LD_CONFIG,
              "OnionSrvRendRouteLength %d is not the default setting %d."
