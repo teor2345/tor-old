@@ -1,8 +1,12 @@
   o Minor features (onion services):
     - Add experimental __OnionSrvIntroRouteLength and
       __OnionSrvRendRouteLength torrc options for one-hop single onion
-      services. These are backwards compatible with current hidden
-      service clients. Use -1 for the default length (3), and for one-hop
+      services. Use -1 for the default length (3), and for one-hop
       circuits:
       __OnionSrvIntroRouteLength 1
       __OnionSrvRendRouteLength 0
+      This is an alternate implementation of the "Stream latency is
+      reduced on a 4-hop circuit" feature of #prop252. It is compatible
+      with existing hidden service implementation, and works on the
+      existing tor network without any changes to older relays or clients.
+      Completes ticket #17178. Patch by "teor".
