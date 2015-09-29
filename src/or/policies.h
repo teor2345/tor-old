@@ -44,7 +44,6 @@ addr_policy_t *addr_policy_get_canonical_entry(addr_policy_t *ent);
 int cmp_addr_policies(smartlist_t *a, smartlist_t *b);
 MOCK_DECL(addr_policy_result_t, compare_tor_addr_to_addr_policy,
     (const tor_addr_t *addr, uint16_t port, const smartlist_t *policy));
-
 addr_policy_result_t compare_tor_addr_to_node_policy(const tor_addr_t *addr,
                               uint16_t port, const node_t *node);
 
@@ -83,6 +82,10 @@ int short_policy_is_reject_star(const short_policy_t *policy);
 addr_policy_result_t compare_tor_addr_to_short_policy(
                           const tor_addr_t *addr, uint16_t port,
                           const short_policy_t *policy);
+
+#ifdef POLICIES_PRIVATE
+void append_exit_policy_string(smartlist_t **policy, const char *more);
+#endif
 
 #endif
 

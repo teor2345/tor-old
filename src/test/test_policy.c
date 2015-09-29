@@ -4,6 +4,7 @@
 #include "or.h"
 #include "router.h"
 #include "routerparse.h"
+#define POLICIES_PRIVATE
 #include "policies.h"
 #include "test.h"
 
@@ -578,10 +579,102 @@ test_dump_exit_policy_to_string(void *arg)
  tor_free(ep);
 }
 
+static routerinfo_t *mock_desc_routerinfo = NULL;
+const routerinfo_t *mock_router_get_my_routerinfo(void)
+{
+  return mock_desc_routerinfo;
+}
+
+/** Run unit tests for generating summary lines of exit policies */
+static void
+test_policies_getinfo_helper_policies(void *arg)
+{
+  (void)arg;
+  int rv = 0, ipv4_len = 0, ipv6_len = 0;
+  char *answer = NULL;
+  const char *errmsg = NULL;
+  routerinfo_t mock_my_routerinfo;
+
+  rv = getinfo_helper_policies(NULL, "exit-policy/default", &answer, &errmsg);
+  tt_assert(rv == 0);
+  tt_assert(answer != NULL);
+  tt_assert(strlen(answer) > 0);
+  tor_free(answer);
+
+  rv = getinfo_helper_policies(NULL, "exit-policy/reject-private", &answer,
+                               &errmsg);
+  tt_assert(rv == 0);
+  tt_assert(answer != NULL);
+  tt_assert(strlen(answer) > 0);
+  tor_free(answer);
+
+  MOCK(router_get_my_routerinfo, mock_router_get_my_routerinfo);
+  mock_my_routerinfo.exit_policy = smartlist_new();
+  mock_desc_routerinfo = &mock_my_routerinfo;
+
+  rv = getinfo_helper_policies(NULL, "exit-policy/ipv4", &answer,
+                               &errmsg);
+  tt_assert(rv == 0);
+  tt_assert(answer != NULL);
+  ipv4_len = strlen(answer);
+  tt_assert(ipv4_len == 0);
+  tor_free(answer);
+
+  rv = getinfo_helper_policies(NULL, "exit-policy/ipv6", &answer,
+                               &errmsg);
+  tt_assert(rv == 0);
+  tt_assert(answer != NULL);
+  ipv6_len = strlen(answer);
+  tt_assert(ipv6_len == 0);
+  tor_free(answer);
+
+  rv = getinfo_helper_policies(NULL, "exit-policy/full", &answer,
+                               &errmsg);
+  tt_assert(rv == 0);
+  tt_assert(answer != NULL);
+  tt_assert(strlen(answer) == 0);
+  /* tt_assert(strlen(answer) == ipv4_len + ipv6_len); */
+  tor_free(answer);
+
+  append_exit_policy_string(&mock_my_routerinfo.exit_policy, "accept *4:*");
+  append_exit_policy_string(&mock_my_routerinfo.exit_policy, "reject *6:*");
+
+  rv = getinfo_helper_policies(NULL, "exit-policy/ipv4", &answer,
+                               &errmsg);
+  tt_assert(rv == 0);
+  tt_assert(answer != NULL);
+  ipv4_len = strlen(answer);
+  tt_assert(ipv4_len > 0);
+  tor_free(answer);
+
+  rv = getinfo_helper_policies(NULL, "exit-policy/ipv6", &answer,
+                               &errmsg);
+  tt_assert(rv == 0);
+  tt_assert(answer != NULL);
+  ipv6_len = strlen(answer);
+  tt_assert(ipv6_len > 0);
+  tor_free(answer);
+
+  rv = getinfo_helper_policies(NULL, "exit-policy/full", &answer,
+                               &errmsg);
+  tt_assert(rv == 0);
+  tt_assert(answer != NULL);
+  tt_assert(strlen(answer) > 0);
+  tt_assert(strlen(answer) == ipv4_len + ipv6_len + 1);
+  tor_free(answer);
+
+done:
+  tor_free(answer);
+  UNMOCK(router_get_my_routerinfo);
+  smartlist_free(mock_my_routerinfo.exit_policy);
+}
+
 struct testcase_t policy_tests[] = {
   { "router_dump_exit_policy_to_string", test_dump_exit_policy_to_string, 0,
     NULL, NULL },
   { "general", test_policies_general, 0, NULL, NULL },
+  { "getinfo_helper_policies", test_policies_getinfo_helper_policies, 0, NULL,
+    NULL },
   END_OF_TESTCASES
 };
 

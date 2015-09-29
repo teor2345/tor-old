@@ -864,7 +864,7 @@ addr_policy_intersects(addr_policy_t *a, addr_policy_t *b)
 
 /** Add the exit policy described by <b>more</b> to <b>policy</b>.
  */
-static void
+STATIC void
 append_exit_policy_string(smartlist_t **policy, const char *more)
 {
   config_line_t tmp;
@@ -1945,6 +1945,26 @@ getinfo_helper_policies(control_connection_t *conn,
   (void) errmsg;
   if (!strcmp(question, "exit-policy/default")) {
     *answer = tor_strdup(DEFAULT_EXIT_POLICY);
+  } else if (!strcmp(question, "exit-policy/reject-private")) {
+    smartlist_t *private_policy_strings;
+    const char **priv = private_nets;
+
+    private_policy_strings = smartlist_new();
+
+    while (*priv != NULL) {
+      char *pbuf = tor_malloc(POLICY_BUF_LEN);
+      strcat(pbuf, "reject ");
+      strcat(pbuf, *priv);
+      strcat(pbuf, ":*");
+      smartlist_add(private_policy_strings, pbuf);
+      priv++;
+    }
+
+    *answer = smartlist_join_strings(private_policy_strings,
+                                     ",", 0, NULL);
+
+    SMARTLIST_FOREACH(private_policy_strings, char *, str, tor_free(str));
+    smartlist_free(private_policy_strings);
   } else if (!strcmpstart(question, "exit-policy/")) {
     const routerinfo_t *me = router_get_my_routerinfo();
 
