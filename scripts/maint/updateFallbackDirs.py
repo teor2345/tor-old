@@ -100,8 +100,10 @@ MIN_WEIGHT_FRACTION = 1/2000.0
 
 ## Other Configuration Parameters
 
-AGE_ALPHA = 0.99 # older entries' weights are adjusted with ALPHA^(age in days)
+# older entries' weights are adjusted with ALPHA^(age in days)
+AGE_ALPHA = 0.99
 
+# this factor is used to scale OnionOO entries to [0,1]
 ONIONOO_SCALE_ONE = 999.
 
 ## Parsing Functions
@@ -899,7 +901,7 @@ class CandidateList(dict):
                                                 MIN_WEIGHT_FRACTION*100)
     s += '\n'
     if eligible_count != fallback_count:
-      s += 'Excluded:     %d (Excess or Low Weight)'%(
+      s += 'Excluded:     %d (Clamped or Low Weight)'%(
                                               eligible_count - fallback_count)
       s += '\n'
     if relays_reduced > 0:
