@@ -545,8 +545,11 @@ class Candidate(object):
   def _avg_generic_history(generic_history):
     a = []
     for i in generic_history:
-      w = i['length'] * math.pow(AGE_ALPHA, i['age']/(3600*24))
-      a.append( (i['value'] * w, w) )
+      if (i['length'] is not None
+          and i['age'] is not None
+          and i['value'] is not None):
+        w = i['length'] * math.pow(AGE_ALPHA, i['age']/(3600*24))
+        a.append( (i['value'] * w, w) )
 
     sv = math.fsum(map(lambda x: x[0], a))
     sw = math.fsum(map(lambda x: x[1], a))
@@ -619,6 +622,12 @@ class Candidate(object):
         or not self._data['recommended_version']):
       return False
     return True
+
+  def is_in_whitelist(self, whitelist):
+    return True
+
+  def is_in_blacklist(self, blacklist):
+    return False
 
   def fallback_weight_fraction(self, total_weight):
     return float(self._data['consensus_weight']) / total_weight
@@ -740,29 +749,58 @@ class CandidateList(dict):
                         reverse=True)
                       )
 
+  @staticmethod
+  def load_whitelist(file_name):
+    return {}
+
+  @staticmethod
+  def load_blacklist(file_name):
+    return {}
+
   # apply the fallback whitelist and blacklist
   def apply_filter_lists(self):
+    excluded_count = 0
     logging.debug('Applying whitelist and blacklist.')
-    WHITELIST_FILE_NAME
-    BLACKLIST_FILE_NAME
-    # for each candidate
-      # parse then cache the whitelist and blacklist
-      # there has to be a clever way of doing this, as we're essentially
-      # just parsing another list of relays
-      if c.is_in_whitelist() and c.is_in_blacklist():
+    # parse the whitelist and blacklist
+    whitelist = self.load_whitelist(WHITELIST_FILE_NAME)
+    blacklist = self.load_blacklist(BLACKLIST_FILE_NAME)
+    filtered_fallbacks = []
+    for f in self.fallbacks:
+      in_whitelist = f.is_in_whitelist(whitelist)
+      in_blacklist = f.is_in_blacklist(blacklist)
+      if in_whitelist and in_blacklist:
         if BLACKLIST_EXCLUDES_WHITELIST_ENTRIES:
           # exclude
+          excluded_count += 1
+          logging.debug('Excluding %s: in both blacklist and whitelist.' %
+                        f._fpr)
         else:
           # include
-      elif c.is_in_whitelist():
+          filtered_fallbacks.append(f)
+      elif in_whitelist:
         # include
-      elif c.is_in_blacklist():
+        filtered_fallbacks.append(f)
+      elif in_blacklist:
         # exclude
+        excluded_count += 1
+        logging.debug('Excluding %s: in blacklist.' %
+                      f._fpr)
       else:
         if INCLUDE_UNLISTED_ENTRIES:
           # include
+          filtered_fallbacks.append(f)
         else:
           # exclude
+          excluded_count += 1
+          logging.debug('Excluding %s: in neither blacklist nor whitelist.' %
+                        f._fpr)
+    self.fallbacks = filtered_fallbacks
+    return excluded_count
+
+  @staticmethod
+  def summarise_filters(initial_count, excluded_count):
+    return '/* Whitelist & blacklist excluded %d of %d candidates. */'%(
+                                                excluded_count, initial_count)
 
   # Remove any fallbacks in excess of MAX_FALLBACK_COUNT,
   # starting with the lowest-weighted fallbacks
@@ -846,10 +884,16 @@ class CandidateList(dict):
     return sum(f._data['consensus_weight'] for f in self.fallbacks)
 
   def fallback_min_weight(self):
-    return self.fallbacks[-1]
+    if len(self.fallbacks) > 0:
+      return self.fallbacks[-1]
+    else:
+      return None
 
   def fallback_max_weight(self):
-    return self.fallbacks[0]
+    if len(self.fallbacks) > 0:
+      return self.fallbacks[0]
+    else:
+      return None
 
   def summarise_fallbacks(self, eligible_count, eligible_weight,
                           relays_reduced, relays_increased, excess_weight):
@@ -936,7 +980,9 @@ def list_fallbacks():
   candidates.add_relays()
   candidates.compute_fallbacks()
 
-  candidates.apply_filter_lists()
+  initial_count = len(candidates.fallbacks)
+  excluded_count = candidates.apply_filter_lists()
+  print candidates.summarise_filters(initial_count, excluded_count)
 
   eligible_count = len(candidates.fallbacks)
   eligible_weight = candidates.fallback_weight_total()
