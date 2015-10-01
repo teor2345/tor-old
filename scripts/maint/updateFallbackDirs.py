@@ -75,6 +75,9 @@ MIN_FALLBACK_COUNT = 100
 
 ## Target Fallback Weight Settings
 
+# Emit a C #error if TARGET_MAX_WEIGHT_FRACTION can't be satisfied
+STRICT_FALLBACK_WEIGHTS = False
+
 # Limit the proportional weight
 # If a single fallback's weight is too high, it will see too many clients
 # We reweight using a lower threshold to provide some leeway for:
@@ -772,9 +775,13 @@ class CandidateList(dict):
   # This is complex, let's check the results carefully if it's ever needed
   def reweight_high_weight_fallbacks(self, total_weight):
     if MAX_WEIGHT_FRACTION * len(self.fallbacks) < 1.0:
-      raise Exception(
-        'Max Fallback Weight %.3f%% is unachievable '%(MAX_WEIGHT_FRACTION) +
-        'with Current Fallback Count %d.'%(len(self.fallbacks)))
+      error_str  = 'Max Fallback Weight %.3f%% is unachievable'%(
+                                                          MAX_WEIGHT_FRACTION)
+      error_str += ' with Current Fallback Count %d.'%(len(self.fallbacks))
+      if STRICT_FALLBACK_WEIGHTS:
+        print '#error ' + error_str
+      else:
+        print '/* ' + error_str + ' */'
     relays_reduced = 0
     relays_increased = 0
     total_excess_weight = 0
@@ -816,10 +823,13 @@ class CandidateList(dict):
         total_weight_remaining -= new_weight
     # check we redistributed all the weight
     if remaining_excess_weight > 0:
-      raise Exception(
-        'Leftover weight after reweighting high weight fallbacks: %d. '
-        %(remaining_excess_weight) +
-        'Try increasing TARGET_MAX_WEIGHT_FRACTION.')
+      error_str  = 'Leftover weight after reweighting: %d.'%(
+                                                    remaining_excess_weight)
+      error_str += ' Try increasing TARGET_MAX_WEIGHT_FRACTION.'
+      if STRICT_FALLBACK_WEIGHTS:
+        print '#error ' + error_str
+      else:
+        print '/* ' + error_str + ' */'
     return (relays_reduced, relays_increased, total_excess_weight)
 
   # Remove any fallbacks with weights lower than MIN_WEIGHT_FRACTION
@@ -905,9 +915,13 @@ class CandidateList(dict):
       s += '\n'
       # We must restrict the maximum fallback weight, so an adversary
       # at or near the fallback doesn't see too many clients
-      s += '#error Max Fallback Weight %.3f%% is too high. '%(max_frac*100)
-      s += 'Must be at most %.3f%% for client anonymity.'%(
-                                                TARGET_MAX_WEIGHT_FRACTION*100)
+      error_str  = 'Max Fallback Weight %.3f%% is too high. '%(max_frac*100)
+      error_str += 'Must be at most %.3f%% for client anonymity.'%(
+                                              TARGET_MAX_WEIGHT_FRACTION*100)
+      if STRICT_FALLBACK_WEIGHTS:
+        s += '#error ' + error_str
+      else:
+        s += '/* ' + error_str + ' */'
     return s
 
 ## Main Function
@@ -953,18 +967,23 @@ def list_fallbacks():
   # check we haven't exceeded TARGET_MAX_WEIGHT_FRACTION
   # since reweighting preserves the orginal sort order,
   # the maximum weights will be at the head of the list
-  max_weight_fb = candidates.fallback_max_weight()
-  max_weight = max_weight_fb.fallback_weight_fraction(total_weight)
-  if  max_weight > TARGET_MAX_WEIGHT_FRACTION:
-    raise Exception(
-    'Maximum fallback weight: %.3f%% exceeds target %.3f%%. '%(
+  if len(candidates.fallbacks) > 0:
+    max_weight_fb = candidates.fallback_max_weight()
+    max_weight = max_weight_fb.fallback_weight_fraction(total_weight)
+    if  max_weight > TARGET_MAX_WEIGHT_FRACTION:
+      error_str  = 'Maximum fallback weight: %.3f%% exceeds target %.3f%%. '%(
                                                     max_weight,
-                                                    TARGET_MAX_WEIGHT_FRACTION
-                                                    ) +
-    'Try decreasing REWEIGHTING_FUDGE_FACTOR.')
+                                                    TARGET_MAX_WEIGHT_FRACTION)
+      error_str += 'Try decreasing REWEIGHTING_FUDGE_FACTOR.'
+      if STRICT_FALLBACK_WEIGHTS:
+        s += '#error ' + error_str
+      else:
+        s += '/* ' + error_str + ' */'
 
-  print candidates.summarise_fallbacks(eligible_count, eligible_weight,
-                                       reduced, increased, excess)
+    print candidates.summarise_fallbacks(eligible_count, eligible_weight,
+                                         reduced, increased, excess)
+  else:
+    print '/* No Fallbacks met criteria */'
 
   for s in fetch_source_list():
     print describe_fetch_source(s)
