@@ -8,12 +8,12 @@
 # id
 # ipv6=<ipv6> and dirport from ipv4 entry
 # If dirport is not present, the entire IP address is blacklisted.
-#
-# The blacklist overrides the whitelist.
+# (The blacklist overrides the whitelist.)
 
 # If a relay operator never wants their relay to be a FallbackDir,
 # enter the following information here:
 # <ipv4>:<dirport> id=<id> [ ipv6=<ipv6> ]
+
 
 
 

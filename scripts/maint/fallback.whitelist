@@ -9,12 +9,12 @@
 # ipv6=<ipv6>
 # If the fallback has an ipv6 key, the whitelist line must also have
 # it, and vice versa, otherwise they don't match.
-#
-# The blacklist overrides the whitelist.
+# (The blacklist overrides the whitelist.)
 
 # If a relay operator wants their relay to be a FallbackDir,
 # enter the following information here:
 # <ipv4>:<dirport> id=<id> [ ipv6=<ipv6> ]
+
 
 
 
