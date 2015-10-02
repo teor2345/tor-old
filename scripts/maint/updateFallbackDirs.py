@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 # Usage: scripts/maint/updateFallbackDirs.py > src/or/fallback_dirs.inc
+#
 # Then read the generated list of string to ensure no-one slipped
 # anything funny into it
 
@@ -50,8 +51,8 @@ INCLUDE_UNLISTED_ENTRIES = False
 # When True, it is excluded, when False, it is included
 BLACKLIST_EXCLUDES_WHITELIST_ENTRIES = True
 
-WHITELIST_FILE_NAME = 'fallback.whitelist'
-BLACKLIST_FILE_NAME = 'fallback.blacklist'
+WHITELIST_FILE_NAME = 'scripts/maint/fallback.whitelist'
+BLACKLIST_FILE_NAME = 'scripts/maint/fallback.blacklist'
 
 # The number of bytes we'll read from a filter file before giving up
 MAX_LIST_FILE_SIZE = 1024 * 1024
@@ -829,6 +830,8 @@ class CandidateList(dict):
         comments start with # and are ignored """
     relaylist = []
     file_data = read_from_file(file_name, MAX_LIST_FILE_SIZE)
+    if file_data is None:
+      return relaylist
     for line in file_data.split('\n'):
       relay_entry = {}
       # ignore comments
