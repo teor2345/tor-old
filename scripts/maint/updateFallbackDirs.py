@@ -7,7 +7,7 @@
 # Script by weasel, April 2015
 # Portions by gsathya & karsten, 2013
 # https://trac.torproject.org/projects/tor/attachment/ticket/8374/dir_list.2.py
-# Modifications by teor, May-August 2015
+# Modifications by teor, May-October 2015
 
 import StringIO
 import string
@@ -71,7 +71,7 @@ PERMITTED_BADEXIT = .00
 # Limit the number of fallbacks (eliminating lowest by weight)
 MAX_FALLBACK_COUNT = 500
 # Emit a C #error if the number of fallbacks is below
-MIN_FALLBACK_COUNT = 100
+MIN_FALLBACK_COUNT = 10
 
 ## Target Fallback Weight Settings
 
@@ -84,18 +84,15 @@ STRICT_FALLBACK_WEIGHTS = False
 # * elimination of low weight relays
 # * consensus weight changes
 # * fallback directory losses over time
-# With 2 million users per day, a relay weighted at 1 in 50 fallbacks will
-# receive 40,000 requests per day, or about 1 request every two seconds.
-# It will see about 2% of clients.
-TARGET_MAX_WEIGHT_FRACTION = 1/50.0
+# A relay weighted at 1 in 20 fallbacks will see about 5% of clients that
+# use the fallback directories.
+TARGET_MAX_WEIGHT_FRACTION = 1/20.0
 REWEIGHTING_FUDGE_FACTOR = 0.8
 MAX_WEIGHT_FRACTION = TARGET_MAX_WEIGHT_FRACTION * REWEIGHTING_FUDGE_FACTOR
 # If a single fallback's weight is too low, it's pointless adding it.
 # (Final weights may be slightly higher than this, due to low weight relays
 # being excluded.)
-# With 2 million users per day, a relay weighted at 1 in 2000 fallbacks will
-# receive 1000 requests per day, or about 1 request every minute or two.
-# It will see less than 0.1% of clients.
+# A relay weighted at 1 in 2000 fallbacks will see about 0.05% of clients.
 MIN_WEIGHT_FRACTION = 1/2000.0
 
 ## Other Configuration Parameters
@@ -354,6 +351,7 @@ class Candidate(object):
 
     self._fpr = self._data['fingerprint']
     self._running = self._guard = self._v2dir = 0.
+    self._split_dirport()
     self._compute_orport()
     if self.orport is None:
       raise Exception("Failed to get an orport for %s."%(self._fpr,))
@@ -430,18 +428,23 @@ class Candidate(object):
 
     return True
 
+  def _split_dirport(self):
+    # Split the dir_address into dirip and dirport
+    (self.dirip, _dirport) = self._data['dir_address'].split(':', 2)
+    self.dirport = int(_dirport)
+
   def _compute_orport(self):
     # Choose the first ORPort that's on the same IPv4 address as the DirPort.
     # In rare circumstances, this might not be the primary ORPort address.
     # However, _stable_sort_or_addresses() ensures we choose the same one
     # every time, even if onionoo changes the order of the secondaries.
-    (diripaddr, dirport) = self._data['dir_address'].split(':', 2)
+    self._split_dirport()
     self.orport = None
     for i in self._data['or_addresses']:
       if i != self._data['or_addresses'][0]:
         logging.debug('Secondary IPv4 Address Used for %s: %s'%(self._fpr, i))
       (ipaddr, port) = i.rsplit(':', 1)
-      if (ipaddr == diripaddr) and Candidate.is_valid_ipv4_address(ipaddr):
+      if (ipaddr == self.dirip) and Candidate.is_valid_ipv4_address(ipaddr):
         self.orport = int(port)
         return
 
@@ -623,10 +626,64 @@ class Candidate(object):
       return False
     return True
 
-  def is_in_whitelist(self, whitelist):
-    return True
+  def is_in_whitelist(self, relaylist):
+    """ A fallback matches if each key in the whitelist line matches:
+          ipv4
+          dirport
+          id
+          ipv6 (if present)
+        If the fallback has an ipv6 key, the whitelist line must also have
+        it, and vice versa, otherwise they don't match. """
+    for entry in relaylist:
+      if entry['ipv4'] != self.dirip:
+        continue
+      if int(entry['dirport']) != self.dirport:
+        continue
+      if entry.has_key('ipv6') and self.ipv6addr is not None:
+        # if both entry and fallback have an ipv6 address, compare them
+        if entry['ipv6'] != self.ipv6addr:
+          continue
+      # if the fallback has an IPv6 address but the whitelist entry
+      # doesn't, or vice versa, the whitelist entry doesn't match
+      elif entry.has_key('ipv6') and self.ipv6addr is None:
+        continue
+      elif not entry.has_key('ipv6') and self.ipv6addr is not None:
+        continue
+      if  entry['id'] != self._fpr:
+        continue
+      return True
+    return False
 
-  def is_in_blacklist(self, blacklist):
+  def is_in_blacklist(self, relaylist):
+    """ A fallback matches a blacklist line if any of the following keys match:
+          ipv4 & dirport
+          id
+          ipv6 & dirport (if ipv6 present)
+        If the fallback and the blacklist line both have an ipv6 key,
+        their values will be compared, otherwise, they will be ignored.
+        If there is no dirport, the entry matches all relays on that ip. """
+    for entry in relaylist:
+      for key in entry:
+        value = entry[key]
+        if key == 'ipv4' and value == self.dirip:
+          # if the dirport is present, check it too
+          if entry.has_key('dirport'):
+            if int(entry['dirport']) == self.dirport:
+              return True
+          else:
+            return True
+        if key == 'ipv6' and self.ipv6addr is not None:
+        # if both entry and fallback have an ipv6 address, compare them,
+        # otherwise, ignore the fallback's ipv6 address
+          if value == self.ipv6addr:
+            # if the dirport is present, check it too
+            if entry.has_key('dirport'):
+              if int(entry['dirport']) == self.dirport:
+                return True
+            else:
+              return True
+        if key == 'id' and value == self._fpr:
+          return True
     return False
 
   def fallback_weight_fraction(self, total_weight):
@@ -750,20 +807,67 @@ class CandidateList(dict):
                       )
 
   @staticmethod
-  def load_whitelist(file_name):
-    return {}
-
-  @staticmethod
-  def load_blacklist(file_name):
-    return {}
+  def load_relaylist(file_name):
+    """ Read each line in the file, and parse it like a FallbackDir line:
+        an IPv4 address and optional port:
+          <IPv4 address>:<port>
+        which are parsed into dictionary entries:
+          ipv4=<IPv4 address>
+          dirport=<port>
+        followed by a series of key=value entries:
+          orport=<port>
+          id=<fingerprint>
+          ipv6=<IPv6 address>
+        each line's key/value pairs are placed in a dictonary,
+        (of string -> string key/value pairs),
+        and these dictionaries are placed in an array.
+        comments start with # and are ignored """
+    relaylist = []
+    file_data = read_from_file(file_name, MAX_LIST_FILE_SIZE)
+    for line in file_data.split('\n'):
+      relay_entry = {}
+      # ignore comments
+      line_comment_split = line.split('#')
+      line = line_comment_split[0]
+      # cleanup whitespace
+      line = cleanse_whitespace(line)
+      line = line.strip()
+      if len(line) == 0:
+        continue
+      for item in line.split(' '):
+        item = item.strip()
+        if len(item) == 0:
+          continue
+        key_value_split = item.split('=')
+        kvl = len(key_value_split)
+        if kvl < 1 or kvl > 2:
+          print '#error Bad %s item: %s, format is key=value.'%(
+                                                 file_name, item)
+        if kvl == 1:
+          # assume that entries without a key are the ipv4 address,
+          # perhaps with a dirport
+          ipv4_maybe_dirport = key_value_split[0]
+          ipv4_maybe_dirport_split = ipv4_maybe_dirport.split(':')
+          dirl = len(ipv4_maybe_dirport_split)
+          if dirl < 1 or dirl > 2:
+            print '#error Bad %s IPv4 item: %s, format is ipv4:port.'%(
+                                                        file_name, item)
+          if dirl >= 1:
+            relay_entry['ipv4'] = ipv4_maybe_dirport_split[0]
+          if dirl == 2:
+            relay_entry['dirport'] = ipv4_maybe_dirport_split[1]
+        elif kvl == 2:
+           relay_entry[key_value_split[0]] = key_value_split[1]
+      relaylist.append(relay_entry)
+    return relaylist
 
   # apply the fallback whitelist and blacklist
   def apply_filter_lists(self):
     excluded_count = 0
     logging.debug('Applying whitelist and blacklist.')
     # parse the whitelist and blacklist
-    whitelist = self.load_whitelist(WHITELIST_FILE_NAME)
-    blacklist = self.load_blacklist(BLACKLIST_FILE_NAME)
+    whitelist = self.load_relaylist(WHITELIST_FILE_NAME)
+    blacklist = self.load_relaylist(BLACKLIST_FILE_NAME)
     filtered_fallbacks = []
     for f in self.fallbacks:
       in_whitelist = f.is_in_whitelist(whitelist)
@@ -1024,9 +1128,9 @@ def list_fallbacks():
                                                     TARGET_MAX_WEIGHT_FRACTION)
       error_str += 'Try decreasing REWEIGHTING_FUDGE_FACTOR.'
       if STRICT_FALLBACK_WEIGHTS:
-        s += '#error ' + error_str
+        print '#error ' + error_str
       else:
-        s += '/* ' + error_str + ' */'
+        print '/* ' + error_str + ' */'
 
     print candidates.summarise_fallbacks(eligible_count, eligible_weight,
                                          reduced, increased, excess)

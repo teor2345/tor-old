@@ -1,17 +1,31 @@
 # updateFallbackDirs.py directory mirror whitelist
+#
 # Format:
 # IPv4:DirPort id=<id> [ ipv6=<IPv6> ]
-# (This may need to be modified for ed25519 keys or IPv6-only relays)
-# All attributes must match for the directory mirror to be included
-# (And it must not be included in the blacklist)
-# Any other text on the line is ignored when matching
-# This allows the format to be extended
+#
+# All attributes must match for the directory mirror to be included:
+# <ipv4>:<dirport>
+# id=<id>
+# ipv6=<ipv6>
+# If the fallback has an ipv6 key, the whitelist line must also have
+# it, and vice versa, otherwise they don't match.
+#
+# The blacklist overrides the whitelist.
+
+# If a relay operator wants their relay to be a FallbackDir,
+# enter the following information here:
+# <ipv4>:<dirport> id=<id> [ ipv6=<ipv6> ]
+
+
+
 
 # Sample entries only - whitelist consent not given:
-5.9.123.81:9030 id=E9C8154418544764619D2CCD0596B355D7DFF236 ipv6=[2a01:4f8:162:7345::2]
-124.6.36.230:80 id=B9B927347E005256D5D48007C38208FE8F7CC3BE
+#5.9.123.81:9030 id=E9C8154418544764619D2CCD0596B355D7DFF236 ipv6=[2a01:4f8:162:7345::2]
+#194.150.168.95:80 id=B486925DC901969CCE2B371E93740CF98C30539D
+
+# In both
+#124.6.36.230:80 id=B9B927347E005256D5D48007C38208FE8F7CC3BE
 
 # Test entries
-127.0.0.1:12345 id=0000000000000000000000000000000000000000
-127.0.0.1:12345 id=0000000000000000000000000000000000000000 extra stuff
-127.0.0.1:12345 id=0000000000000000000000000000000000000000 extra=stuff
+#127.0.0.1:12345 id=0000000000000000000000000000000000000000
+#127.0.0.1:12345 id=0000000000000000000000000000000000000000 extra=stuff
