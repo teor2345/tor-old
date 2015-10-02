@@ -580,6 +580,10 @@ GENERAL OPTIONS
     If 1, Tor will overwrite logs at startup and in response to a HUP signal,
     instead of appending to them. (Default: 0)
 
+[[SyslogIdentityTag]] **SyslogIdentityTag** __tag__::
+    When logging to syslog, adds a tag to the syslog identity such that
+    log entries are marked with "Tor-__tag__".  (Default: none)
+
 [[SafeLogging]] **SafeLogging** **0**|**1**|**relay**::
     Tor can scrub potentially sensitive strings from log messages (e.g.
     addresses) by replacing them with the string [scrubbed]. This way logs can
@@ -2080,6 +2084,13 @@ on the public Tor network.
     Authoritative directories only. If non-zero, this advertised capacity
     or more is always sufficient to satisfy the bandwidth requirement
     for the Guard flag. (Default: 250 KBytes)
+
+[[AuthDirPinKeys]] **AuthDirPinKeys** **0**|**1**::
+    Authoritative directories only. If non-zero, do not allow any relay to
+    publish a descriptor if any other relay has reserved its <Ed25519,RSA>
+    identity keypair. In all cases, Tor records every keypair it accepts
+    in a journal if it is new, or if it differs from the most recently
+    accepted pinning for one of the keys it contains. (Default: 0)
 
 [[BridgePassword]] **BridgePassword** __Password__::
     If set, contains an HTTP authenticator that tells a bridge authority to

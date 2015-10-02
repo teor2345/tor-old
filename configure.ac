@@ -3,7 +3,7 @@ dnl Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson
 dnl Copyright (c) 2007-2015, The Tor Project, Inc.
 dnl See LICENSE for licensing information
 
-AC_INIT([tor],[0.2.7.2-alpha-dev])
+AC_INIT([tor],[0.2.8.0-alpha-dev])
 AC_CONFIG_SRCDIR([src/or/main.c])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE
@@ -360,6 +360,7 @@ AC_SEARCH_LIBS(socket, [socket network])
 AC_SEARCH_LIBS(gethostbyname, [nsl])
 AC_SEARCH_LIBS(dlopen, [dl])
 AC_SEARCH_LIBS(inet_aton, [resolv])
+AC_SEARCH_LIBS(backtrace, [execinfo])
 saved_LIBS="$LIBS"
 AC_SEARCH_LIBS([clock_gettime], [rt])
 if test "$LIBS" != "$saved_LIBS"; then
@@ -372,10 +373,6 @@ AC_SEARCH_LIBS(pthread_detach, [pthread])
 
 AM_CONDITIONAL(THREADS_WIN32, test "$bwin32" = "true")
 AM_CONDITIONAL(THREADS_PTHREADS, test "$bwin32" = "false")
-
-dnl -------------------------------------------------------------------
-dnl Check for functions before libevent, since libevent-1.2 apparently
-dnl exports strlcpy without defining it in a header.
 
 AC_CHECK_FUNCS(
         _NSGetEnviron \
@@ -1647,9 +1644,6 @@ AC_CONFIG_FILES([
         src/config/torrc.minimal
         scripts/maint/checkOptionDocs.pl
         scripts/maint/updateVersions.pl
-        src/test/test_zero_length_keys.sh
-        src/test/test_ntor.sh
-        src/test/test_bt.sh
 ])
 
 if test x$asciidoc = xtrue && test "$ASCIIDOC" = "none" ; then
