@@ -27,6 +27,12 @@
 cscope.*
 # OSX junk
 *.dSYM
+# updateFallbackDirs.py temp files
+details-*.json
+uptime-*.json
+*.full_url
+*.last_modified
+
 
 # /
 /Makefile
@@ -115,11 +121,6 @@ cscope.*
 # /scripts
 /scripts/maint/checkOptionDocs.pl
 /scripts/maint/updateVersions.pl
-/scripts/maint/details-*
-/scripts/maint/uptime-*
-/scripts/maint/*.full_url
-/scripts/maint/*.json
-/scripts/maint/*.last_modified
 
 # /src/
 /src/Makefile
