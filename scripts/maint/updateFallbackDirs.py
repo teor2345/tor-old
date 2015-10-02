@@ -79,10 +79,12 @@ PERMITTED_BADEXIT = .00
 
 ## List Length Limits
 
+# The target for these parameters is 20% of the guards in the network
+# This is around 200 as of October 2015
 # Limit the number of fallbacks (eliminating lowest by weight)
-MAX_FALLBACK_COUNT = 500
+MAX_FALLBACK_COUNT = 100
 # Emit a C #error if the number of fallbacks is below
-MIN_FALLBACK_COUNT = 10
+MIN_FALLBACK_COUNT = 100
 
 ## Target Fallback Weight Settings
 
