@@ -35,7 +35,7 @@ ONIONOO = 'https://onionoo.torproject.org/'
 # even if they're very old
 LOCAL_FILES_ONLY = False
 
-## Whitelist / Blacklist Settings
+## Whitelist / Blacklist Filter Settings
 
 # The whitelist contains entries that are included if all attributes match
 # (IPv4, port, id, and optionally IPv6)
@@ -52,6 +52,9 @@ BLACKLIST_EXCLUDES_WHITELIST_ENTRIES = True
 
 WHITELIST_FILE_NAME = 'fallback.whitelist'
 BLACKLIST_FILE_NAME = 'fallback.blacklist'
+
+# The number of bytes we'll read from a filter file before giving up
+MAX_LIST_FILE_SIZE = 1024 * 1024
 
 ## Eligibility Settings
 
