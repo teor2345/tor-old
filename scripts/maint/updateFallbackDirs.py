@@ -78,7 +78,8 @@ MIN_FALLBACK_COUNT = 10
 
 ## Target Fallback Weight Settings
 
-# Emit a C #error if TARGET_MAX_WEIGHT_FRACTION can't be satisfied
+# If True, emit a C #error if we can't satisfy various constraints
+# If False, emit a C comment instead
 STRICT_FALLBACK_WEIGHTS = False
 
 # Limit the proportional weight
@@ -87,16 +88,17 @@ STRICT_FALLBACK_WEIGHTS = False
 # * elimination of low weight relays
 # * consensus weight changes
 # * fallback directory losses over time
-# A relay weighted at 1 in 5 fallbacks will see about 20% of clients that
-# use the fallback directories.
-TARGET_MAX_WEIGHT_FRACTION = 1/5.0
+# A relay weighted at 1 in 10 fallbacks will see about 10% of clients that
+# use the fallback directories. (The 9 directory authorities see a similar
+# proportion of clients.)
+TARGET_MAX_WEIGHT_FRACTION = 1/10.0
 REWEIGHTING_FUDGE_FACTOR = 0.8
 MAX_WEIGHT_FRACTION = TARGET_MAX_WEIGHT_FRACTION * REWEIGHTING_FUDGE_FACTOR
 # If a single fallback's weight is too low, it's pointless adding it.
 # (Final weights may be slightly higher than this, due to low weight relays
 # being excluded.)
-# A relay weighted at 1 in 100000 fallbacks will see about 0.0001% of clients.
-MIN_WEIGHT_FRACTION = 1/100000.0
+# A relay weighted at 1 in 1000 fallbacks will see about 0.1% of clients.
+MIN_WEIGHT_FRACTION = 1/1000.0
 
 ## Other Configuration Parameters
 
