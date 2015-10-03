@@ -31,6 +31,7 @@ logging.basicConfig(level=logging.INFO)
 ## OnionOO Settings
 
 ONIONOO = 'https://onionoo.torproject.org/'
+#ONIONOO = 'https://onionoo.thecthulhu.com/'
 
 # Don't bother going out to the Internet, just use the files available locally,
 # even if they're very old
