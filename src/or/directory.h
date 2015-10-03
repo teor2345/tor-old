@@ -38,6 +38,7 @@ typedef enum {
 } dir_indirection_t;
 
 void directory_initiate_command_routerstatus(const routerstatus_t *status,
+                                             int prefer_ipv6,
                                              uint8_t dir_purpose,
                                              uint8_t router_purpose,
                                              dir_indirection_t indirection,
@@ -46,6 +47,7 @@ void directory_initiate_command_routerstatus(const routerstatus_t *status,
                                              size_t payload_len,
                                              time_t if_modified_since);
 void directory_initiate_command_routerstatus_rend(const routerstatus_t *status,
+                                                  int prefer_ipv6,
                                                   uint8_t dir_purpose,
                                                   uint8_t router_purpose,
                                                  dir_indirection_t indirection,

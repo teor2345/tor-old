@@ -561,7 +561,8 @@ MOCK_IMPL(void, directory_get_from_dirserver, (uint8_t dir_purpose,
                                             router_purpose,
                                             indirection,
                                             resource, NULL, 0,
-                                            if_modified_since);
+                                            if_modified_since,
+                                            prefer_ipv6);
   } else {
     log_notice(LD_DIR,
                "While fetching directory info, "
@@ -610,6 +611,7 @@ dirind_is_anon(dir_indirection_t ind)
  * rendezvous data to fetch a hidden service descriptor. */
 void
 directory_initiate_command_routerstatus_rend(const routerstatus_t *status,
+                                             int prefer_ipv6,
                                              uint8_t dir_purpose,
                                              uint8_t router_purpose,
                                              dir_indirection_t indirection,
@@ -631,7 +633,12 @@ directory_initiate_command_routerstatus_rend(const routerstatus_t *status,
              routerstatus_describe(status));
     return;
   }
-  tor_addr_from_ipv4h(&addr, status->addr);
+
+  if (prefer_ipv6 && !tor_addr_is_null(&status->ipv6_addr)) {
+    tor_addr_copy(&addr, &status->ipv6_addr);
+  } else {
+    tor_addr_from_ipv4h(&addr, status->addr);
+  }
 
   if (options->ExcludeNodes && options->StrictNodes &&
       routerset_contains_routerstatus(options->ExcludeNodes, status, -1)) {
@@ -665,9 +672,16 @@ directory_initiate_command_routerstatus_rend(const routerstatus_t *status,
  *
  * When fetching a rendezvous descriptor, <b>resource</b> is the service ID we
  * want to fetch.
+ *
+ * We don't want to redownload descriptors unless they're been modified after
+ * <b>if_modified_since</b>.
+ *
+ * If <b>prefer_ipv6</b>, if the directory has an IPv4 and IPv6 address,
+ * connect to the IPv6 address.
  */
 void
 directory_initiate_command_routerstatus(const routerstatus_t *status,
+                                        int prefer_ipv6,
                                         uint8_t dir_purpose,
                                         uint8_t router_purpose,
                                         dir_indirection_t indirection,
@@ -676,7 +690,8 @@ directory_initiate_command_routerstatus(const routerstatus_t *status,
                                         size_t payload_len,
                                         time_t if_modified_since)
 {
-  directory_initiate_command_routerstatus_rend(status, dir_purpose,
+  directory_initiate_command_routerstatus_rend(status, prefer_ipv6,
+                                          dir_purpose,
                                           router_purpose,
                                           indirection, resource,
                                           payload, payload_len,
