@@ -746,11 +746,10 @@ update_consensus_networkstatus_downloads(time_t now)
   if (should_delay_dir_fetches(options, NULL))
     return;
 
-  int flavor = (we_use_microdescriptors_for_circuits(get_options()) ?
-                FLAV_MICRODESC : FLAV_NS);
-  networkstatus_t *b = networkstatus_get_reasonably_live_consensus(now,
-                                                                   flavor);
-  if (!b) {
+  networkstatus_t *l = networkstatus_get_reasonably_live_consensus(
+                                                  now,
+                                                  usable_consensus_flavor());
+  if (!l) {
     we_are_bootstrapping = 1;
   }
 
@@ -808,8 +807,8 @@ update_consensus_networkstatus_downloads(time_t now)
     log_info(LD_DIR, "Launching %s networkstatus consensus download.",
              networkstatus_get_flavor_name(i));
 
-    /** Schedule multiple connections */
-    if (we_are_bootstrapping) {
+    /** Schedule multiple connections for the flavor we'll use */
+    if (we_are_bootstrapping && i == usable_consensus_flavor()) {
       /* Schedule the next concurrent consensus download attempt based on
        * the mirror and authority schedules */
       static time_t next_authority_attempt_time = 0;
