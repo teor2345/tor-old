@@ -777,7 +777,7 @@ update_consensus_networkstatus_downloads(time_t now)
            DIR_PURPOSE_FETCH_CONSENSUS, resource, DIR_CONN_STATE_CONNECTING);
     if (connecting_consensus_conn_count < consensus_conn_count)
       continue; /* We have consensus connection exchanging data,
-                 * (that is, not just trying to connect),
+                 * (that is, it's successfully connected),
                  * so don't make another one. */
 
     waiting = &consensus_waiting_for_certs[i];
