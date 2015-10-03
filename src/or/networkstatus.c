@@ -746,11 +746,10 @@ update_consensus_networkstatus_downloads(time_t now)
   if (should_delay_dir_fetches(options, NULL))
     return;
 
-  int flavor = (we_use_microdescriptors_for_circuits(get_options()) ?
-                FLAV_MICRODESC : FLAV_NS);
-  networkstatus_t *b = networkstatus_get_reasonably_live_consensus(now,
-                                                                   flavor);
-  if (!b) {
+  const networkstatus_t *l = networkstatus_get_reasonably_live_consensus(
+                                                  now,
+                                                  usable_consensus_flavor());
+  if (!l) {
     we_are_bootstrapping = 1;
   }
 
@@ -780,16 +779,28 @@ update_consensus_networkstatus_downloads(time_t now)
     if (!download_status_is_ready(&consensus_dl_status[i], now,
                              options->TestingConsensusMaxDownloadTries))
       continue; /* We failed downloading a consensus too recently. */
-    int consensus_conn_count = connection_dir_count_by_purpose_and_resource(
-                                      DIR_PURPOSE_FETCH_CONSENSUS, resource);
-    if (consensus_conn_count >= options->TestingConsensusMaxInProgressTries)
-      continue; /* There are too many in-progress connections already.*/
-    int connecting_consensus_conn_count =
-      connection_dir_count_by_purpose_resource_and_state(
-           DIR_PURPOSE_FETCH_CONSENSUS, resource, DIR_CONN_STATE_CONNECTING);
-    if (connecting_consensus_conn_count < consensus_conn_count)
-      continue; /* We have consensus connection exchanging data,
+    if (connection_dir_count_by_purpose_and_resource(
+                                                  DIR_PURPOSE_FETCH_CONSENSUS,
+                                                  resource)
+        >= options->TestingConsensusMaxInProgressTries)
+      continue; /* There are too many in-progress connections already. */
+
+    int consensus_conn_flav_count =
+      connection_dir_count_by_purpose_resource_and_flavor(
+                                DIR_PURPOSE_FETCH_CONSENSUS,
+                                resource,
+                                usable_consensus_flavor());
+    int connecting_consensus_conn_flav_count =
+      connection_dir_count_by_purpose_resource_state_and_flavor(
+          DIR_PURPOSE_FETCH_CONSENSUS,
+          resource,
+          DIR_CONN_STATE_CONNECTING,
+          usable_consensus_flavor());
+    if (i == usable_consensus_flavor()
+        && connecting_consensus_conn_flav_count < consensus_conn_flav_count)
+      continue; /* We have a consensus connection exchanging data,
                  * (that is, it's successfully connected),
+                 * for the flavor we will use,
                  * so don't make another one. */
 
     waiting = &consensus_waiting_for_certs[i];
@@ -808,8 +819,8 @@ update_consensus_networkstatus_downloads(time_t now)
     log_info(LD_DIR, "Launching %s networkstatus consensus download.",
              networkstatus_get_flavor_name(i));
 
-    /** Schedule multiple connections */
-    if (we_are_bootstrapping) {
+    /** Schedule multiple connections for the flavor we'll use */
+    if (we_are_bootstrapping && i == usable_consensus_flavor()) {
       /* Schedule the next concurrent consensus download attempt based on
        * the mirror and authority schedules */
       static time_t next_authority_attempt_time = 0;
@@ -818,11 +829,20 @@ update_consensus_networkstatus_downloads(time_t now)
 
       int flags = PDS_RETRY_IF_NO_SERVERS;
 
+      /* work even if time is negative */
+      if (!next_authority_attempt_time) {
+        next_authority_attempt_time = now;
+      }
+
+      if (!next_mirror_attempt_time) {
+        next_authority_attempt_time = now;
+      }
+
       if (prefer_ipv6) {
         flags |= PDS_PREFER_IPv6;
       }
 
-      if (now > next_authority_attempt_time) {
+      if (now >= next_authority_attempt_time) {
         /* Try an authority*/
         directory_get_from_dirserver(DIR_PURPOSE_FETCH_CONSENSUS,
                                      ROUTER_PURPOSE_GENERAL, resource,
@@ -831,7 +851,7 @@ update_consensus_networkstatus_downloads(time_t now)
         next_authority_attempt_time = now + 5;
       }
 
-      if (now > next_mirror_attempt_time) {
+      if (now >= next_mirror_attempt_time) {
         directory_get_from_dirserver(DIR_PURPOSE_FETCH_CONSENSUS,
                                      ROUTER_PURPOSE_GENERAL, resource,
                                      flags, 0);

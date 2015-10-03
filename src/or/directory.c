@@ -3440,10 +3440,15 @@ connection_dir_finished_flushing(dir_connection_t *conn)
 }
 
 /** Connected handler for directory connections: begin sending data to the
- * server */
+ * server, and return 0, or, if the connection is an excess bootstrap
+ * connection, close all excess bootstrap connections. */
 int
 connection_dir_finished_connecting(dir_connection_t *conn)
 {
+  static int have_authority_clock_check = 0;
+  int we_are_bootstrapping = 0;
+  int we_have_excess_bootstrap_connections = 0;
+
   tor_assert(conn);
   tor_assert(conn->base_.type == CONN_TYPE_DIR);
   tor_assert(conn->base_.state == DIR_CONN_STATE_CONNECTING);
@@ -3451,8 +3456,93 @@ connection_dir_finished_connecting(dir_connection_t *conn)
   log_debug(LD_HTTP,"Dir connection to router %s:%u established.",
             conn->base_.address,conn->base_.port);
 
-  conn->base_.state = DIR_CONN_STATE_CLIENT_SENDING; /* start flushing conn */
-  return 0;
+  /* any directory connection to an authority will do for a clock check */
+  if (connection_is_to_authority(conn)) {
+    have_authority_clock_check = 1;
+  }
+
+  /* If we don't have a consensus, we must still be bootstrapping */
+  networkstatus_t *l = networkstatus_get_reasonably_live_consensus(
+                                                  time(NULL),
+                                                  usable_consensus_flavor());
+  if (!l) {
+    we_are_bootstrapping = 1;
+  }
+
+  /* During normal operation, Tor only makes one consensus download
+   * connection. If there are more than this, we must have connections left
+   * over from bootstrapping. However, some of the connections may have
+   * completed and been cleaned up, so this is not a sufficient check by
+   * itself. */
+  const int consensus_conn_flav_count =
+    connection_dir_count_by_purpose_resource_and_flavor(
+                                                DIR_PURPOSE_FETCH_CONSENSUS,
+                                                resource,
+                                                usable_consensus_flavor());
+  const int expected_consensus_conn_flav_count = 1;
+  if (consensus_conn_flav_count > expected_consensus_conn_flav_count) {
+    we_have_excess_bootstrap_connections = 1;
+  }
+
+  /* special handling for consensus connections during bootstrap */
+  if (conn->base_.purpose == DIR_PURPOSE_FETCH_CONSENSUS
+      && (we_are_bootstrapping || we_have_excess_bootstrap_connections)) {
+    const smartlist_t *connecting_consensus_flav_conns =
+      connection_dir_list_by_purpose_resource_state_and_flavor(
+                                                  DIR_PURPOSE_FETCH_CONSENSUS,
+                                                  resource,
+                                                  DIR_CONN_STATE_CONNECTING);
+    int is_usable_consensus_downloading = 0;
+
+    if (smartlist_len(connecting_consensus_flav_conns)
+        < consensus_conn_flav_count) {
+      is_usable_consensus_downloading = 1;
+    }
+
+    /* If we already have a consensus connection exchanging data, (that is,
+     * it's already successfully connected before this one), don't request data
+     * on this one, and close any other pending attempts.
+     * However, if we haven't contacted an authority this run, allow
+     * authority connections to connect, then close them all. */
+
+    /* this loop also closes the current connection if needed */
+    SMARTLIST_FOREACH_BEGIN(connecting_consensus_flav_conns,
+                            dir_connection_t *, d) {
+      /* don't close this connection if it's the first one to connect */
+      if (!is_usable_consensus_downloading && d == conn)
+        continue;
+      /* don't close connections for flavors we're just caching */
+      if (connection_dir_flavor(d) != usable_consensus_flavor())
+        continue;
+      /* don't close authority connections until we've done a clock check */
+      const int is_to_auth = connection_is_to_authority(d->base_);
+      if (!have_authority_clock_check && is_to_auth)
+        continue;
+      /* mark all other connections for close */
+      connection_close_immediate(&d->base_);
+      connection_mark_for_close(&d->base_);
+    } SMARTLIST_FOREACH_END(d);
+    /* make sure we've closed the current connection if we're already
+     * downloading a consensus */
+    tor_assert(!is_usable_consensus_downloading
+               || conn->base_.marked_for_close);
+    /* make sure we've closed all excess connections, unless we're trying
+     * to do an authority clock check */
+    tor_assert(!have_authority_clock_check ||
+               connection_dir_count_by_purpose_resource_state_and_flavor(
+                                              DIR_PURPOSE_FETCH_CONSENSUS,
+                                              resource,
+                                              DIR_CONN_STATE_CONNECTING,
+                                              usable_consensus_flavor())
+               <= expected_consensus_conn_flav_count);
+    smartlist_free(connecting_consensus_flav_conns);
+    /* we marked this connection for close because it's not needed */
+    return -1;
+  } else {
+    /* start flushing conn */
+    conn->base_.state = DIR_CONN_STATE_CLIENT_SENDING;
+    return 0;
+  }
 }
 
 /** Decide which download schedule we want to use based on descriptor type
