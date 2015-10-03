@@ -1588,14 +1588,22 @@ run_scheduled_events(time_t now)
   /* 2c. Every minute (or every second if TestingTorNetwork), check
    * whether we want to download any networkstatus documents. */
 
-/* How often do we check whether we should download network status
- * documents? */
-#define networkstatus_dl_check_interval(o) ((o)->TestingTorNetwork ? 1 : 60)
-
+  /* How often do we check whether we should download network status
+   * documents? */
+  const int we_are_bootstrapping = networkstatus_consensus_is_boostrapping(
+                                                                        now);
+  const int we_can_use_mirrors = networkstatus_consensus_can_use_fallbacks();
+  int networkstatus_dl_check_interval = 60;
+  /* check more often when testing, or when bootstrapping from mirrors
+   * (connection limits prevent too many connections being made) */
+  if (options->TestingTorNetwork
+      || (we_are_bootstrapping && we_can_use_mirrors)) {
+    networkstatus_dl_check_interval = 1;
+  }
   if (!should_delay_dir_fetches(options, NULL) &&
       time_to.download_networkstatus < now) {
     time_to.download_networkstatus =
-      now + networkstatus_dl_check_interval(options);
+      now + networkstatus_dl_check_interval;
     update_networkstatus_downloads(now);
   }
 

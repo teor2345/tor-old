@@ -1955,15 +1955,47 @@ typedef enum {
 } download_schedule_t;
 #define download_schedule_bitfield_t ENUM_BF(download_schedule_t)
 
+/** Enumeration: do we want to try an authority or a fallback directory
+ * mirror for our download? */
+typedef enum {
+  DL_WANT_FALLBACK = 0,
+  DL_WANT_AUTHORITY = 1,
+} download_want_authority_t;
+#define download_want_authority_bitfield_t \
+                                        ENUM_BF(download_want_authority_t)
+
+/** Enumeration: do we want to increment the schedule on (potentially
+ * concurrent) attempt or on failure? */
+typedef enum {
+  DL_SCHED_INCREMENT_FAILURE = 0,
+  DL_SCHED_INCREMENT_ATTEMPT = 1,
+} download_schedule_increment_t;
+#define download_schedule_increment_bitfield_t \
+                                        ENUM_BF(download_schedule_increment_t)
+
 /** Information about our plans for retrying downloads for a downloadable
  * object. */
 typedef struct download_status_t {
-  time_t next_attempt_at; /**< When should we try downloading this descriptor
+  time_t next_attempt_at; /**< When should we try downloading this object
                            * again? */
   uint8_t n_download_failures; /**< Number of failures trying to download the
-                                * most recent descriptor. */
-  download_schedule_bitfield_t schedule : 8;
-
+                                * most recent object since the last success. */
+  uint8_t n_download_attempts; /**< Number of (potentially concurrent) attempts
+                                * to download the most recent object,
+                                * since the last success.
+                                * Only used for concurrent download schedules.
+                                */
+  download_schedule_bitfield_t schedule : 8; /**< what kind of download
+                                              * schedule are we using for a
+                                              * given object? */
+  download_want_authority_bitfield_t want_authority : 1; /**< is this
+                                        * download schedule for authority
+                                        * downloads or fallback downloads? */
+  download_schedule_increment_bitfield_t increment_on_attempt : 1; /**< does
+                                          * this schedule increment on each
+                                          * attempt, or on each failure?
+                                          * This is significant for concurrent
+                                          * attempts. */
 } download_status_t;
 
 /** If n_download_failures is this high, the download can never happen. */
@@ -4060,6 +4092,21 @@ typedef struct {
    * on testing networks. */
   smartlist_t *TestingClientConsensusDownloadSchedule;
 
+  /** Schedule for when clients should download consensuses from authorities
+   * if they are bootstrapping (that is, they don't have a usable, reasonably
+   * live consensus).  This schedule is incremented by (potentially concurrent)
+   * connection attempts, unlike other schedules, which are incremented by
+   * connection failures.  Only altered on testing networks. */
+  smartlist_t *TestingClientBootstrapConsensusAuthorityDownloadSchedule;
+
+  /** Schedule for when clients should download consensuses from fallback
+   * directory mirrors if they are bootstrapping (that is, they don't have a
+   * usable, reasonably live consensus).  This schedule is incremented by
+   * (potentially concurrent) connection attempts, unlike other schedules,
+   * which are incremented by connection failures.  Only altered on testing
+   * networks. */
+  smartlist_t *TestingClientBootstrapConsensusFallbackDownloadSchedule;
+
   /** Schedule for when clients should download bridge descriptors.  Only
    * altered on testing networks. */
   smartlist_t *TestingBridgeDownloadSchedule;
@@ -4076,6 +4123,10 @@ typedef struct {
   /** How many times will we try to fetch a consensus before we give
    * up?  Only altered on testing networks. */
   int TestingConsensusMaxDownloadTries;
+
+  /** How many times will we try to fetch a consensus while bootstrapping,
+   * before we give up?  Only altered on testing networks. */
+  int TestingConsensusMaxBootstrapDownloadTries;
 
   /** How many simultaneous in-progress connections will we make when trying
    * to fetch a consensus before we wait for one to complete, timeout, or
