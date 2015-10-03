@@ -746,7 +746,11 @@ update_consensus_networkstatus_downloads(time_t now)
   if (should_delay_dir_fetches(options, NULL))
     return;
 
-  if (!current_consensus) {
+  int flavor = (we_use_microdescriptors_for_circuits(get_options()) ?
+                FLAV_MICRODESC : FLAV_NS);
+  networkstatus_t *b = networkstatus_get_reasonably_live_consensus(now,
+                                                                   flavor);
+  if (!b) {
     we_are_bootstrapping = 1;
   }
 
