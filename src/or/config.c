@@ -474,11 +474,18 @@ static config_var_t option_vars_[] = {
   V(TestingClientConsensusDownloadSchedule, CSV_INTERVAL, "0, 0, 60, "
                                  "300, 600, 1800, 3600, 3600, 3600, "
                                  "10800, 21600, 43200"),
+  V(TestingClientBootstrapConsensusAuthorityDownloadSchedule, CSV_INTERVAL,
+    "0, 10, 20, 40, 80, 160, 320, 640, 1280, 2560, 5120, 10240, 20480, "
+    "40960, 81920, 163840, 262800"),
+  V(TestingClientBootstrapConsensusFallbackDownloadSchedule, CSV_INTERVAL,
+    "0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, "
+    "32768, 65536, 131072, " /* skip 262144, */ "262800"),
   V(TestingBridgeDownloadSchedule, CSV_INTERVAL, "3600, 900, 900, 3600"),
   V(TestingClientMaxIntervalWithoutRequest, INTERVAL, "10 minutes"),
   V(TestingDirConnectionMaxStall, INTERVAL, "5 minutes"),
   V(TestingConsensusMaxDownloadTries, UINT, "8"),
-  V(TestingConsensusMaxInProgressTries, UINT, "10"),
+  V(TestingConsensusMaxBootstrapDownloadTries, UINT, "8"),
+  V(TestingConsensusMaxInProgressTries, UINT, "8"),
   V(TestingDescriptorMaxDownloadTries, UINT, "8"),
   V(TestingMicrodescMaxDownloadTries, UINT, "8"),
   V(TestingCertMaxDownloadTries, UINT, "8"),
@@ -525,11 +532,18 @@ static const config_var_t testing_tor_network_defaults[] = {
                                  "15, 20, 30, 60"),
   V(TestingClientConsensusDownloadSchedule, CSV_INTERVAL, "0, 0, 5, 10, "
                                  "15, 20, 30, 60"),
+  V(TestingClientBootstrapConsensusAuthorityDownloadSchedule, CSV_INTERVAL,
+    "0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, "
+    "8, 16, 32, 60"),
+  V(TestingClientBootstrapConsensusFallbackDownloadSchedule, CSV_INTERVAL,
+    "0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, "
+    "1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 4, 8, 16, 32, 60"),
   V(TestingBridgeDownloadSchedule, CSV_INTERVAL, "60, 30, 30, 60"),
   V(TestingClientMaxIntervalWithoutRequest, INTERVAL, "5 seconds"),
   V(TestingDirConnectionMaxStall, INTERVAL, "30 seconds"),
   V(TestingConsensusMaxDownloadTries, UINT, "80"),
-  V(TestingConsensusMaxInProgressTries, UINT, "20"),
+  V(TestingConsensusMaxBootstrapDownloadTries, UINT, "80"),
+  V(TestingConsensusMaxInProgressTries, UINT, "16"),
   V(TestingDescriptorMaxDownloadTries, UINT, "80"),
   V(TestingMicrodescMaxDownloadTries, UINT, "80"),
   V(TestingCertMaxDownloadTries, UINT, "80"),
@@ -3737,10 +3751,13 @@ options_validate(or_options_t *old_options, or_options_t *options,
   CHECK_DEFAULT(TestingClientDownloadSchedule);
   CHECK_DEFAULT(TestingServerConsensusDownloadSchedule);
   CHECK_DEFAULT(TestingClientConsensusDownloadSchedule);
+  CHECK_DEFAULT(TestingClientBootstrapConsensusAuthorityDownloadSchedule);
+  CHECK_DEFAULT(TestingClientBootstrapConsensusFallbackDownloadSchedule);
   CHECK_DEFAULT(TestingBridgeDownloadSchedule);
   CHECK_DEFAULT(TestingClientMaxIntervalWithoutRequest);
   CHECK_DEFAULT(TestingDirConnectionMaxStall);
   CHECK_DEFAULT(TestingConsensusMaxDownloadTries);
+  CHECK_DEFAULT(TestingConsensusMaxBootstrapDownloadTries);
   CHECK_DEFAULT(TestingConsensusMaxInProgressTries);
   CHECK_DEFAULT(TestingDescriptorMaxDownloadTries);
   CHECK_DEFAULT(TestingMicrodescMaxDownloadTries);
@@ -3819,6 +3836,13 @@ options_validate(or_options_t *old_options, or_options_t *options,
     REJECT("TestingConsensusMaxDownloadTries must be greater than 1.");
   } else if (options->TestingConsensusMaxDownloadTries > 800) {
     COMPLAIN("TestingConsensusMaxDownloadTries is insanely high.");
+  }
+
+  if (options->TestingConsensusMaxBootstrapDownloadTries < 2) {
+    REJECT("TestingConsensusMaxBootstrapDownloadTries must be greater than 1."
+           );
+  } else if (options->TestingConsensusMaxBootstrapDownloadTries > 800) {
+    COMPLAIN("TestingConsensusMaxBootstrapDownloadTries is insanely high.");
   }
 
   if (options->TestingConsensusMaxInProgressTries < 1) {

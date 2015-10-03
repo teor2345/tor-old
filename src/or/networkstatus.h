@@ -70,6 +70,8 @@ MOCK_DECL(networkstatus_t *,networkstatus_get_latest_consensus_by_flavor,
 networkstatus_t *networkstatus_get_live_consensus(time_t now);
 networkstatus_t *networkstatus_get_reasonably_live_consensus(time_t now,
                                                              int flavor);
+int networkstatus_consensus_is_boostrapping(time_t now);
+int networkstatus_consensus_can_use_fallbacks(void);
 
 #define NSSET_FROM_CACHE 1
 #define NSSET_WAS_WAITING_FOR_CERTS 2
