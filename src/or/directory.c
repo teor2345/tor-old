@@ -3499,7 +3499,7 @@ connection_dir_finished_connecting(dir_connection_t *conn)
     have_authority_clock_check = 1;
   }
 
-  /* if we don't have a consensus, we must still be bootstrapping */
+  /* If we don't have a consensus, we must still be bootstrapping */
   networkstatus_t *l = networkstatus_get_reasonably_live_consensus(
                                                   now,
                                                   usable_consensus_flavor());
@@ -3507,8 +3507,10 @@ connection_dir_finished_connecting(dir_connection_t *conn)
     we_were_bootstrapping = 1;
   }
 
-  /* If we are trying more connections than we expect (one per connection),
-   * we must have connections left over from bootstrapping. */
+  /* If we are trying more connections than we expect (one per desired flavor),
+   * we must have connections left over from bootstrapping.
+   * However, some of the flavors may have completed and been cleaned up,
+   * so this is not a perfect check. */
   int expected_c_conn_count = 0;
   for (i=0; i < N_CONSENSUS_FLAVORS; ++i) {
     if (we_want_to_fetch_flavor(options, i)) {

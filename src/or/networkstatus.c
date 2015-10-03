@@ -746,7 +746,7 @@ update_consensus_networkstatus_downloads(time_t now)
   if (should_delay_dir_fetches(options, NULL))
     return;
 
-  networkstatus_t *l = networkstatus_get_reasonably_live_consensus(
+  const networkstatus_t *l = networkstatus_get_reasonably_live_consensus(
                                                   now,
                                                   usable_consensus_flavor());
   if (!l) {
@@ -779,16 +779,28 @@ update_consensus_networkstatus_downloads(time_t now)
     if (!download_status_is_ready(&consensus_dl_status[i], now,
                              options->TestingConsensusMaxDownloadTries))
       continue; /* We failed downloading a consensus too recently. */
-    int consensus_conn_count = connection_dir_count_by_purpose_and_resource(
+    const int consensus_conn_count =
+      connection_dir_count_by_purpose_and_resource(
                                       DIR_PURPOSE_FETCH_CONSENSUS, resource);
     if (consensus_conn_count >= options->TestingConsensusMaxInProgressTries)
-      continue; /* There are too many in-progress connections already.*/
-    int connecting_consensus_conn_count =
-      connection_dir_count_by_purpose_resource_and_state(
-           DIR_PURPOSE_FETCH_CONSENSUS, resource, DIR_CONN_STATE_CONNECTING);
-    if (connecting_consensus_conn_count < consensus_conn_count)
+      continue; /* There are too many in-progress connections already. */
+
+    int consensus_conn_f_count =
+      connection_dir_count_by_purpose_resource_flavor(
+                                DIR_PURPOSE_FETCH_CONSENSUS,
+                                resource,
+                                usable_consensus_flavor());
+    int connecting_consensus_conn_f_count =
+      connection_dir_count_by_purpose_resource_state_flavor(
+          DIR_PURPOSE_FETCH_CONSENSUS,
+          resource,
+          DIR_CONN_STATE_CONNECTING,
+          usable_consensus_flavor());
+    if (i == usable_consensus_flavor()
+        && connecting_consensus_conn_f_count < consensus_conn_f_count)
       continue; /* We have a consensus connection exchanging data,
                  * (that is, it's successfully connected),
+                 * for the flavor we will use,
                  * so don't make another one. */
 
     waiting = &consensus_waiting_for_certs[i];
