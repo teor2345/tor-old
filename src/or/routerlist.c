@@ -4101,6 +4101,14 @@ dir_server_new(int is_authority,
   ent->fake_status.dir_port = ent->dir_port;
   ent->fake_status.or_port = ent->or_port;
 
+  tor_addr_copy(ent->fake_status.ipv6_addr, ent->ipv6_addr);
+  if (tor_addr_is_null(ipv6_addr)) {
+    ent->fake_status.ipv6_orport = 0;
+  } else {
+    /* assume the ORPort is the same on IPv4 and IPv6 */
+    ent->fake_status.ipv6_orport = ent->or_port;
+  }
+
   return ent;
 }
 
