@@ -768,9 +768,10 @@ update_consensus_networkstatus_downloads(time_t now)
     if (!download_status_is_ready(&consensus_dl_status[i], now,
                              options->TestingConsensusMaxDownloadTries))
       continue; /* We failed downloading a consensus too recently. */
-    if (connection_dir_get_by_purpose_and_resource(
-                                DIR_PURPOSE_FETCH_CONSENSUS, resource))
-      continue; /* There's an in-progress download.*/
+    if (connection_dir_count_by_purpose_and_resource(
+                                DIR_PURPOSE_FETCH_CONSENSUS, resource)
+        >= options->TestingConsensusMaxInProgressTries)
+      continue; /* There are too many in-progress downloads already.*/
 
     waiting = &consensus_waiting_for_certs[i];
     if (waiting->consensus) {
