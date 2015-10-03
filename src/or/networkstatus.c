@@ -788,7 +788,7 @@ update_consensus_networkstatus_downloads(time_t now)
       connection_dir_count_by_purpose_resource_and_state(
            DIR_PURPOSE_FETCH_CONSENSUS, resource, DIR_CONN_STATE_CONNECTING);
     if (connecting_consensus_conn_count < consensus_conn_count)
-      continue; /* We have consensus connection exchanging data,
+      continue; /* We have a consensus connection exchanging data,
                  * (that is, it's successfully connected),
                  * so don't make another one. */
 
