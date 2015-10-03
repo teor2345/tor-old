@@ -76,6 +76,8 @@ void directory_initiate_command(const tor_addr_t *addr,
                                 time_t if_modified_since);
 int directory_get_authority_clock_checked(void);
 void directory_set_authority_clock_checked(void);
+int connection_dir_consider_close_extra_consensus_conns(
+                                                      dir_connection_t *conn);
 
 #define DSR_HEX       (1<<0)
 #define DSR_BASE64    (1<<1)
