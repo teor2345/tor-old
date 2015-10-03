@@ -5708,10 +5708,10 @@ parse_dir_fallback_line(const char *line,
       ok = !base16_decode(id, DIGEST_LEN,
                           cp+strlen("id="), strlen(cp)-strlen("id="));
     } else if (!strcmpstart(cp, "weight=")) {
-      int ok;
+      int ok_weight;
       const char *wstring = cp + strlen("weight=");
-      weight = tor_parse_double(wstring, 0, UINT64_MAX, &ok, NULL);
-      if (!ok) {
+      weight = tor_parse_double(wstring, 0, UINT64_MAX, &ok_weight, NULL);
+      if (!ok_weight) {
         log_warn(LD_CONFIG, "Invalid weight '%s' on FallbackDir line.", cp);
         weight=1.0;
       }
