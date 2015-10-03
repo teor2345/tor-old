@@ -177,6 +177,12 @@ tor_addr_eq_ipv4h(const tor_addr_t *a, uint32_t u)
  * plus a terminating NUL.
  */
 #define TOR_ADDR_BUF_LEN 48
+/** Minimum length of a tor_addr_t.
+ * "[::]"
+ * "0.0.0.0"
+ * excluding the terminating NUL.
+ */
+#define TOR_ADDR_MIN_LEN 4
 
 int tor_addr_lookup(const char *name, uint16_t family, tor_addr_t *addr_out);
 char *tor_dup_addr(const tor_addr_t *addr) ATTR_MALLOC;
