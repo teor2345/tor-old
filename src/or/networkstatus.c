@@ -85,8 +85,10 @@ static time_t time_to_download_next_consensus[N_CONSENSUS_FLAVORS];
 /** Download status for the current consensus networkstatus. */
 static download_status_t consensus_dl_status[N_CONSENSUS_FLAVORS] =
   {
-    { 0, 0, DL_SCHED_CONSENSUS },
-    { 0, 0, DL_SCHED_CONSENSUS },
+    { 0, 0, 0, DL_SCHED_CONSENSUS, DL_WANT_FALLBACK,
+                                   DL_SCHED_INCREMENT_FAILURE },
+    { 0, 0, 0, DL_SCHED_CONSENSUS, DL_WANT_FALLBACK,
+                                   DL_SCHED_INCREMENT_FAILURE },
   };
 
 /** True iff we have logged a warning about this OR's version being older than
@@ -97,6 +99,7 @@ static int have_warned_about_old_version = 0;
 static int have_warned_about_new_version = 0;
 
 static void routerstatus_list_update_named_server_map(void);
+static void update_consensus_bootstrap_multiple_downloads(time_t now);
 
 /** Forget that we've warned about anything networkstatus-related, so we will
  * give fresh warnings if the same behavior happens again. */
@@ -741,12 +744,33 @@ update_consensus_networkstatus_downloads(time_t now)
 {
   int i;
   const or_options_t *options = get_options();
+  const int we_are_bootstrapping = networkstatus_consensus_is_boostrapping(
+                                                                        now);
+  /* Make relays use the authorities even when bootstrapping.
+   * Otherwise relays could bootstrap even if they have bad connectivity. */
+  const int prefer_mirrors = !directory_should_fetch_from_authorities(
+                                                                    options);
+
+  if (should_delay_dir_fetches(options, NULL))
+    return;
 
   for (i=0; i < N_CONSENSUS_FLAVORS; ++i) {
     /* XXXX need some way to download unknown flavors if we are caching. */
     const char *resource;
     consensus_waiting_for_certs_t *waiting;
     networkstatus_t *c;
+    int max_dl_tries = options->TestingConsensusMaxDownloadTries;
+    const int use_fallbacks =
+                    networkstatus_consensus_can_use_extra_fallbacks(options);
+    if (we_are_bootstrapping) {
+      if (use_fallbacks) {
+        max_dl_tries =
+        options->TestingClientBootstrapConsensusMaxDownloadTries;
+      } else {
+        max_dl_tries =
+        options->TestingClientBootstrapConsensusAuthorityOnlyMaxDownloadTries;
+      }
+    }
 
     if (! we_want_to_fetch_flavor(options, i))
       continue;
@@ -765,12 +789,39 @@ update_consensus_networkstatus_downloads(time_t now)
     /* Let's make sure we remembered to update consensus_dl_status */
     tor_assert(consensus_dl_status[i].schedule == DL_SCHED_CONSENSUS);
 
-    if (!download_status_is_ready(&consensus_dl_status[i], now,
-                             options->TestingConsensusMaxDownloadTries))
-      continue; /* We failed downloading a consensus too recently. */
-    if (connection_dir_get_by_purpose_and_resource(
-                                DIR_PURPOSE_FETCH_CONSENSUS, resource))
-      continue; /* There's an in-progress download.*/
+    /* Check if we failed downloading a consensus too recently.
+     * Try a little harder if we are bootstrapping */
+    if (we_are_bootstrapping && i == usable_consensus_flavor()) {
+      max_dl_tries = options->TestingClientBootstrapConsensusMaxDownloadTries;
+    }
+    if (!download_status_is_ready(&consensus_dl_status[i],
+                                  now,
+                                  max_dl_tries)) {
+      continue;
+    }
+
+    int consens_conn_count =
+      connection_dir_count_by_purpose_and_resource(
+                                                 DIR_PURPOSE_FETCH_CONSENSUS,
+                                                 resource);
+    int connect_consens_conn_count =
+      connection_dir_count_by_purpose_resource_and_state(
+                                                  DIR_PURPOSE_FETCH_CONSENSUS,
+                                                  resource,
+                                                  DIR_CONN_STATE_CONNECTING);
+
+    if (connection_dir_count_by_purpose_and_resource(
+                                                  DIR_PURPOSE_FETCH_CONSENSUS,
+                                                  resource)
+        >= options->TestingClientBootstrapConsensusMaxInProgressTries)
+      continue; /* There are too many in-progress connections already. */
+
+    if (i == usable_consensus_flavor()
+        && connect_consens_conn_count < consens_conn_count)
+      continue; /* We have a consensus connection exchanging data,
+                 * (that is, it's successfully connected),
+                 * for the flavor we will use,
+                 * so don't make another one. */
 
     waiting = &consensus_waiting_for_certs[i];
     if (waiting->consensus) {
@@ -785,14 +836,119 @@ update_consensus_networkstatus_downloads(time_t now)
       }
     }
 
-    log_info(LD_DIR, "Launching %s networkstatus consensus download.",
-             networkstatus_get_flavor_name(i));
+    if (we_are_bootstrapping && prefer_mirrors
+        && i == usable_consensus_flavor()) {
+      update_consensus_bootstrap_multiple_downloads(now);
+    } else {
+      /* Try the requested attempt */
+      log_info(LD_DIR, "Launching %s standard networkstatus consensus "
+               "download.", networkstatus_get_flavor_name(i));
+      directory_get_from_dirserver(DIR_PURPOSE_FETCH_CONSENSUS,
+                                   ROUTER_PURPOSE_GENERAL, resource,
+                                   PDS_RETRY_IF_NO_SERVERS,
+                                   consensus_dl_status[i].want_authority);
+    }
+  }
+}
+
+/** When we're bootstrapping, launch one or more consensus download
+ * connections, if schedule indicates connection(s) should be made after now.
+ * If is_authority, connect to an authority, otherwise, use a fallback
+ * directory mirror.
+ */
+static void
+update_consensus_bootstrap_launch_downloads(
+                                      time_t now,
+                                      download_status_t *schedule,
+                                      download_want_authority_t want_authority)
+{
+  const char *resource = networkstatus_get_flavor_name(
+                                                  usable_consensus_flavor());
+  int flags = PDS_RETRY_IF_NO_SERVERS;
+
+  while (now >= download_status_get_next_attempt_at(schedule)) {
+    log_info(LD_DIR, "Launching %s bootstrap %s networkstatus consensus "
+             "download.", resource, (want_authority == DL_WANT_AUTHORITY
+                                     ? "authority"
+                                     : "mirror"));
 
     directory_get_from_dirserver(DIR_PURPOSE_FETCH_CONSENSUS,
                                  ROUTER_PURPOSE_GENERAL, resource,
-                                 PDS_RETRY_IF_NO_SERVERS);
+                                 flags, (want_authority == DL_WANT_AUTHORITY
+                                         ? DL_WANT_AUTHORITY
+                                         : DL_WANT_FALLBACK));
+    /* schedule the next attempt */
+    download_status_increment_attempt(schedule, resource, 0, now);
   }
 }
+
+#define CBDS_N_SCHEDULE_ALTERNATIVES 2
+#define CBDS_SCHEDULE_AUTHORITY 0
+#define CBDS_SCHEDULE_FALLBACK  1
+
+/** If we're bootstrapping, check the connection schedules and see if we want
+ * to make additional, potentially concurrent, consensus download
+ * connections.
+ * Only call when bootstrapping, and when we want to make additional
+ * connections. Currently, only nodes that don't fetch from the authorities
+ * make additonal connections.
+ */
+static void
+update_consensus_bootstrap_multiple_downloads(time_t now)
+{
+  const or_options_t *options = get_options();
+
+  /* Using DL_SCHED_INCREMENT_ATTEMPT on these schedules means that
+   *  download_status_increment_failure won't increment these entries.
+   * However, any bootstrap connection failures that occur after we have
+   * a valid consensus will count against the standard schedule failure
+   * counts. There should only be one of these, as all the others will have
+   * been cancelled. (This doesn't seem to be a significant issue.) */
+  static download_status_t cbds[CBDS_N_SCHEDULE_ALTERNATIVES] =
+  {
+    { 0, 0, 0, DL_SCHED_CONSENSUS, DL_WANT_AUTHORITY,
+                                   DL_SCHED_INCREMENT_ATTEMPT },
+    { 0, 0, 0, DL_SCHED_CONSENSUS, DL_WANT_FALLBACK,
+                                   DL_SCHED_INCREMENT_ATTEMPT },
+  };
+
+  /* make sure we can use multiple connections */
+  if (!networkstatus_consensus_can_use_multiple_directories(options)) {
+    return;
+  }
+
+  /* If we've somehow managed to validate a usable consensus since we last
+   * checked, don't make additonal connections. */
+  if (!networkstatus_consensus_is_boostrapping(now)) {
+    return;
+  }
+
+  /* Launch concurrent consensus download attempt(s) based on the mirror and
+   * authority schedules. Loop to allow for multiple connections on 0, 0, ...
+   * Connect to the mirror first - this makes it slightly more likely that
+   * we'll avoid connecting to an authority. */
+
+  /* If we don't have or can't use extra fallbacks, don't try them. */
+  if (!networkstatus_consensus_can_use_extra_fallbacks(options)) {
+    update_consensus_bootstrap_launch_downloads(now,
+                                                &cbds[CBDS_SCHEDULE_FALLBACK],
+                                                DL_WANT_FALLBACK);
+  }
+
+  /* If we've somehow managed to validate a usable consensus since we last
+   * checked, don't try an authority. */
+  if (!networkstatus_consensus_is_boostrapping(now)) {
+    return;
+  }
+
+  update_consensus_bootstrap_launch_downloads(now,
+                                              &cbds[CBDS_SCHEDULE_AUTHORITY],
+                                              DL_WANT_AUTHORITY);
+}
+
+#undef UCBD_N_SCHEDULE_ALTERNATIVES
+#undef UCBD_SCHEDULE_AUTHORITY
+#undef UCBD_SCHEDULE_FALLBACK
 
 /** Called when an attempt to download a consensus fails: note that the
  * failure occurred, and possibly retry. */
@@ -1055,6 +1211,100 @@ networkstatus_get_reasonably_live_consensus(time_t now, int flavor)
     return consensus;
   else
     return NULL;
+}
+
+/** Check if we're bootstrapping a consensus download. This means that we are
+ *  only using the authorities and fallback directory mirrors to download the
+ * consensus flavour we'll use. */
+int
+networkstatus_consensus_is_boostrapping(time_t now)
+{
+  /* If we don't have a consensus, we must still be bootstrapping */
+  return !networkstatus_get_reasonably_live_consensus(
+                                                  now,
+                                                  usable_consensus_flavor());
+}
+
+/** Check if we can use multiple directories for a consensus download.
+ * Only clients (including bridges, but excluding bridge clients) benefit
+ * from multiple simultaneous consensus downloads. */
+int
+networkstatus_consensus_can_use_multiple_directories(
+                                                  const or_options_t *options)
+{
+  /* If we are a client, bridge, bridge client, or hidden service */
+  return (!directory_should_fetch_from_authorities(options));
+}
+
+/** Check if we can use fallback directory mirrors for a consensus download.
+ * Only clients that have a list of additional fallbacks can use fallbacks. */
+int
+networkstatus_consensus_can_use_extra_fallbacks(const or_options_t *options)
+{
+  /* If we are a client, and we have additional mirrors, we can use them.
+   * The list length comparisons are a quick way to check if we have any
+   * non-authority fallback directories. If we ever have any authorities that
+   * aren't fallback directories, we will need to change this code. */
+  return (!directory_should_fetch_from_authorities(options)
+          && (smartlist_len(router_get_fallback_dir_servers())
+              > smartlist_len(router_get_trusted_dir_servers())));
+}
+
+/* Check if there is more than 1 consensus connection retrieving the usable
+ * consensus flavor. If so, return 1, if not, return 0.
+ *
+ * During normal operation, Tor only makes one consensus download
+ * connection. But clients can make multiple simultaneous consensus
+ * connections to improve bootstrap speed and reliability.
+ *
+ * If there is more than one connection, we must have connections left
+ * over from bootstrapping. However, some of the connections may have
+ * completed and been cleaned up, so it is not sufficient to check the
+ * return value of this function to see if a client could make multiple
+ * bootstrap connections. Use
+ * networkstatus_consensus_can_use_multiple_directories()
+ * and networkstatus_consensus_is_boostrapping(). */
+int
+networkstatus_consensus_has_excess_connections(void)
+{
+  const char *usable_resource = networkstatus_get_flavor_name(
+                                                  usable_consensus_flavor());
+  const int consens_conn_usable_count =
+              connection_dir_count_by_purpose_and_resource(
+                                               DIR_PURPOSE_FETCH_CONSENSUS,
+                                               usable_resource);
+  /* The maximum number of connections we want downloading a usable consensus
+   * Always 1, whether bootstrapping or not. */
+  const int max_expected_consens_conn_usable_count = 1;
+
+  if (consens_conn_usable_count > max_expected_consens_conn_usable_count) {
+    return 1;
+  }
+
+  return 0;
+}
+
+/* Is tor currently downloading a consensus of the usable flavor? */
+int
+networkstatus_consensus_is_downloading_usable_flavor(void)
+{
+  const char *usable_resource = networkstatus_get_flavor_name(
+                                                  usable_consensus_flavor());
+  const int consens_conn_usable_count =
+              connection_dir_count_by_purpose_and_resource(
+                                               DIR_PURPOSE_FETCH_CONSENSUS,
+                                               usable_resource);
+
+  const int connect_consens_conn_usable_count =
+              connection_dir_count_by_purpose_resource_and_state(
+                                                DIR_PURPOSE_FETCH_CONSENSUS,
+                                                usable_resource,
+                                                DIR_CONN_STATE_CONNECTING);
+  if (connect_consens_conn_usable_count < consens_conn_usable_count) {
+    return 1;
+  }
+
+  return 0;
 }
 
 /** Given two router status entries for the same router identity, return 1 if

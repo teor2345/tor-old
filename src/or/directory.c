@@ -425,15 +425,18 @@ directory_pick_generic_dirserver(dirinfo_type_t type, int pds_flags,
  * Use <b>pds_flags</b> as arguments to router_pick_directory_server()
  * or router_pick_trusteddirserver().
  */
-MOCK_IMPL(void, directory_get_from_dirserver, (uint8_t dir_purpose,
-                                               uint8_t router_purpose,
-                                               const char *resource,
-                                               int pds_flags))
+MOCK_IMPL(void, directory_get_from_dirserver, (
+                            uint8_t dir_purpose,
+                            uint8_t router_purpose,
+                            const char *resource,
+                            int pds_flags,
+                            download_want_authority_t want_authority))
 {
   const routerstatus_t *rs = NULL;
   const or_options_t *options = get_options();
-  int prefer_authority = directory_fetches_from_authorities(options);
-  int require_authority = 0;
+  int prefer_authority = (directory_should_fetch_from_authorities(options)
+                          || want_authority == DL_WANT_AUTHORITY);
+  int require_authority = directory_must_fetch_from_authorities();
   int get_via_tor = purpose_needs_anonymity(dir_purpose, router_purpose);
   dirinfo_type_t type = dir_fetch_type(dir_purpose, router_purpose, resource);
   time_t if_modified_since = 0;
@@ -872,7 +875,7 @@ directory_command_should_use_begindir(const or_options_t *options,
     return 0;
   if (indirection == DIRIND_ONEHOP)
     if (!fascist_firewall_allows_address_or(addr, or_port) ||
-        directory_fetches_from_authorities(options))
+        directory_should_fetch_from_authorities(options))
       return 0; /* We're firewalled or are acting like a relay -- also no. */
   return 1;
 }
@@ -998,6 +1001,9 @@ directory_initiate_command_rend(const tor_addr_t *_addr,
         conn->base_.state = DIR_CONN_STATE_CLIENT_SENDING;
         /* fall through */
       case 0:
+        if (connection_dir_close_consensus_conn_if_extra(conn)) {
+          return;
+        }
         /* queue the command on the outbuf */
         directory_send_command(conn, dir_purpose, 1, resource,
                                payload, payload_len,
@@ -1039,6 +1045,9 @@ directory_initiate_command_rend(const tor_addr_t *_addr,
     if (connection_add(TO_CONN(conn)) < 0) {
       log_warn(LD_NET,"Unable to add connection for link to dirserver.");
       connection_mark_for_close(TO_CONN(conn));
+      return;
+    }
+    if (connection_dir_close_consensus_conn_if_extra(conn)) {
       return;
     }
     conn->base_.state = DIR_CONN_STATE_CLIENT_SENDING;
@@ -1655,19 +1664,24 @@ connection_dir_client_reached_eof(dir_connection_t *conn)
      * inaccurate if we spend a lot of time downloading.)
      */
     delta = conn->base_.timestamp_lastwritten - date_header;
+    int trusted = router_digest_is_trusted_dir(conn->identity_digest);
+    int fallback = (router_get_fallback_dirserver_by_digest(
+                                              conn->identity_digest) != NULL);
+
     if (labs(delta)>ALLOW_DIRECTORY_TIME_SKEW) {
       char dbuf[64];
-      int trusted = router_digest_is_trusted_dir(conn->identity_digest);
       format_time_interval(dbuf, sizeof(dbuf), delta);
-      log_fn(trusted ? LOG_WARN : LOG_INFO,
+      log_fn(trusted ? LOG_WARN : (fallback ? LOG_NOTICE : LOG_INFO),
              LD_HTTP,
-             "Received directory with skewed time (server '%s:%d'): "
-             "It seems that our clock is %s by %s, or that theirs is %s. "
+             "Received directory with skewed time (%s server '%s:%d'): "
+             "It seems that our clock is %s by %s, or that theirs is %s%s. "
              "Tor requires an accurate clock to work: please check your time, "
              "timezone, and date settings.",
+             trusted ? "authority" : (fallback ? "fallback" : "mirror"),
              conn->base_.address, conn->base_.port,
              delta>0 ? "ahead" : "behind", dbuf,
-             delta>0 ? "behind" : "ahead");
+             delta>0 ? "behind" : "ahead",
+             !trusted ? ", or they are sending us the wrong time" : "");
       skewed = 1; /* don't check the recommended-versions line */
       if (trusted)
         control_event_general_status(LOG_WARN,
@@ -3436,8 +3450,175 @@ connection_dir_finished_flushing(dir_connection_t *conn)
   return 0;
 }
 
+/* A helper function for connection_dir_close_consensus_conn_if_extra()
+ * and connection_dir_close_extra_consensus_conns() that returns 0 if
+ * we can't have, or don't want to close, excess consensus connections. */
+int
+connection_dir_would_close_consensus_conn_helper(void)
+{
+  const or_options_t *options = get_options();
+
+  /* we're only interested in closing excess connections if we could
+   * have created any in the first place */
+  if (!networkstatus_consensus_can_use_multiple_directories(options)) {
+    return 0;
+  }
+
+  /* We want to close excess connections downloading a consensus.
+   * If there aren't any excess, we don't have anything to close. */
+  if (!networkstatus_consensus_has_excess_connections()) {
+    return 0;
+  }
+
+  /* If we have excess connections, but none of them are downloading a
+   * consensus, and we are still bootstrapping (that is, we have no usable
+   * consensus), we don't want to close any until one starts downloading. */
+  if (!networkstatus_consensus_is_downloading_usable_flavor()
+      && networkstatus_consensus_is_boostrapping(time(NULL))) {
+    return 0;
+  }
+
+  /* If we have just stopped bootstrapping (that is, just parsed a consensus),
+   * we might still have some excess connections hanging around. So we still
+   * have to check, even if we've stopped bootstrapping. */
+
+  return 1;
+}
+
+/* check if we have excess consensus download connection attempts, and close
+ * conn:
+ * - if we don't have a consensus, and we're downloading a consensus, and conn
+ *   is not a connection downloading a consensus, close it;
+ * - if we do have a consensus, conn is excess, close it. */
+int
+connection_dir_close_consensus_conn_if_extra(dir_connection_t *conn)
+{
+  tor_assert(conn);
+  tor_assert(conn->base_.type == CONN_TYPE_DIR);
+
+  /* We're not interested in connections that aren't fetching a consensus. */
+  if (conn->base_.purpose != DIR_PURPOSE_FETCH_CONSENSUS) {
+    return 0;
+  }
+
+  /* The connection has already been closed */
+  if (conn->base_.marked_for_close) {
+    return 0;
+  }
+
+  if (!connection_dir_would_close_consensus_conn_helper()) {
+    return 0;
+  }
+
+  const int we_are_bootstrapping = networkstatus_consensus_is_boostrapping(
+                                                                  time(NULL));
+
+  /* We don't want to check other connections to see if they are downloading,
+   * as this is prone to race-conditions. So leave it for
+   * connection_dir_consider_close_extra_consensus_conns() to clean up.
+   *
+   * But if conn has just started connecting, or we have a consensus already,
+   * we can be sure it's not needed any more. */
+  if (!we_are_bootstrapping
+      || conn->base_.state == DIR_CONN_STATE_CONNECTING) {
+    connection_close_immediate(&conn->base_);
+    connection_mark_for_close(&conn->base_);
+    return -1;
+  }
+
+  return 0;
+}
+
+/* check if we have excess consensus download connection attempts, and close
+ * them:
+ * - if we don't have a consensus, and we're downloading a consensus, keep an
+ *   earlier connection, or a connection to a fallback directory, and close
+ *   all other connections;
+ * - if we do have a consensus, close all connections: they are all excess. */
+void
+connection_dir_close_extra_consensus_conns(void)
+{
+  if (!connection_dir_would_close_consensus_conn_helper()) {
+    return;
+  }
+
+  int we_are_bootstrapping = networkstatus_consensus_is_boostrapping(
+                                                                  time(NULL));
+
+  const char *usable_resource = networkstatus_get_flavor_name(
+                                                  usable_consensus_flavor());
+  smartlist_t *consens_usable_conns =
+                 connection_dir_list_by_purpose_and_resource(
+                                                  DIR_PURPOSE_FETCH_CONSENSUS,
+                                                  usable_resource);
+
+  /* If we want to keep a connection that's downloading, find a connection to
+   * keep, favouring:
+   * - connections opened earlier (they are likely to have progressed further)
+   * - connections to fallbacks (to reduce the load on authorities) */
+  dir_connection_t *kept_download_conn = NULL;
+  int kept_is_authority = 0;
+  if (we_are_bootstrapping) {
+    SMARTLIST_FOREACH_BEGIN(consens_usable_conns,
+                            dir_connection_t *, d) {
+      tor_assert(d);
+      int d_is_authority = router_digest_is_trusted_dir(d->identity_digest);
+      /* keep the first connection that is past the connecting state, but
+       * prefer fallbacks. */
+      if (d->base_.state != DIR_CONN_STATE_CONNECTING) {
+        if (!kept_download_conn || (kept_is_authority && !d_is_authority)) {
+          kept_download_conn = d;
+          kept_is_authority = d_is_authority;
+          /* we've found the earliest fallback, and want to keep it regardless
+           * of any other connections */
+          if (!kept_is_authority)
+            break;
+        }
+      }
+    } SMARTLIST_FOREACH_END(d);
+  }
+
+  SMARTLIST_FOREACH_BEGIN(consens_usable_conns,
+                          dir_connection_t *, d) {
+    tor_assert(d);
+    /* don't close this connection if it's the one we want to keep */
+    if (kept_download_conn && d == kept_download_conn)
+      continue;
+    /* mark all other connections for close */
+    if (!d->base_.marked_for_close) {
+      connection_close_immediate(&d->base_);
+      connection_mark_for_close(&d->base_);
+    }
+  } SMARTLIST_FOREACH_END(d);
+
+  smartlist_free(consens_usable_conns);
+  consens_usable_conns = NULL;
+
+  /* make sure we've closed all excess connections */
+  const int final_connecting_conn_count =
+              connection_dir_count_by_purpose_resource_and_state(
+                                                DIR_PURPOSE_FETCH_CONSENSUS,
+                                                usable_resource,
+                                                DIR_CONN_STATE_CONNECTING);
+  if (final_connecting_conn_count > 0) {
+    log_warn(LD_BUG, "Expected 0 consensus connections connecting after "
+             "cleanup, got %d.", final_connecting_conn_count);
+  }
+  const int expected_final_conn_count = (we_are_bootstrapping ? 1 : 0);
+  const int final_conn_count =
+              connection_dir_count_by_purpose_and_resource(
+                                                DIR_PURPOSE_FETCH_CONSENSUS,
+                                                usable_resource);
+  if (final_conn_count > expected_final_conn_count) {
+    log_warn(LD_BUG, "Expected %d consensus connections after cleanup, got "
+             "%d.", expected_final_conn_count, final_connecting_conn_count);
+  }
+}
+
 /** Connected handler for directory connections: begin sending data to the
- * server */
+ * server, and return 0, or, if the connection is an excess bootstrap
+ * connection, close all excess bootstrap connections.
+ * Only used when connections don't immediately connect. */
 int
 connection_dir_finished_connecting(dir_connection_t *conn)
 {
@@ -3448,31 +3629,62 @@ connection_dir_finished_connecting(dir_connection_t *conn)
   log_debug(LD_HTTP,"Dir connection to router %s:%u established.",
             conn->base_.address,conn->base_.port);
 
-  conn->base_.state = DIR_CONN_STATE_CLIENT_SENDING; /* start flushing conn */
+  if (connection_dir_close_consensus_conn_if_extra(conn)) {
+    return -1;
+  }
+
+  /* start flushing conn */
+  conn->base_.state = DIR_CONN_STATE_CLIENT_SENDING;
   return 0;
 }
 
 /** Decide which download schedule we want to use based on descriptor type
- * in <b>dls</b> and whether we are acting as directory <b>server</b>, and
- * then return a list of int pointers defining download delays in seconds.
- * Helper function for download_status_increment_failure() and
- * download_status_reset(). */
+ * in <b>dls</b> and whether we are acting as directory <b>server</b> and
+ * whether we <b>want_authority</b> download or a fallback download.
+ * Then return a list of int pointers defining download delays in seconds.
+ * Helper function for download_status_increment_failure(),
+ * download_status_reset(), and download_status_increment_attempt(). */
 static const smartlist_t *
-find_dl_schedule_and_len(download_status_t *dls, int server)
+find_dl_schedule_and_len(download_status_t *dls,
+                         int server)
 {
+  const or_options_t *o = get_options();
+  const int we_are_bootstrapping = networkstatus_consensus_is_boostrapping(
+                                                                  time(NULL));
+  const int multi_c = networkstatus_consensus_can_use_multiple_directories(o);
+  const int use_fallbacks = networkstatus_consensus_can_use_extra_fallbacks(o);
+
   switch (dls->schedule) {
     case DL_SCHED_GENERIC:
-      if (server)
-        return get_options()->TestingServerDownloadSchedule;
-      else
-        return get_options()->TestingClientDownloadSchedule;
+      if (server) {
+        return o->TestingServerDownloadSchedule;
+      } else {
+        return o->TestingClientDownloadSchedule;
+      }
     case DL_SCHED_CONSENSUS:
-      if (server)
-        return get_options()->TestingServerConsensusDownloadSchedule;
-      else
-        return get_options()->TestingClientConsensusDownloadSchedule;
+      if (!multi_c) {
+        return o->TestingServerConsensusDownloadSchedule;
+      } else {
+        if (we_are_bootstrapping) {
+          if (!use_fallbacks) {
+            /* A bootstrapping client without extra fallback directories */
+            return
+               o->TestingClientBootstrapConsensusAuthorityOnlyDownloadSchedule;
+          } else if (dls->want_authority) {
+            /* A bootstrapping client with extra fallback directories, but
+             * connecting to an authority */
+            return o->TestingClientBootstrapConsensusAuthorityDownloadSchedule;
+          } else {
+            /* A bootstrapping client connecting to extra fallback directories
+             */
+            return o->TestingClientBootstrapConsensusFallbackDownloadSchedule;
+          }
+        } else {
+          return o->TestingClientConsensusDownloadSchedule;
+        }
+      }
     case DL_SCHED_BRIDGE:
-      return get_options()->TestingBridgeDownloadSchedule;
+      return o->TestingBridgeDownloadSchedule;
     default:
       tor_assert(0);
   }
@@ -3481,27 +3693,20 @@ find_dl_schedule_and_len(download_status_t *dls, int server)
   return NULL;
 }
 
-/** Called when an attempt to download <b>dls</b> has failed with HTTP status
- * <b>status_code</b>.  Increment the failure count (if the code indicates a
- * real failure) and set <b>dls</b>-\>next_attempt_at to an appropriate time
- * in the future. */
-time_t
-download_status_increment_failure(download_status_t *dls, int status_code,
-                                  const char *item, int server, time_t now)
+/* Increment dls according to its schedule and dls_n_download_increments.
+ * Helper for download_status_increment_failure and
+ * download_status_increment_attempt. */
+static int
+download_status_increment_helper(download_status_t *dls, int server,
+                                 uint8_t dls_n_download_increments,
+                                 time_t now)
 {
-  const smartlist_t *schedule;
+  const smartlist_t *schedule = find_dl_schedule_and_len(dls, server);
   int increment;
-  tor_assert(dls);
-  if (status_code != 503 || server) {
-    if (dls->n_download_failures < IMPOSSIBLE_TO_DOWNLOAD-1)
-      ++dls->n_download_failures;
-  }
 
-  schedule = find_dl_schedule_and_len(dls, server);
-
-  if (dls->n_download_failures < smartlist_len(schedule))
-    increment = *(int *)smartlist_get(schedule, dls->n_download_failures);
-  else if (dls->n_download_failures == IMPOSSIBLE_TO_DOWNLOAD)
+  if (dls_n_download_increments < smartlist_len(schedule))
+    increment = *(int *)smartlist_get(schedule, dls_n_download_increments);
+  else if (dls_n_download_increments == IMPOSSIBLE_TO_DOWNLOAD)
     increment = INT_MAX;
   else
     increment = *(int *)smartlist_get(schedule, smartlist_len(schedule) - 1);
@@ -3511,19 +3716,117 @@ download_status_increment_failure(download_status_t *dls, int status_code,
   else
     dls->next_attempt_at = TIME_MAX;
 
+  return increment;
+}
+
+/* Log a debug message about item, which increments on increment_action, has
+ * incremented dls_n_download_increments times. The message varies based on
+ * was_schedule_incremented (if not, not_incremented_response is logged), and
+ * the values of increment, dls_next_attempt_at, and now.
+ * Helper for download_status_increment_failure and
+ * download_status_increment_attempt. */
+static void
+download_status_log_helper(const char *item, int was_schedule_incremented,
+                           const char *increment_action,
+                           const char *not_incremented_response,
+                           uint8_t dls_n_download_increments, int increment,
+                           time_t dls_next_attempt_at, time_t now)
+{
   if (item) {
-    if (increment == 0)
-      log_debug(LD_DIR, "%s failed %d time(s); I'll try again immediately.",
-                item, (int)dls->n_download_failures);
-    else if (dls->next_attempt_at < TIME_MAX)
-      log_debug(LD_DIR, "%s failed %d time(s); I'll try again in %d seconds.",
-                item, (int)dls->n_download_failures,
-                (int)(dls->next_attempt_at-now));
+    if (!was_schedule_incremented)
+      log_debug(LD_DIR, "%s %s %d time(s); I'll try again %s.",
+                item, increment_action, (int)dls_n_download_increments,
+                not_incremented_response);
+    else if (increment == 0)
+      log_debug(LD_DIR, "%s %s %d time(s); I'll try again immediately.",
+                item, increment_action, (int)dls_n_download_increments);
+    else if (dls_next_attempt_at < TIME_MAX)
+      log_debug(LD_DIR, "%s %s %d time(s); I'll try again in %d seconds.",
+                item, increment_action, (int)dls_n_download_increments,
+                (int)(dls_next_attempt_at-now));
     else
-      log_debug(LD_DIR, "%s failed %d time(s); Giving up for a while.",
-                item, (int)dls->n_download_failures);
+      log_debug(LD_DIR, "%s %s %d time(s); Giving up for a while.",
+                item, increment_action, (int)dls_n_download_increments);
   }
-  return dls->next_attempt_at;
+}
+
+/** Called when an attempt to download <b>dls</b> has failed with HTTP status
+ * <b>status_code</b>.  Increment the failure count (if the code indicates a
+ * real failure) and set <b>dls</b>-\>next_attempt_at to an appropriate time
+ * in the future and return it.
+ * If <b>dls->increment_on_attempt</b>, don't increment, and return a time
+ * in the far future for the next attempt (to avoid an immediate retry on
+ * failure), and count the failure. */
+time_t
+download_status_increment_failure(download_status_t *dls, int status_code,
+                                  const char *item, int server, time_t now)
+{
+  int increment = -1;
+  tor_assert(dls);
+
+  /* Always count the failure */
+  if (status_code != 503 || server) {
+    if (dls->n_download_failures < IMPOSSIBLE_TO_DOWNLOAD-1)
+      ++dls->n_download_failures;
+  }
+
+  /* only return a failure retry time if this schedule increments on failures
+   */
+  if (!dls->increment_on_attempt) {
+    increment = download_status_increment_helper(dls,
+                                                 server,
+                                                 dls->n_download_failures,
+                                                 now);
+  }
+
+  download_status_log_helper(item, !dls->increment_on_attempt, "failed",
+                             "concurrently", dls->n_download_failures,
+                             increment, dls->next_attempt_at, now);
+
+  if (dls->increment_on_attempt) {
+    /* stop this schedule retrying on failure, it will launch concurrent
+     * connections instead */
+    return TIME_MAX;
+  } else {
+    return dls->next_attempt_at;
+  }
+}
+
+/** Called when an attempt to download <b>dls</b> is being initiated.
+ * Increment the attempt count and set <b>dls</b>-\>next_attempt_at to an
+ * appropriate time in the future and return it.
+ * If <b>!dls->increment_on_attempt</b>, don't increment, and return a time
+ * in the far future for the next attempt (to avoid concurrent attempts). */
+time_t
+download_status_increment_attempt(download_status_t *dls, const char *item,
+                                  int server, time_t now)
+{
+  int increment = -1;
+  tor_assert(dls);
+
+  /* always count the attempt */
+  ++dls->n_download_attempts;
+
+  /* only return a concurrent attempt time if this schedule increments on
+   * attempts */
+  if (dls->increment_on_attempt) {
+    increment = download_status_increment_helper(dls,
+                                                 server,
+                                                 dls->n_download_attempts,
+                                                 now);
+  }
+
+  download_status_log_helper(item, dls->increment_on_attempt, "attempted",
+                             "on failure", dls->n_download_attempts,
+                             increment, dls->next_attempt_at, now);
+
+  if (!dls->increment_on_attempt) {
+    /* stop this schedule launching concurrent connections, it will retry on
+     * failure instead */
+    return TIME_MAX;
+  } else {
+    return dls->next_attempt_at;
+  }
 }
 
 /** Reset <b>dls</b> so that it will be considered downloadable
@@ -3544,7 +3847,9 @@ download_status_reset(download_status_t *dls)
                           dls, get_options()->DirPort_set);
 
   dls->n_download_failures = 0;
+  dls->n_download_attempts = 0;
   dls->next_attempt_at = time(NULL) + *(int *)smartlist_get(schedule, 0);
+  /* Don't reset dls->want_authority or dls->increment_on_attempt */
 }
 
 /** Return the number of failures on <b>dls</b> since the last success (if
@@ -3553,6 +3858,22 @@ int
 download_status_get_n_failures(const download_status_t *dls)
 {
   return dls->n_download_failures;
+}
+
+/** Return the number of attempts to download <b>dls</b> since the last success
+ * (if any). This can differ from download_status_get_n_failures() due to
+ * outstanding concurrent attempts. */
+int
+download_status_get_n_attempts(const download_status_t *dls)
+{
+  return dls->n_download_attempts;
+}
+
+/** Return the next time to attempt to download <b>dls</b>. */
+time_t
+download_status_get_next_attempt_at(const download_status_t *dls)
+{
+  return dls->next_attempt_at;
 }
 
 /** Called when one or more routerdesc (or extrainfo, if <b>was_extrainfo</b>)
@@ -3567,7 +3888,7 @@ dir_routerdesc_download_failed(smartlist_t *failed, int status_code,
 {
   char digest[DIGEST_LEN];
   time_t now = time(NULL);
-  int server = directory_fetches_from_authorities(get_options());
+  int server = directory_should_fetch_from_authorities(get_options());
   if (!was_descriptor_digests) {
     if (router_purpose == ROUTER_PURPOSE_BRIDGE) {
       tor_assert(!was_extrainfo);
@@ -3612,7 +3933,7 @@ dir_microdesc_download_failed(smartlist_t *failed,
   routerstatus_t *rs;
   download_status_t *dls;
   time_t now = time(NULL);
-  int server = directory_fetches_from_authorities(get_options());
+  int server = directory_should_fetch_from_authorities(get_options());
 
   if (! consensus)
     return;

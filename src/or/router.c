@@ -1781,9 +1781,9 @@ router_get_my_descriptor(void)
   const char *body;
   if (!router_get_my_routerinfo())
     return NULL;
-  /* Make sure this is nul-terminated. */
   tor_assert(desc_routerinfo->cache_info.saved_location == SAVED_NOWHERE);
   body = signed_descriptor_get_body(&desc_routerinfo->cache_info);
+  /* Make sure this is nul-terminated. */
   tor_assert(!body[desc_routerinfo->cache_info.signed_descriptor_len]);
   log_debug(LD_GENERAL,"my desc is '%s'", body);
   return body;
@@ -2242,11 +2242,11 @@ check_descriptor_ipaddress_changed(time_t now)
 
   (void) now;
 
-  if (!desc_routerinfo)
+  if (!router_get_my_routerinfo())
     return;
 
   /* XXXX ipv6 */
-  prev = desc_routerinfo->addr;
+  prev = router_get_my_routerinfo()->addr;
   if (resolve_my_address(LOG_INFO, options, &cur, &method, &hostname) < 0) {
     log_info(LD_CONFIG,"options->Address didn't resolve into an IP.");
     return;
