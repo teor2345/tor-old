@@ -193,8 +193,7 @@ connection_t *connection_get_by_type_state(int type, int state);
 connection_t *connection_get_by_type_state_rendquery(int type, int state,
                                                      const char *rendquery);
 dir_connection_t *connection_dir_get_by_purpose_and_resource(
-                                           int state, const char *resource);
-
+                                           int purpose, const char *resource);
 int any_other_active_or_conns(const or_connection_t *this_conn);
 
 /* || 0 is for -Wparentheses-equality (-Wall?) appeasement under clang */
@@ -236,6 +235,32 @@ void connection_buckets_note_empty_ts(uint32_t *timestamp_var,
                                       size_t tokens_removed,
                                       const struct timeval *tvnow);
 #endif
+
+/** Return a count of directory connections that are fetching the item
+ * described by <b>purpose</b>/<b>resource</b>. */
+static INLINE int
+connection_dir_count_by_purpose_and_resource(
+                                            int purpose, const char *resource)
+{
+  smartlist_t *conns = connection_dir_list_by_purpose_and_resource(
+                                                          purpose, resource);
+  int count = smartlist_len(conns);
+  free(conns);
+  return count;
+}
+
+/** Return a count of directory connections in <b>state</b> that are fetching
+ * the item described by <b>purpose</b>/<b>resource</b>. */
+static INLINE int
+connection_dir_count_by_purpose_resource_and_state(
+                              int purpose, const char *resource, int state)
+{
+  smartlist_t *conns = connection_dir_list_by_purpose_resource_and_state(
+                                                  purpose, resource, state);
+  int count = smartlist_len(conns);
+  free(conns);
+  return count;
+}
 
 #endif
 

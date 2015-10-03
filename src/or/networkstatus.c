@@ -771,7 +771,6 @@ update_consensus_networkstatus_downloads(time_t now)
     if (connection_dir_get_by_purpose_and_resource(
                                 DIR_PURPOSE_FETCH_CONSENSUS, resource))
       continue; /* There's an in-progress download.*/
-
     waiting = &consensus_waiting_for_certs[i];
     if (waiting->consensus) {
       /* XXXX make sure this doesn't delay sane downloads. */

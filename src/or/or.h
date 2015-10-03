@@ -5001,6 +5001,8 @@ typedef struct dir_server_t {
   char *nickname;
   char *address; /**< Hostname. */
   uint32_t addr; /**< IPv4 address. */
+  tor_addr_t ipv6_addr; /**< IPv6 address (if present, otherwise
+                        * tor_addr_is_null(&ipv6_addr). */
   uint16_t dir_port; /**< Directory port. */
   uint16_t or_port; /**< OR port: Used for tunneling connections. */
   double weight; /** Weight used when selecting this node at random */

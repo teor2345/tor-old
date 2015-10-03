@@ -4039,7 +4039,8 @@ dir_server_new(int is_authority,
                uint16_t dir_port, uint16_t or_port,
                const char *digest, const char *v3_auth_digest,
                dirinfo_type_t type,
-               double weight)
+               double weight,
+               tor_addr_t *ipv6_addr)
 {
   dir_server_t *ent;
   uint32_t a;
@@ -4051,7 +4052,7 @@ dir_server_new(int is_authority,
   if (tor_addr_family(addr) == AF_INET)
     a = tor_addr_to_ipv4h(addr);
   else
-    return NULL; /*XXXX Support IPv6 */
+    return NULL;
 
   if (!hostname)
     hostname_ = tor_dup_addr(addr);
@@ -4072,6 +4073,17 @@ dir_server_new(int is_authority,
   if (v3_auth_digest && (type & V3_DIRINFO))
     memcpy(ent->v3_identity_digest, v3_auth_digest, DIGEST_LEN);
 
+  tor_addr_make_null(&ent->ipv6_addr, AF_INET6);
+  if (ipv6_addr && tor_addr_family(ipv6_addr) == AF_INET6
+      && !tor_addr_is_null(ipv6_addr)) {
+    tor_addr_copy(&ent->ipv6_addr, ipv6_addr);
+  } else if (ipv6_addr && tor_addr_family(ipv6_addr) != AF_INET6) {
+    /* We got passed a non-IPv6 address */
+    char addr6[TOR_ADDR_BUF_LEN];
+    tor_addr_to_str(addr6, ipv6_addr, TOR_ADDR_BUF_LEN, 1);
+    log_warn(LD_DIRSERV, "Bad IPv6 address: %s", addr6);
+  }
+
   if (nickname)
     tor_asprintf(&ent->description, "directory server \"%s\" at %s:%d",
                  nickname, hostname, (int)dir_port);
@@ -4089,6 +4101,14 @@ dir_server_new(int is_authority,
   ent->fake_status.dir_port = ent->dir_port;
   ent->fake_status.or_port = ent->or_port;
 
+  tor_addr_copy(ent->fake_status.ipv6_addr, ent->ipv6_addr);
+  if (tor_addr_is_null(ipv6_addr)) {
+    ent->fake_status.ipv6_orport = 0;
+  } else {
+    /* assume the ORPort is the same on IPv4 and IPv6 */
+    ent->fake_status.ipv6_orport = ent->or_port;
+  }
+
   return ent;
 }
 
@@ -4100,7 +4120,8 @@ dir_server_t *
 trusted_dir_server_new(const char *nickname, const char *address,
                        uint16_t dir_port, uint16_t or_port,
                        const char *digest, const char *v3_auth_digest,
-                       dirinfo_type_t type, double weight)
+                       dirinfo_type_t type, double weight,
+                       tor_addr_t *ipv6_addr)
 {
   uint32_t a;
   tor_addr_t addr;
@@ -4130,21 +4151,24 @@ trusted_dir_server_new(const char *nickname, const char *address,
 
   result = dir_server_new(1, nickname, &addr, hostname,
                           dir_port, or_port, digest,
-                          v3_auth_digest, type, weight);
+                          v3_auth_digest, type, weight,
+                          ipv6_addr);
   tor_free(hostname);
   return result;
 }
 
 /** Return a new dir_server_t for a fallback directory server at
  * <b>addr</b>:<b>or_port</b>/<b>dir_port</b>, with identity key digest
- * <b>id_digest</b> */
+ * <b>id_digest</b>, and optionally: weight <b>weight</b>,
+ * and IPv6 address <b>ipv6_addr</b>/ */
 dir_server_t *
 fallback_dir_server_new(const tor_addr_t *addr,
                         uint16_t dir_port, uint16_t or_port,
-                        const char *id_digest, double weight)
+                        const char *id_digest, double weight,
+                        tor_addr_t *ipv6_addr)
 {
   return dir_server_new(0, NULL, addr, NULL, dir_port, or_port, id_digest,
-                        NULL, ALL_DIRINFO, weight);
+                        NULL, ALL_DIRINFO, weight, ipv6_addr);
 }
 
 /** Add a directory server to the global list(s). */
