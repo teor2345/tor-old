@@ -4077,6 +4077,11 @@ typedef struct {
    * up?  Only altered on testing networks. */
   int TestingConsensusMaxDownloadTries;
 
+  /** How many simultaneous in-progress connections will we make when trying
+   * to fetch a consensus before we wait for one to complete, timeout, or
+   * error out?  Only altered on testing networks. */
+  int TestingConsensusMaxInProgressTries;
+
   /** How many times will we try to download a router's descriptor before
    * giving up?  Only altered on testing networks. */
   int TestingDescriptorMaxDownloadTries;
