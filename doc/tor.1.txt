@@ -2279,6 +2279,7 @@ The following options are used for running a testing Tor network.
        TestingClientMaxIntervalWithoutRequest 5 seconds
        TestingDirConnectionMaxStall 30 seconds
        TestingConsensusMaxDownloadTries 80
+       TestingConsensusMaxInProgressTries 20
        TestingDescriptorMaxDownloadTries 80
        TestingMicrodescMaxDownloadTries 80
        TestingCertMaxDownloadTries 80
@@ -2357,6 +2358,11 @@ The following options are used for running a testing Tor network.
 [[TestingConsensusMaxDownloadTries]] **TestingConsensusMaxDownloadTries** __NUM__::
     Try this often to download a consensus before giving up. Changing
     this requires that **TestingTorNetwork** is set. (Default: 8)
+
+[[TestingConsensusMaxInProgressTries]] **TestingConsensusMaxInProgressTries** __NUM__::
+    Try this many simultaneous connections to download a consensus before
+    waiting for one to complete, timeout, or error out. Changing this
+    requires that **TestingTorNetwork** is set. (Default: 10)
 
 [[TestingDescriptorMaxDownloadTries]] **TestingDescriptorMaxDownloadTries** __NUM__::
     Try this often to download a server descriptor before giving up.
