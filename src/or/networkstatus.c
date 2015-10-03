@@ -741,6 +741,14 @@ update_consensus_networkstatus_downloads(time_t now)
 {
   int i;
   const or_options_t *options = get_options();
+  int we_are_bootstrapping = 0;
+
+  if (should_delay_dir_fetches(options, NULL))
+    return;
+
+  if (!current_consensus) {
+    we_are_bootstrapping = 1;
+  }
 
   for (i=0; i < N_CONSENSUS_FLAVORS; ++i) {
     /* XXXX need some way to download unknown flavors if we are caching. */
@@ -796,9 +804,45 @@ update_consensus_networkstatus_downloads(time_t now)
     log_info(LD_DIR, "Launching %s networkstatus consensus download.",
              networkstatus_get_flavor_name(i));
 
-    directory_get_from_dirserver(DIR_PURPOSE_FETCH_CONSENSUS,
-                                 ROUTER_PURPOSE_GENERAL, resource,
-                                 PDS_RETRY_IF_NO_SERVERS);
+    /** Schedule multiple connections */
+    if (we_are_bootstrapping) {
+      /* Schedule the next concurrent consensus download attempt based on
+       * the mirror and authority schedules */
+      static time_t next_authority_attempt_time = 0;
+      static time_t next_mirror_attempt_time = 0;
+      static int prefer_ipv6 = 0;
+
+      int flags = PDS_RETRY_IF_NO_SERVERS;
+
+      if (prefer_ipv6) {
+        flags |= PDS_PREFER_IPv6;
+      }
+
+      if (now > next_authority_attempt_time) {
+        /* Try an authority*/
+        directory_get_from_dirserver(DIR_PURPOSE_FETCH_CONSENSUS,
+                                     ROUTER_PURPOSE_GENERAL, resource,
+                                     flags, 1);
+        /* schedule the next attempt */
+        next_authority_attempt_time = now + 5;
+      }
+
+      if (now > next_mirror_attempt_time) {
+        directory_get_from_dirserver(DIR_PURPOSE_FETCH_CONSENSUS,
+                                     ROUTER_PURPOSE_GENERAL, resource,
+                                     flags, 0);
+        /* schedule the next attempt */
+        next_mirror_attempt_time = now + 1;
+      }
+
+      /* choose the other ip version next time */
+      prefer_ipv6 = !prefer_ipv6;
+    } else {
+      /* Try the requested attempt */
+      directory_get_from_dirserver(DIR_PURPOSE_FETCH_CONSENSUS,
+                                   ROUTER_PURPOSE_GENERAL, resource,
+                                   PDS_RETRY_IF_NO_SERVERS, 0);
+    }
   }
 }
 
@@ -976,9 +1020,6 @@ should_delay_dir_fetches(const or_options_t *options, const char **msg_out)
 void
 update_networkstatus_downloads(time_t now)
 {
-  const or_options_t *options = get_options();
-  if (should_delay_dir_fetches(options, NULL))
-    return;
   update_consensus_networkstatus_downloads(now);
   update_certificate_downloads(now);
 }
