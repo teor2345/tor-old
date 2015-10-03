@@ -255,6 +255,23 @@ router_supports_extrainfo(const char *identity_digest, int is_authority)
   return 0;
 }
 
+/** Return true iff <b>identity_digest</b> is the digest of a router which
+ * has an IPv6 address. */
+int
+router_supports_ipv6(const char *identity_digest)
+{
+  const node_t *node = node_get_by_id(identity_digest);
+
+  if (node && node->ri) {
+    /* Check it has a valid IPv6 address and ORPort */
+    if (!tor_addr_is_null(&node->ri->ipv6_addr)
+        && node->ri->ipv6_orport > 0) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
 /** Return true iff any trusted directory authority has accepted our
  * server descriptor.
  *
