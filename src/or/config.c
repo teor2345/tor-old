@@ -868,7 +868,8 @@ static const char *default_authorities[] = {
     "128.31.0.39:9131 9695 DFC3 5FFE B861 329B 9F1A B04C 4639 7020 CE31",
   "tor26 orport=443 "
     "v3ident=14C131DFC5C6F93646BE72FA1401C02A8DF2E8B4 "
-    "86.59.21.38:80 847B 1F85 0344 D787 6491 A548 92F9 0493 4E4E B85D",
+    "86.59.21.38:80 847B 1F85 0344 D787 6491 A548 92F9 0493 4E4E B85D"
+    "ipv6=[2001:858:2:2:aabb:0:563b:1526]",
   "dizum orport=443 "
     "v3ident=E8A9C45EDE6D711294FADF8E7951F4DE6CA56B58 "
     "194.109.206.212:80 7EA6 EAD6 FD83 083C 538F 4403 8BBF A077 587D D755",
@@ -876,22 +877,26 @@ static const char *default_authorities[] = {
     "82.94.251.203:80 4A0C CD2D DC79 9508 3D73 F5D6 6710 0C8A 5831 F16D",
   "gabelmoo orport=443 "
     "v3ident=ED03BB616EB2F60BEC80151114BB25CEF515B226 "
-    "131.188.40.189:80 F204 4413 DAC2 E02E 3D6B CF47 35A1 9BCA 1DE9 7281",
+    "131.188.40.189:80 F204 4413 DAC2 E02E 3D6B CF47 35A1 9BCA 1DE9 7281"
+    "ipv6=[2001:638:a000:4140::ffff:189]",
   "dannenberg orport=443 "
     "v3ident=585769C78764D58426B8B52B6651A5A71137189A "
     "193.23.244.244:80 7BE6 83E6 5D48 1413 21C5 ED92 F075 C553 64AC 7123",
   "urras orport=80 "
     "v3ident=80550987E1D626E3EBA5E5E75A458DE0626D088C "
-    "208.83.223.34:443 0AD3 FA88 4D18 F89E EA2D 89C0 1937 9E0E 7FD9 4417",
+    "208.83.223.34:443 0AD3 FA88 4D18 F89E EA2D 89C0 1937 9E0E 7FD9 4417"
+    /* XXX - does urras have an IPv6 address? - teor */,
   "maatuska orport=80 "
     "v3ident=49015F787433103580E3B66A1707A00E60F2D15B "
-    "171.25.193.9:443 BD6A 8292 55CB 08E6 6FBE 7D37 4836 3586 E46B 3810",
+    "171.25.193.9:443 BD6A 8292 55CB 08E6 6FBE 7D37 4836 3586 E46B 3810"
+    "ipv6=[2001:67c:289c::9]",
   "Faravahar orport=443 "
     "v3ident=EFCBE720AB3A82B99F9E953CD5BF50F7EEFC7B97 "
     "154.35.175.225:80 CF6D 0AAF B385 BE71 B8E1 11FC 5CFF 4B47 9237 33BC",
   "longclaw orport=443 "
     "v3ident=23D15D965BC35114467363C165C4F724B64B4F66 "
-    "199.254.238.52:80 74A9 1064 6BCE EFBC D2E8 74FC 1DC9 9743 0F96 8145",
+    "199.254.238.52:80 74A9 1064 6BCE EFBC D2E8 74FC 1DC9 9743 0F96 8145"
+    "ipv6=[2620:13:4000:8000:60:f3ff:fea1:7cff]",
   NULL
 };
 
@@ -5539,6 +5544,9 @@ parse_dir_authority_line(const char *line, dirinfo_type_t required_type,
   char v3_digest[DIGEST_LEN];
   dirinfo_type_t type = 0;
   double weight = 1.0;
+  tor_addr_t ipv6_addr;
+
+  tor_addr_make_null(&ipv6_addr, AF_INET6);
 
   items = smartlist_new();
   smartlist_split_string(items, line, NULL,
@@ -5590,6 +5598,14 @@ parse_dir_authority_line(const char *line, dirinfo_type_t required_type,
       } else {
         type |= V3_DIRINFO|EXTRAINFO_DIRINFO|MICRODESC_DIRINFO;
       }
+    } else if (!strcasecmpstart(flag, "ipv6=")) {
+      char *ipv6str = flag + strlen("ipv6=");
+      if (strlen(ipv6str) < TOR_ADDR_MIN_LEN ||
+          strlen(ipv6str) > TOR_ADDR_BUF_LEN ||
+          tor_addr_parse(&ipv6_addr, ipv6str) != AF_INET6) {
+        log_warn(LD_CONFIG, "Bad IPv6 address '%s' on DirAuthority line",
+                 flag);
+      }
     } else {
       log_warn(LD_CONFIG, "Unrecognized flag '%s' on DirAuthority line",
                flag);
@@ -5632,7 +5648,8 @@ parse_dir_authority_line(const char *line, dirinfo_type_t required_type,
     log_debug(LD_DIR, "Trusted %d dirserver at %s:%d (%s)", (int)type,
               address, (int)dir_port, (char*)smartlist_get(items,0));
     if (!(ds = trusted_dir_server_new(nickname, address, dir_port, or_port,
-                                      digest, v3_digest, type, weight)))
+                                      digest, v3_digest, type, weight,
+                                      &ipv6_addr)))
       goto err;
     dir_server_add(ds);
   }
@@ -5670,8 +5687,11 @@ parse_dir_fallback_line(const char *line,
   char id[DIGEST_LEN];
   char *address=NULL;
   double weight=1.0;
+  tor_addr_t ipv6_addr;
 
   memset(id, 0, sizeof(id));
+  tor_addr_make_null(&ipv6_addr, AF_INET6);
+
   smartlist_split_string(items, line, NULL,
                          SPLIT_SKIP_SPACE|SPLIT_IGNORE_BLANK, -1);
   SMARTLIST_FOREACH_BEGIN(items, const char *, cp) {
@@ -5694,6 +5714,14 @@ parse_dir_fallback_line(const char *line,
       if (!ok) {
         log_warn(LD_CONFIG, "Invalid weight '%s' on FallbackDir line.", cp);
         weight=1.0;
+      }
+    } else if (!strcasecmpstart(cp, "ipv6=")) {
+      const char *ipv6str = cp + strlen("ipv6=");
+      if (strlen(ipv6str) < TOR_ADDR_MIN_LEN ||
+          strlen(ipv6str) > TOR_ADDR_BUF_LEN ||
+          tor_addr_parse(&ipv6_addr, ipv6str) != AF_INET6) {
+        log_warn(LD_CONFIG, "Bad IPv6 address '%s' on FallbackDir line",
+                 cp);
       }
     }
 
@@ -5728,7 +5756,8 @@ parse_dir_fallback_line(const char *line,
 
   if (!validate_only) {
     dir_server_t *ds;
-    ds = fallback_dir_server_new(&addr, dirport, orport, id, weight);
+    ds = fallback_dir_server_new(&addr, dirport, orport, id, weight,
+                                 &ipv6_addr);
     if (!ds) {
       log_warn(LD_CONFIG, "Couldn't create FallbackDir %s", escaped(line));
       goto end;
