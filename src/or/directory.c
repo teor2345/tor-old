@@ -423,16 +423,19 @@ directory_pick_generic_dirserver(dirinfo_type_t type, int pds_flags,
  * connection purpose <b>dir_purpose</b>, intending to fetch descriptors
  * of purpose <b>router_purpose</b>, and requesting <b>resource</b>.
  * Use <b>pds_flags</b> as arguments to router_pick_directory_server()
- * or router_pick_trusteddirserver().
+ * or router_pick_trusteddirserver(). If <b>want_authority</b> is set,
+ * choose a directory authority if possible.
  */
 MOCK_IMPL(void, directory_get_from_dirserver, (uint8_t dir_purpose,
                                                uint8_t router_purpose,
                                                const char *resource,
-                                               int pds_flags))
+                                               int pds_flags,
+                                               int want_authority))
 {
   const routerstatus_t *rs = NULL;
   const or_options_t *options = get_options();
-  int prefer_authority = directory_fetches_from_authorities(options);
+  int prefer_authority = (directory_fetches_from_authorities(options)
+                          || want_authority);
   int require_authority = 0;
   int get_via_tor = purpose_needs_anonymity(dir_purpose, router_purpose);
   dirinfo_type_t type = dir_fetch_type(dir_purpose, router_purpose, resource);
@@ -557,11 +560,13 @@ MOCK_IMPL(void, directory_get_from_dirserver, (uint8_t dir_purpose,
   if (rs) {
     const dir_indirection_t indirection =
       get_via_tor ? DIRIND_ANONYMOUS : DIRIND_ONEHOP;
+    const int prefer_ipv6 = pds_flags & PDS_PREFER_IPv6;
     directory_initiate_command_routerstatus(rs, dir_purpose,
                                             router_purpose,
                                             indirection,
                                             resource, NULL, 0,
-                                            if_modified_since);
+                                            if_modified_since,
+                                            prefer_ipv6);
   } else {
     log_notice(LD_DIR,
                "While fetching directory info, "
@@ -610,6 +615,7 @@ dirind_is_anon(dir_indirection_t ind)
  * rendezvous data to fetch a hidden service descriptor. */
 void
 directory_initiate_command_routerstatus_rend(const routerstatus_t *status,
+                                             int prefer_ipv6,
                                              uint8_t dir_purpose,
                                              uint8_t router_purpose,
                                              dir_indirection_t indirection,
@@ -631,7 +637,12 @@ directory_initiate_command_routerstatus_rend(const routerstatus_t *status,
              routerstatus_describe(status));
     return;
   }
-  tor_addr_from_ipv4h(&addr, status->addr);
+
+  if (prefer_ipv6 && !tor_addr_is_null(&status->ipv6_addr)) {
+    tor_addr_copy(&addr, &status->ipv6_addr);
+  } else {
+    tor_addr_from_ipv4h(&addr, status->addr);
+  }
 
   if (options->ExcludeNodes && options->StrictNodes &&
       routerset_contains_routerstatus(options->ExcludeNodes, status, -1)) {
@@ -665,9 +676,16 @@ directory_initiate_command_routerstatus_rend(const routerstatus_t *status,
  *
  * When fetching a rendezvous descriptor, <b>resource</b> is the service ID we
  * want to fetch.
+ *
+ * We don't want to redownload descriptors unless they're been modified after
+ * <b>if_modified_since</b>.
+ *
+ * If <b>prefer_ipv6</b>, if the directory has an IPv4 and IPv6 address,
+ * connect to the IPv6 address.
  */
 void
 directory_initiate_command_routerstatus(const routerstatus_t *status,
+                                        int prefer_ipv6,
                                         uint8_t dir_purpose,
                                         uint8_t router_purpose,
                                         dir_indirection_t indirection,
@@ -676,7 +694,8 @@ directory_initiate_command_routerstatus(const routerstatus_t *status,
                                         size_t payload_len,
                                         time_t if_modified_since)
 {
-  directory_initiate_command_routerstatus_rend(status, dir_purpose,
+  directory_initiate_command_routerstatus_rend(status, prefer_ipv6,
+                                          dir_purpose,
                                           router_purpose,
                                           indirection, resource,
                                           payload, payload_len,
