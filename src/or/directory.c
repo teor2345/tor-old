@@ -3445,6 +3445,11 @@ int
 connection_dir_finished_connecting(dir_connection_t *conn)
 {
   static int have_authority_clock_check = 0;
+  const int c_conn_count =
+    connection_dir_count_by_purpose_and_resource(
+                                      DIR_PURPOSE_FETCH_CONSENSUS, resource);
+  int we_were_bootstrapping = 0;
+
 
   tor_assert(conn);
   tor_assert(conn->base_.type == CONN_TYPE_DIR);
@@ -3458,33 +3463,60 @@ connection_dir_finished_connecting(dir_connection_t *conn)
     have_authority_clock_check = 1;
   }
 
-  /* special handling for consensus connections */
-  const int c_conn_count =
-    connection_dir_count_by_purpose_and_resource(
-                                     DIR_PURPOSE_FETCH_CONSENSUS, resource);
-  const smartlist_t *connecting_c_conns =
-    connection_dir_list_by_purpose_resource_and_state(
-          DIR_PURPOSE_FETCH_CONSENSUS, resource, DIR_CONN_STATE_CONNECTING);
-  /* [ XXX - should we try to match flavour here as well? - teor ] */
+  /* if we don't have a consensus, we must still be bootstrapping */
+  networkstatus_t *l = networkstatus_get_reasonably_live_consensus(
+                                                  now,
+                                                  usable_consensus_flavor());
+  if (!l) {
+    we_were_bootstrapping = 1;
+  }
 
-  /* If we already have a consensus connection exchanging data, (that is,
-   * it's already successfully connected before this one), don't request data
-   * on this one, and close any other pending attempts.
-   * However, if we haven't contacted an authority this run, allow
-   * authority connections to connect, then close them all. */
-  if (smartlist_len(connecting_c_conns) < c_conn_count) {
-    /* this loop also closes the current connection if needed */
-    SMARTLIST_FOREACH_BEGIN(connecting_c_conns, dir_connection_t *, d) {
-      const int is_to_auth = connection_is_to_authority(d->base_);
-      if (have_authority_clock_check || !is_to_auth) {
+  /* If we are trying more connections than we expect (one per connection),
+   * we must have connections left over from bootstrapping. */
+  int expected_c_conn_count = 0;
+  for (i=0; i < N_CONSENSUS_FLAVORS; ++i) {
+    if (we_want_to_fetch_flavor(options, i)) {
+      expected_c_conn_count++;
+    }
+  }
+  if (c_conn_count > expected_c_conn_count) {
+    we_were_bootstrapping = 1;
+  }
+
+  /* special handling for consensus connections during bootstrap */
+  if (we_were_bootstrapping
+      && conn->base_.purpose == DIR_PURPOSE_FETCH_CONSENSUS) {
+    const smartlist_t *connecting_c_conns =
+      connection_dir_list_by_purpose_resource_and_state(
+          DIR_PURPOSE_FETCH_CONSENSUS, resource, DIR_CONN_STATE_CONNECTING);
+
+    /* If we already have a consensus connection exchanging data, (that is,
+     * it's already successfully connected before this one), don't request data
+     * on this one, and close any other pending attempts.
+     * However, if we haven't contacted an authority this run, allow
+     * authority connections to connect, then close them all. */
+    if (smartlist_len(connecting_c_conns) < c_conn_count) {
+      /* this loop also closes the current connection if needed */
+      SMARTLIST_FOREACH_BEGIN(connecting_c_conns, dir_connection_t *, d) {
+        /* don't close connections for flavors we're just caching */
+        if (connection_dir_flavor(d) != usable_consensus_flavor())
+          continue;
+        /* don't close authority connections until we've done a clock check */
+        const int is_to_auth = connection_is_to_authority(d->base_);
+        if (!have_authority_clock_check && is_to_auth)
+          continue;
+        /* mark all other connections for close */
         connection_close_immediate(d->base_);
         connection_mark_for_close(d->base_);
-      }
-    } SMARTLIST_FOREACH_END(d);
-    /* make sure we've closed the current connection */
-    tor_assert(conn->base_.marked_for_close);
-    tor_assert(0 == connection_dir_count_by_purpose_resource_and_state(
-          DIR_PURPOSE_FETCH_CONSENSUS, resource, DIR_CONN_STATE_CONNECTING));
+      } SMARTLIST_FOREACH_END(d);
+      /* make sure we've closed the current connection */
+      tor_assert(conn->base_.marked_for_close);
+      /* make sure we've closed enough connections */
+      tor_assert(expected_c_conn_count
+                 <= connection_dir_count_by_purpose_resource_and_state(
+                                                DIR_PURPOSE_FETCH_CONSENSUS,
+                                                resource,
+                                                DIR_CONN_STATE_CONNECTING));
   } else {
     /* start flushing conn */
     conn->base_.state = DIR_CONN_STATE_CLIENT_SENDING;
