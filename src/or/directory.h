@@ -89,6 +89,7 @@ int dir_split_resource_into_fingerprint_pairs(const char *res,
 char *directory_dump_request_log(void);
 void note_request(const char *key, size_t bytes);
 int router_supports_extrainfo(const char *identity_digest, int is_authority);
+int router_supports_ipv6(const char *identity_digest);
 
 time_t download_status_increment_failure(download_status_t *dls,
                                          int status_code, const char *item,
