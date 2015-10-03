@@ -1007,6 +1007,9 @@ directory_initiate_command_rend(const tor_addr_t *_addr,
         conn->base_.state = DIR_CONN_STATE_CLIENT_SENDING;
         /* fall through */
       case 0:
+        if (connection_dir_consider_close_extra_consensus_conns(conn)) {
+          return;
+        }
         /* queue the command on the outbuf */
         directory_send_command(conn, dir_purpose, 1, resource,
                                payload, payload_len,
@@ -1048,6 +1051,9 @@ directory_initiate_command_rend(const tor_addr_t *_addr,
     if (connection_add(TO_CONN(conn)) < 0) {
       log_warn(LD_NET,"Unable to add connection for link to dirserver.");
       connection_mark_for_close(TO_CONN(conn));
+      return;
+    }
+    if (connection_dir_consider_close_extra_consensus_conns(conn)) {
       return;
     }
     conn->base_.state = DIR_CONN_STATE_CLIENT_SENDING;
@@ -3462,12 +3468,24 @@ directory_set_authority_clock_checked(void)
   authority_clock_checked = 1;
 }
 
-/** Connected handler for directory connections: begin sending data to the
- * server, and return 0. Only used when connections don't immediately connect.
- */
+/* check if we have excess consensus connection attempts, and close them. */
 int
-connection_dir_finished_connecting(dir_connection_t *conn)
+connection_dir_consider_close_extra_consensus_conns(dir_connection_t *conn)
 {
+  tor_assert(conn);
+
+  /* We're not interested in connections that aren't fetching a consensus. */
+  if (conn->base_.type != CONN_TYPE_DIR
+      || conn->base_.purpose != DIR_PURPOSE_FETCH_CONSENSUS) {
+    return 0;
+  }
+
+  /* we're only interested in closing excess connections if we could
+   * have created any in the first place */
+  if (!networkstatus_consensus_can_use_fallbacks()) {
+    return 0;
+  }
+
   /* If we don't have a consensus, we must still be bootstrapping */
   int we_are_bootstrapping = networkstatus_consensus_is_boostrapping(
                                                                   time(NULL));
@@ -3482,67 +3500,105 @@ connection_dir_finished_connecting(dir_connection_t *conn)
                                                   usable_consensus_flavor());
   int consens_conn_usable_count =
     connection_dir_count_by_purpose_and_resource(
-        DIR_PURPOSE_FETCH_CONSENSUS,
-        usable_resource);
+                                               DIR_PURPOSE_FETCH_CONSENSUS,
+                                               usable_resource);
   const int expected_consens_conn_usable_count = 1;
   if (consens_conn_usable_count > expected_consens_conn_usable_count) {
     we_have_excess_bootstrap_connections = 1;
   }
 
   /* special handling for consensus connections during bootstrap */
-  if (conn->base_.purpose == DIR_PURPOSE_FETCH_CONSENSUS
-      && (we_are_bootstrapping || we_have_excess_bootstrap_connections)) {
+  if (we_are_bootstrapping || we_have_excess_bootstrap_connections) {
     smartlist_t *connect_consens_usable_conns =
       connection_dir_list_by_purpose_resource_and_state(
-                                                  DIR_PURPOSE_FETCH_CONSENSUS,
-                                                  usable_resource,
-                                                  DIR_CONN_STATE_CONNECTING);
+                                                DIR_PURPOSE_FETCH_CONSENSUS,
+                                                usable_resource,
+                                                DIR_CONN_STATE_CONNECTING);
     int is_usable_consensus_downloading = 0;
-    const int auth_clock_check = directory_get_authority_clock_checked();
 
     if (smartlist_len(connect_consens_usable_conns)
         < consens_conn_usable_count) {
       is_usable_consensus_downloading = 1;
     }
 
-    /* If we already have a consensus connection exchanging data, (that is,
-     * it's already successfully connected before this one), don't request data
-     * on this one, and close any other pending attempts.
-     * However, if we haven't contacted an authority this run, allow
-     * authority connections to connect, then close them all.
-     * Also close the current connection if needed. */
-    SMARTLIST_FOREACH_BEGIN(connect_consens_usable_conns,
-                            dir_connection_t *, d) {
-      /* don't close this connection if it's the first one to connect */
-      if (!is_usable_consensus_downloading && d == conn)
-        continue;
-      /* mark all other connections for close */
-      connection_close_immediate(&d->base_);
-      connection_mark_for_close(&d->base_);
-    } SMARTLIST_FOREACH_END(d);
-    /* make sure we've closed the current connection if we're already
-     * downloading a consensus and we have a clock check */
-    if (is_usable_consensus_downloading && auth_clock_check) {
-      tor_assert(conn->base_.marked_for_close);
-    }
-    /* make sure we've closed all excess connections, unless we're still
-     * waiting to do an authority clock check */
-    if (auth_clock_check) {
+    /* Begin critical section */
+    {
+      /* This function can be called from the second_elapsed callback, the
+       * process_signal HUP callback, and various event callbacks.
+       * This lock has an obvious race condition where multiple connections
+       * can prevent other connection(s) from closing excess connections. In
+       * the worst case scenario, this means that multiple connections
+       * download a consensus. As long as it doesn't happen too often, that's
+       * ok. */
+      static volatile int closing_connections_lock = 0;
+      closing_connections_lock++;
+      if (closing_connections_lock > 1) {
+        tor_log(LOG_WARN, LD_BUG, "Connection " U64_FORMAT " tried to close "
+                "excess connections while excess connections were already "
+                "being closed.",
+                U64_PRINTF_ARG(conn->base_.global_identifier));
+        tor_fragile_assert();
+        return 0;
+      }
+
+      /* If we already have a consensus connection exchanging data, (that is,
+       * it's already successfully connected before this one), don't request
+       * data on this one, and close any other pending attempts.
+       * Also close the current connection if needed. */
+      SMARTLIST_FOREACH_BEGIN(connect_consens_usable_conns,
+                              dir_connection_t *, d) {
+        /* don't close this connection if it's the first one to connect */
+        if (!is_usable_consensus_downloading && d == conn)
+          continue;
+        /* mark all other connections for close */
+        connection_close_immediate(&d->base_);
+        connection_mark_for_close(&d->base_);
+      } SMARTLIST_FOREACH_END(d);
+      /* make sure we've closed all excess connections */
       tor_assert(connection_dir_count_by_purpose_resource_and_state(
-                                              DIR_PURPOSE_FETCH_CONSENSUS,
-                                              usable_resource,
-                                              DIR_CONN_STATE_CONNECTING)
+                                                DIR_PURPOSE_FETCH_CONSENSUS,
+                                                usable_resource,
+                                                DIR_CONN_STATE_CONNECTING)
                  <= expected_consens_conn_usable_count);
+
+      /* Assume the critical section is only being executed once */
+      closing_connections_lock = 0;
     }
+    /* End critical section */
+
     smartlist_free(connect_consens_usable_conns);
   }
 
   if (conn->base_.marked_for_close) {
+    printf("We marked this connection for close\n");
     /* we marked this connection for close because it's not needed */
     return -1;
   } else {
     return 0;
   }
+}
+
+/** Connected handler for directory connections: begin sending data to the
+ * server, and return 0, or, if the connection is an excess bootstrap
+ * connection, close all excess bootstrap connections.
+ * Only used when connections don't immediately connect. */
+int
+connection_dir_finished_connecting(dir_connection_t *conn)
+{
+  tor_assert(conn);
+  tor_assert(conn->base_.type == CONN_TYPE_DIR);
+  tor_assert(conn->base_.state == DIR_CONN_STATE_CONNECTING);
+
+  log_debug(LD_HTTP,"Dir connection to router %s:%u established.",
+            conn->base_.address,conn->base_.port);
+
+  if (connection_dir_consider_close_extra_consensus_conns(conn)) {
+    return -1;
+  }
+
+  /* start flushing conn */
+  conn->base_.state = DIR_CONN_STATE_CLIENT_SENDING;
+  return 0;
 }
 
 /** Decide which download schedule we want to use based on descriptor type

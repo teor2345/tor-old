@@ -758,6 +758,7 @@ update_consensus_networkstatus_downloads(time_t now)
     const char *resource;
     consensus_waiting_for_certs_t *waiting;
     networkstatus_t *c;
+    int max_dl_tries = options->TestingConsensusMaxDownloadTries;
 
     if (! we_want_to_fetch_flavor(options, i))
       continue;
@@ -776,23 +777,15 @@ update_consensus_networkstatus_downloads(time_t now)
     /* Let's make sure we remembered to update consensus_dl_status */
     tor_assert(consensus_dl_status[i].schedule == DL_SCHED_CONSENSUS);
 
-    /* Check if we failed downloading a consensus too recently. */
-    if (we_are_bootstrapping) {
-      /* ignore the current time if we are bootstrapping,
-       * and try a little harder */
-      if (!download_status_is_ready(
-                      &consensus_dl_status[i],
-                      TIME_MAX,
-                      options->TestingConsensusMaxBootstrapDownloadTries)) {
-        continue;
-      }
-    } else {
-      if (!download_status_is_ready(
-                      &consensus_dl_status[i],
-                      now,
-                      options->TestingConsensusMaxDownloadTries)) {
-        continue;
-      }
+    /* Check if we failed downloading a consensus too recently.
+     * Try a little harder if we are bootstrapping */
+    if (we_are_bootstrapping && i == usable_consensus_flavor()) {
+      max_dl_tries = options->TestingConsensusMaxBootstrapDownloadTries;
+    }
+    if (!download_status_is_ready(&consensus_dl_status[i],
+                                  now,
+                                  max_dl_tries)) {
+      continue;
     }
 
     int consens_conn_count =
