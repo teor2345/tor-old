@@ -1051,7 +1051,7 @@ directory_info_has_arrived(time_t now, int from_cache)
     update_all_descriptor_downloads(now);
     return;
   } else {
-    if (directory_fetches_from_authorities(options)) {
+    if (directory_should_fetch_from_authorities(options)) {
       update_all_descriptor_downloads(now);
     }
 
