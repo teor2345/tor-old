@@ -5074,6 +5074,10 @@ typedef struct dir_server_t {
  * node that's currently a guard. */
 #define PDS_FOR_GUARD (1<<5)
 
+/** If we have both IPv4 and IPv6 interface addresses, prefer IPv6 directory
+ * addresses to IPv4 directory addresses, otherwise, prefer IPv4. */
+#define PDS_PREFER_IPv6 (1<<6)
+
 /** Possible ways to weight routers when choosing one randomly.  See
  * routerlist_sl_choose_by_bandwidth() for more information.*/
 typedef enum bandwidth_weight_rule_t {

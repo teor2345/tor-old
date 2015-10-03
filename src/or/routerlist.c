@@ -1626,6 +1626,8 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
   const int fascistfirewall = ! (flags & PDS_IGNORE_FASCISTFIREWALL);
   const int no_serverdesc_fetching =(flags & PDS_NO_EXISTING_SERVERDESC_FETCH);
   const int no_microdesc_fetching =(flags & PDS_NO_EXISTING_MICRODESC_FETCH);
+  int prefer_ipv6 =(flags & PDS_PREFER_IPv6);
+  int n_ignored_ipv6 = 0;
   const double auth_weight = (sourcelist == fallback_dir_servers) ?
     options->DirAuthorityFallbackRate : 1.0;
   smartlist_t *pick_from;
@@ -1661,9 +1663,16 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
         ++n_excluded;
         continue;
       }
+      if (prefer_ipv6 && tor_addr_is_null(&d->ipv6_addr)) {
+        ++n_ignored_ipv6;
+        continue;
+      }
 
-      /* XXXX IP6 proposal 118 */
-      tor_addr_from_ipv4h(&addr, d->addr);
+      if (prefer_ipv6) {
+        tor_addr_copy(&addr, &d->ipv6_addr);
+      } else {
+        tor_addr_from_ipv4h(&addr, d->addr);
+      }
 
       if (no_serverdesc_fetching) {
         if (connection_get_by_type_addr_port_purpose(
@@ -1720,11 +1729,16 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
   smartlist_free(overloaded_direct);
   smartlist_free(overloaded_tunnel);
 
-  if (result == NULL && try_excluding && !options->StrictNodes && n_excluded) {
-    /* If we got no result, and we are excluding nodes, and StrictNodes is
-     * not set, try again without excluding nodes. */
+  if (result == NULL
+      && ((try_excluding && !options->StrictNodes && n_excluded)
+          || (prefer_ipv6 && n_ignored_ipv6))) {
+    /* If we got no result, and either:
+     *  - we are excluding nodes, and StrictNodes is not set, or
+     *  - we are ignoring nodes because prefer_ipv6 is set,
+     * try again without excluding nodes in these ways. */
     try_excluding = 0;
     n_excluded = 0;
+    prefer_ipv6 = 0;
     goto retry_without_exclude;
   }
 
