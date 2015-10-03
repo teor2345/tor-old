@@ -2,8 +2,8 @@
 
 # Usage: scripts/maint/updateFallbackDirs.py > src/or/fallback_dirs.inc
 #
-# Then read the generated list of string to ensure no-one slipped
-# anything funny into it
+# Then read the generated list to ensure no-one slipped anything funny into
+# their name or contactinfo
 
 # Script by weasel, April 2015
 # Portions by gsathya & karsten, 2013
@@ -327,10 +327,6 @@ def onionoo_fetch(what, **kwargs):
 
   return response_json
 
-def dummy_fetch(what, **kwargs):
-  with open('x-'+what) as f:
-    return json.load(f)
-
 def fetch(what, **kwargs):
   #x = onionoo_fetch(what, **kwargs)
   # don't use sort_keys, as the order of or_addresses is significant
@@ -338,7 +334,6 @@ def fetch(what, **kwargs):
   #sys.exit(0)
 
   return onionoo_fetch(what, **kwargs)
-  #return dummy_fetch(what, **kwargs)
 
 ## Fallback Candidate Class
 
