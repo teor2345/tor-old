@@ -615,7 +615,7 @@ directory_get_from_all_authorities(uint8_t dir_purpose,
       if (!(ds->type & V3_DIRINFO))
         continue;
       rs = &ds->fake_status;
-      directory_initiate_command_routerstatus(rs, dir_purpose, router_purpose,
+      directory_initiate_command_routerstatus(rs, 0, dir_purpose, router_purpose,
                                               DIRIND_ONEHOP, resource, NULL,
                                               0, 0);
   } SMARTLIST_FOREACH_END(ds);
@@ -3480,6 +3480,8 @@ connection_dir_finished_flushing(dir_connection_t *conn)
 int
 connection_dir_finished_connecting(dir_connection_t *conn)
 {
+  static int have_authority_clock_check = 0;
+
   tor_assert(conn);
   tor_assert(conn->base_.type == CONN_TYPE_DIR);
   tor_assert(conn->base_.state == DIR_CONN_STATE_CONNECTING);
@@ -3487,7 +3489,43 @@ connection_dir_finished_connecting(dir_connection_t *conn)
   log_debug(LD_HTTP,"Dir connection to router %s:%u established.",
             conn->base_.address,conn->base_.port);
 
-  conn->base_.state = DIR_CONN_STATE_CLIENT_SENDING; /* start flushing conn */
+  /* any directory connection to an authority will do for a clock check */
+  if (connection_is_to_authority(conn)) {
+    have_authority_clock_check = 1;
+  }
+
+  /* special handling for consensus connections */
+  const int c_conn_count =
+    connection_dir_count_by_purpose_and_resource(
+                                     DIR_PURPOSE_FETCH_CONSENSUS, resource);
+  const smartlist_t *connecting_c_conns =
+    connection_dir_list_by_purpose_resource_and_state(
+          DIR_PURPOSE_FETCH_CONSENSUS, resource, DIR_CONN_STATE_CONNECTING);
+  /* [ XXX - should we try to match flavour here as well? - teor ] */
+
+  /* If we already have a consensus connection exchanging data, (that is,
+   * it's already successfully connected before this one), don't request data
+   * on this one, and close any other pending attempts.
+   * However, if we haven't contacted an authority this run, allow
+   * authority connections to connect, then close them all. */
+  if (smartlist_len(connecting_c_conns) < c_conn_count) {
+    /* this loop also closes the current connection if needed */
+    SMARTLIST_FOREACH_BEGIN(connecting_c_conns, dir_connection_t *, d) {
+      const int is_to_auth = connection_is_to_authority(d->base_);
+      if (have_authority_clock_check || !is_to_auth) {
+        connection_close_immediate(d->base_);
+        connection_mark_for_close(d->base_);
+      }
+    } SMARTLIST_FOREACH_END(d);
+    /* make sure we've closed the current connection */
+    tor_assert(conn->base_.marked_for_close);
+    tor_assert(0 == connection_dir_count_by_purpose_resource_and_state(
+          DIR_PURPOSE_FETCH_CONSENSUS, resource, DIR_CONN_STATE_CONNECTING));
+  } else {
+    /* start flushing conn */
+    conn->base_.state = DIR_CONN_STATE_CLIENT_SENDING;
+  }
+  smartlist_free(connecting_c_conns);
   return 0;
 }
 
