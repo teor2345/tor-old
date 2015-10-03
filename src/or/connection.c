@@ -1616,6 +1616,11 @@ connection_init_accepted_conn(connection_t *conn,
   return 0;
 }
 
+/** Take conn, make a nonblocking socket; try to connect to
+ * sa, binding to bindaddr if sa is not localhost. If fail, return -1 and if
+ * applicable put your best guess about errno into *<b>socket_error</b>.
+ * If connected return 1, if EAGAIN return 0.
+ */
 static int
 connection_connect_sockaddr(connection_t *conn,
                             const struct sockaddr *sa,
@@ -1706,7 +1711,7 @@ connection_connect_sockaddr(connection_t *conn,
 }
 
 /** Take conn, make a nonblocking socket; try to connect to
- * addr:port (they arrive in *host order*). If fail, return -1 and if
+ * addr:port (port arrives in *host order*). If fail, return -1 and if
  * applicable put your best guess about errno into *<b>socket_error</b>.
  * Else assign s to conn-\>s: if connected return 1, if EAGAIN return 0.
  *
@@ -4217,7 +4222,8 @@ connection_write_to_buf_impl_,(const char *string, size_t len,
 }
 
 /** Return a connection with given type, address, port, and purpose;
- * or NULL if no such connection exists. */
+ * or NULL if no such connection exists (or if all such connections are
+ * marked for close). */
 connection_t *
 connection_get_by_type_addr_port_purpose(int type,
                                          const tor_addr_t *addr, uint16_t port,
@@ -4314,30 +4320,61 @@ connection_get_by_type_state_rendquery(int type, int state,
 }
 
 /** Return a directory connection (if any one exists) that is fetching
- * the item described by <b>state</b>/<b>resource</b> */
+ * the item described by <b>state</b>/<b>resource</b>, otherwise return NULL.
+ */
 dir_connection_t *
 connection_dir_get_by_purpose_and_resource(int purpose,
                                            const char *resource)
 {
+  smartlist_t *conns = connection_dir_list_by_purpose_and_resource(
+                                                           purpose, resource);
+  tor_assert(conns);
+
+  if (smartlist_len(conns) > 0) {
+    dir_connection_t *arbitrary_conn = smartlist_get(conns, 0);
+
+    /* free the list, but not the pointers in it */
+    smartlist_free(conns);
+
+    return arbitrary_conn;
+  } else {
+    return NULL;
+  }
+}
+
+/** Return a list of directory connections that are fetching the item
+ * described by <b>state</b>/<b>resource</b>. If there are none,
+ * return an empty list. This list must be freed using smartlist_free,
+ * but the pointers in it must not be freed.
+ * Note that this list should not be cached, as the pointers in it can be
+ * freed if their connections close. */
+smartlist_t *
+connection_dir_list_by_purpose_and_resource(int purpose,
+                                                const char *resource)
+{
   smartlist_t *conns = get_connection_array();
+  smartlist_t *dir_conns = smartlist_new();
 
   SMARTLIST_FOREACH_BEGIN(conns, connection_t *, conn) {
     dir_connection_t *dirconn;
     if (conn->type != CONN_TYPE_DIR || conn->marked_for_close ||
         conn->purpose != purpose)
-      continue;
+    continue;
     dirconn = TO_DIR_CONN(conn);
     if (dirconn->requested_resource == NULL) {
-      if (resource == NULL)
-        return dirconn;
+      if (resource == NULL) {
+        smartlist_add(dir_conns, dirconn);
+      }
     } else if (resource) {
-      if (0 == strcmp(resource, dirconn->requested_resource))
-        return dirconn;
+      if (0 == strcmp(resource, dirconn->requested_resource)) {
+        smartlist_add(dir_conns, dirconn);
+      }
     }
   } SMARTLIST_FOREACH_END(conn);
 
-  return NULL;
+  return dir_conns;
 }
+
 
 /** Return 1 if there are any active OR connections apart from
  * <b>this_conn</b>.

@@ -193,7 +193,21 @@ connection_t *connection_get_by_type_state(int type, int state);
 connection_t *connection_get_by_type_state_rendquery(int type, int state,
                                                      const char *rendquery);
 dir_connection_t *connection_dir_get_by_purpose_and_resource(
-                                           int state, const char *resource);
+                                           int purpose, const char *resource);
+smartlist_t *connection_dir_list_by_purpose_and_resource(
+                                           int purpose, const char *resource);
+/** Return a count of directory connections that are fetching the item
+ * described by <b>state</b>/<b>resource</b>. */
+static INLINE int
+connection_dir_count_by_purpose_and_resource(
+                                           int purpose, const char *resource)
+{
+  smartlist_t *conns = connection_dir_list_by_purpose_and_resource(
+                                                           purpose, resource);
+  int count = smartlist_len(conns);
+  free(conns);
+  return count;
+}
 
 int any_other_active_or_conns(const or_connection_t *this_conn);
 

@@ -3440,7 +3440,8 @@ connection_dir_finished_flushing(dir_connection_t *conn)
 }
 
 /** Connected handler for directory connections: begin sending data to the
- * server */
+ * server, and return 0. Only used when connections don't immediately connect.
+ */
 int
 connection_dir_finished_connecting(dir_connection_t *conn)
 {

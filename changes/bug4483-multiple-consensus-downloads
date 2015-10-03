@@ -1,0 +1,11 @@
+  o Major features (consensus downloads):
+    - Schedule multiple in-progress consensus downloads, and use the
+      first one that completes. Try both IPv4 and Ipv6 if they are
+      available.
+      Implements #4483 (reduce failures when authorities are down),
+      and partially implements IPv6-only client bootstrap (#??).
+      Schedule is designed for #15775 (IPv4 fallbacks), #6027
+      (authorities on IPv6). and #8374 (IPv6 fallbacks).
+      Closes ticket #4483,  Patch by "teor".
+      Proposal #210 by "mikeperry" and "teor", with feedback from
+      "weasel" and "nickm".
