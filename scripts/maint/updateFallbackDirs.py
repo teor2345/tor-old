@@ -22,6 +22,7 @@ import sys
 import urllib
 import urllib2
 import hashlib
+import dateutil.parser
 # bson_lazy provides bson
 #from bson import json_util
 
@@ -293,14 +294,32 @@ def onionoo_fetch(what, **kwargs):
     if last_mod_date is not None:
       request.add_header('If-modified-since', last_mod_date)
 
+    # Parse datetimes like: Fri, 02 Oct 2015 13:34:14 GMT
+    if last_mod_date is not None:
+      last_mod = dateutil.parser.parse(last_mod_date)
+    else:
+      # Never modified - use start of epoch
+      last_mod = datetime.datetime.utcfromtimestamp(0)
+    # strip any timezone out (in case they're supported in future)
+    last_mod = last_mod.replace(tzinfo=None)
+
     response_code = 0
     try:
       response = urllib2.urlopen(request)
       response_code = response.getcode()
     except urllib2.HTTPError, error:
       response_code = error.code
-      if response_code == 304: # Not Modified
-        pass
+      # strip any timezone out (to match dateutil.parser)
+      six_hours_ago = datetime.datetime.now()
+      six_hours_ago -= datetime.timedelta(hours=6)
+      six_hours_ago = six_hours_ago.replace(tzinfo=None)
+      # Not Modified and still recent enough to be useful (Globe uses 6 hours)
+      if response_code == 304:
+        if last_mod < six_hours_ago:
+          raise Exception("Outdated data from " + url + ": "
+                          + str(error.code) + ": " + error.reason)
+        else:
+          pass
       else:
         raise Exception("Could not get " + url + ": "
                         + str(error.code) + ": " + error.reason)
