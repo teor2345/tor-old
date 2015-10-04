@@ -1052,7 +1052,9 @@ class CandidateList(dict):
       # We must have a minimum number of fallbacks so they are always
       # reachable, and are in diverse locations
       s += '#error Fallback Count %d is too low. '%(fallback_count)
-      s += 'Must be at least %d for diversity.'%(MIN_FALLBACK_COUNT)
+      s += 'Must be at least %d for diversity. '%(MIN_FALLBACK_COUNT)
+      s += 'Try adding entries to the whitelist, '
+      s += 'or setting INCLUDE_UNLISTED_ENTRIES = True.'
       s += '\n'
       s += '/*'
       s += '\n'
