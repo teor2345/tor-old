@@ -779,10 +779,10 @@ update_consensus_networkstatus_downloads(time_t now)
     if (!download_status_is_ready(&consensus_dl_status[i], now,
                              options->TestingConsensusMaxDownloadTries))
       continue; /* We failed downloading a consensus too recently. */
-    const int consensus_conn_count =
-      connection_dir_count_by_purpose_and_resource(
-                                      DIR_PURPOSE_FETCH_CONSENSUS, resource);
-    if (consensus_conn_count >= options->TestingConsensusMaxInProgressTries)
+    if (connection_dir_count_by_purpose_and_resource(
+                                                  DIR_PURPOSE_FETCH_CONSENSUS,
+                                                  resource)
+        >= options->TestingConsensusMaxInProgressTries)
       continue; /* There are too many in-progress connections already. */
 
     int consensus_conn_f_count =
@@ -829,11 +829,20 @@ update_consensus_networkstatus_downloads(time_t now)
 
       int flags = PDS_RETRY_IF_NO_SERVERS;
 
+      /* work even if time is negative */
+      if (!next_authority_attempt_time) {
+        next_authority_attempt_time = now;
+      }
+
+      if (!next_mirror_attempt_time) {
+        next_authority_attempt_time = now;
+      }
+
       if (prefer_ipv6) {
         flags |= PDS_PREFER_IPv6;
       }
 
-      if (now > next_authority_attempt_time) {
+      if (now >= next_authority_attempt_time) {
         /* Try an authority*/
         directory_get_from_dirserver(DIR_PURPOSE_FETCH_CONSENSUS,
                                      ROUTER_PURPOSE_GENERAL, resource,
@@ -842,7 +851,7 @@ update_consensus_networkstatus_downloads(time_t now)
         next_authority_attempt_time = now + 5;
       }
 
-      if (now > next_mirror_attempt_time) {
+      if (now >= next_mirror_attempt_time) {
         directory_get_from_dirserver(DIR_PURPOSE_FETCH_CONSENSUS,
                                      ROUTER_PURPOSE_GENERAL, resource,
                                      flags, 0);
