@@ -4077,6 +4077,10 @@ typedef struct {
    * up?  Only altered on testing networks. */
   int TestingConsensusMaxDownloadTries;
 
+  /** How many times will we try to fetch a consensus while bootstrapping,
+   * before we give up?  Only altered on testing networks. */
+  int TestingConsensusMaxBootstrapDownloadTries;
+
   /** How many simultaneous in-progress connections will we make when trying
    * to fetch a consensus before we wait for one to complete, timeout, or
    * error out?  Only altered on testing networks. */

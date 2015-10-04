@@ -478,7 +478,8 @@ static config_var_t option_vars_[] = {
   V(TestingClientMaxIntervalWithoutRequest, INTERVAL, "10 minutes"),
   V(TestingDirConnectionMaxStall, INTERVAL, "5 minutes"),
   V(TestingConsensusMaxDownloadTries, UINT, "8"),
-  V(TestingConsensusMaxInProgressTries, UINT, "10"),
+  V(TestingConsensusMaxBootstrapDownloadTries, UINT, "8"),
+  V(TestingConsensusMaxInProgressTries, UINT, "8"),
   V(TestingDescriptorMaxDownloadTries, UINT, "8"),
   V(TestingMicrodescMaxDownloadTries, UINT, "8"),
   V(TestingCertMaxDownloadTries, UINT, "8"),
@@ -529,7 +530,8 @@ static const config_var_t testing_tor_network_defaults[] = {
   V(TestingClientMaxIntervalWithoutRequest, INTERVAL, "5 seconds"),
   V(TestingDirConnectionMaxStall, INTERVAL, "30 seconds"),
   V(TestingConsensusMaxDownloadTries, UINT, "80"),
-  V(TestingConsensusMaxInProgressTries, UINT, "20"),
+  V(TestingConsensusMaxBootstrapDownloadTries, UINT, "80"),
+  V(TestingConsensusMaxInProgressTries, UINT, "16"),
   V(TestingDescriptorMaxDownloadTries, UINT, "80"),
   V(TestingMicrodescMaxDownloadTries, UINT, "80"),
   V(TestingCertMaxDownloadTries, UINT, "80"),
@@ -3741,6 +3743,7 @@ options_validate(or_options_t *old_options, or_options_t *options,
   CHECK_DEFAULT(TestingClientMaxIntervalWithoutRequest);
   CHECK_DEFAULT(TestingDirConnectionMaxStall);
   CHECK_DEFAULT(TestingConsensusMaxDownloadTries);
+  CHECK_DEFAULT(TestingConsensusMaxBootstrapDownloadTries);
   CHECK_DEFAULT(TestingConsensusMaxInProgressTries);
   CHECK_DEFAULT(TestingDescriptorMaxDownloadTries);
   CHECK_DEFAULT(TestingMicrodescMaxDownloadTries);
@@ -3819,6 +3822,13 @@ options_validate(or_options_t *old_options, or_options_t *options,
     REJECT("TestingConsensusMaxDownloadTries must be greater than 1.");
   } else if (options->TestingConsensusMaxDownloadTries > 800) {
     COMPLAIN("TestingConsensusMaxDownloadTries is insanely high.");
+  }
+
+  if (options->TestingConsensusMaxBootstrapDownloadTries < 2) {
+    REJECT("TestingConsensusMaxBootstrapDownloadTries must be greater than 1."
+           );
+  } else if (options->TestingConsensusMaxBootstrapDownloadTries > 800) {
+    COMPLAIN("TestingConsensusMaxBootstrapDownloadTries is insanely high.");
   }
 
   if (options->TestingConsensusMaxInProgressTries < 1) {
