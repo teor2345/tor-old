@@ -741,10 +741,15 @@ update_consensus_networkstatus_downloads(time_t now)
 {
   int i;
   const or_options_t *options = get_options();
-  int we_are_bootstrapping = !networkstatus_get_reasonably_live_consensus(
+  const int we_are_bootstrapping = !networkstatus_get_reasonably_live_consensus(
                                                   now,
                                                   usable_consensus_flavor());
-  int we_can_use_mirrors = !directory_fetches_from_authorities(options);
+  const int we_can_use_mirrors = !directory_fetches_from_authorities(options);
+  static time_t next_authority_attempt_time = TIME_MIN;
+  static time_t next_mirror_attempt_time = TIME_MIN;
+  static time_t authority_attempt_interval = 5;
+  static time_t mirror_attempt_interval = 1;
+#define CONSENSUS_BACKOFF_EXPONENT 2
 
   if (should_delay_dir_fetches(options, NULL))
     return;
@@ -772,9 +777,25 @@ update_consensus_networkstatus_downloads(time_t now)
     /* Let's make sure we remembered to update consensus_dl_status */
     tor_assert(consensus_dl_status[i].schedule == DL_SCHED_CONSENSUS);
 
-    if (!download_status_is_ready(&consensus_dl_status[i], now,
-                             options->TestingConsensusMaxDownloadTries))
-      continue; /* We failed downloading a consensus too recently. */
+    /* Check if we failed downloading a consensus too recently. */
+    if (we_are_bootstrapping) {
+      /* ignore the current time if we are bootstrapping,
+       * and try a little harder */
+      if (!download_status_is_ready(
+                      &consensus_dl_status[i],
+                      TIME_MAX,
+                      options->TestingConsensusMaxBootstrapDownloadTries)) {
+        continue;
+      }
+    } else {
+      if (!download_status_is_ready(
+                      &consensus_dl_status[i],
+                      now,
+                      options->TestingConsensusMaxDownloadTries)) {
+        continue;
+      }
+    }
+
     if (connection_dir_count_by_purpose_and_resource(
                                                   DIR_PURPOSE_FETCH_CONSENSUS,
                                                   resource)
@@ -812,46 +833,40 @@ update_consensus_networkstatus_downloads(time_t now)
       }
     }
 
-    log_info(LD_DIR, "Launching %s networkstatus consensus download.",
-             networkstatus_get_flavor_name(i));
 
     /** Schedule multiple connections for the flavor we'll use */
     if (we_are_bootstrapping && i == usable_consensus_flavor()) {
       /* Schedule the next concurrent consensus download attempt based on
        * the mirror and authority schedules */
-      static time_t next_authority_attempt_time = 0;
-      static time_t next_mirror_attempt_time = 0;
 
       int flags = PDS_RETRY_IF_NO_SERVERS;
 
-      /* work even if time is negative */
-      if (!next_authority_attempt_time) {
-        next_authority_attempt_time = now;
-      }
-
-      if (!next_mirror_attempt_time) {
-        next_authority_attempt_time = now;
-      }
-
       if (now >= next_authority_attempt_time) {
         /* Try an authority*/
+        log_info(LD_DIR, "Launching %s bootstrap authority networkstatus "
+                 "consensus download.", networkstatus_get_flavor_name(i));
         directory_get_from_dirserver(DIR_PURPOSE_FETCH_CONSENSUS,
                                      ROUTER_PURPOSE_GENERAL, resource,
                                      flags, 1);
         /* schedule the next attempt */
-        next_authority_attempt_time = now + 5;
+        next_authority_attempt_time = now + authority_attempt_interval;
+        authority_attempt_interval *= CONSENSUS_BACKOFF_EXPONENT;
       }
 
       if (we_can_use_mirrors && now >= next_mirror_attempt_time) {
+        log_info(LD_DIR, "Launching %s bootstrap mirror networkstatus "
+                 "consensus download.", networkstatus_get_flavor_name(i));
         directory_get_from_dirserver(DIR_PURPOSE_FETCH_CONSENSUS,
                                      ROUTER_PURPOSE_GENERAL, resource,
                                      flags, 0);
         /* schedule the next attempt */
-        next_mirror_attempt_time = now + 1;
+        next_mirror_attempt_time = now + mirror_attempt_interval;
+        mirror_attempt_interval *= CONSENSUS_BACKOFF_EXPONENT;
       }
-
     } else {
       /* Try the requested attempt */
+      log_info(LD_DIR, "Launching %s standard networkstatus consensus "
+               "download.", networkstatus_get_flavor_name(i));
       directory_get_from_dirserver(DIR_PURPOSE_FETCH_CONSENSUS,
                                    ROUTER_PURPOSE_GENERAL, resource,
                                    PDS_RETRY_IF_NO_SERVERS, 0);

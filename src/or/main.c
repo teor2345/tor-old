@@ -1590,12 +1590,18 @@ run_scheduled_events(time_t now)
 
 /* How often do we check whether we should download network status
  * documents? */
-#define networkstatus_dl_check_interval(o) ((o)->TestingTorNetwork ? 1 : 60)
-
+  const int we_are_bootstrapping = (
+    !networkstatus_get_reasonably_live_consensus(
+                                                 now,
+                                                 usable_consensus_flavor()));
+  int networkstatus_dl_check_interval = 60;
+  if (options->TestingTorNetwork || we_are_bootstrapping) {
+    networkstatus_dl_check_interval = 1;
+  }
   if (!should_delay_dir_fetches(options, NULL) &&
       time_to.download_networkstatus < now) {
     time_to.download_networkstatus =
-      now + networkstatus_dl_check_interval(options);
+      now + networkstatus_dl_check_interval;
     update_networkstatus_downloads(now);
   }
 
