@@ -40,9 +40,16 @@ LOCAL_FILES_ONLY = False
 ## Whitelist / Blacklist Filter Settings
 
 # The whitelist contains entries that are included if all attributes match
-# (IPv4, port, id, and optionally IPv6)
-# The blacklist contains (partial) entries that are excluded if any attribute matches
-# (IPv4 (with optional port), id, or IPv6)
+# (IPv4, dirport, orport, id, and optionally IPv6)
+# The blacklist contains (partial) entries that are excluded if any
+# sufficiently specific group of attributes matches:
+# IPv4 & DirPort
+# IPv4 & ORPort
+# ID
+# IPv6 & DirPort
+# IPv6 & ORPort
+# If neither port is included in the blacklist, the entire IP address is
+# blacklisted.
 
 # What happens to entries in neither list?
 # When True, they are included, when False, they are excluded
@@ -634,6 +641,7 @@ class Candidate(object):
     """ A fallback matches if each key in the whitelist line matches:
           ipv4
           dirport
+          orport
           id
           ipv6 (if present)
         If the fallback has an ipv6 key, the whitelist line must also have
@@ -642,6 +650,10 @@ class Candidate(object):
       if entry['ipv4'] != self.dirip:
         continue
       if int(entry['dirport']) != self.dirport:
+        continue
+      if int(entry['orport']) != self.orport:
+        continue
+      if  entry['id'] != self._fpr:
         continue
       if entry.has_key('ipv6') and self.ipv6addr is not None:
         # if both entry and fallback have an ipv6 address, compare them
@@ -653,19 +665,21 @@ class Candidate(object):
         continue
       elif not entry.has_key('ipv6') and self.ipv6addr is not None:
         continue
-      if  entry['id'] != self._fpr:
-        continue
       return True
     return False
 
   def is_in_blacklist(self, relaylist):
-    """ A fallback matches a blacklist line if any of the following keys match:
+    """ A fallback matches a blacklist line if a sufficiently specific group
+        of attributes matches:
           ipv4 & dirport
+          ipv4 & orport
           id
-          ipv6 & dirport (if ipv6 present)
+          ipv6 & dirport
+          ipv6 & orport
         If the fallback and the blacklist line both have an ipv6 key,
         their values will be compared, otherwise, they will be ignored.
-        If there is no dirport, the entry matches all relays on that ip. """
+        If there is no dirport and no orport, the entry matches all relays on
+        that ip. """
     for entry in relaylist:
       for key in entry:
         value = entry[key]
@@ -674,20 +688,28 @@ class Candidate(object):
           if entry.has_key('dirport'):
             if int(entry['dirport']) == self.dirport:
               return True
+          # if the orport is present, check it too
+          elif entry.has_key('orport'):
+            if int(entry['orport']) == self.orport:
+              return True
           else:
             return True
+        if key == 'id' and value == self._fpr:
+          return True
         if key == 'ipv6' and self.ipv6addr is not None:
         # if both entry and fallback have an ipv6 address, compare them,
-        # otherwise, ignore the fallback's ipv6 address
+        # otherwise, disregard ipv6 addresses
           if value == self.ipv6addr:
             # if the dirport is present, check it too
             if entry.has_key('dirport'):
               if int(entry['dirport']) == self.dirport:
                 return True
+            # if the orport is present, check it too
+            elif entry.has_key('orport'):
+              if int(entry['orport']) == self.orport:
+                return True
             else:
               return True
-        if key == 'id' and value == self._fpr:
-          return True
     return False
 
   def fallback_weight_fraction(self, total_weight):
