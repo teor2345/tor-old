@@ -785,19 +785,19 @@ update_consensus_networkstatus_downloads(time_t now)
         >= options->TestingConsensusMaxInProgressTries)
       continue; /* There are too many in-progress connections already. */
 
-    int consensus_conn_f_count =
-      connection_dir_count_by_purpose_resource_flavor(
+    int consensus_conn_flav_count =
+      connection_dir_count_by_purpose_resource_and_flavor(
                                 DIR_PURPOSE_FETCH_CONSENSUS,
                                 resource,
                                 usable_consensus_flavor());
-    int connecting_consensus_conn_f_count =
-      connection_dir_count_by_purpose_resource_state_flavor(
+    int connecting_consensus_conn_flav_count =
+      connection_dir_count_by_purpose_resource_state_and_flavor(
           DIR_PURPOSE_FETCH_CONSENSUS,
           resource,
           DIR_CONN_STATE_CONNECTING,
           usable_consensus_flavor());
     if (i == usable_consensus_flavor()
-        && connecting_consensus_conn_f_count < consensus_conn_f_count)
+        && connecting_consensus_conn_flav_count < consensus_conn_flav_count)
       continue; /* We have a consensus connection exchanging data,
                  * (that is, it's successfully connected),
                  * for the flavor we will use,
