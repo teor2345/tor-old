@@ -741,17 +741,13 @@ update_consensus_networkstatus_downloads(time_t now)
 {
   int i;
   const or_options_t *options = get_options();
-  int we_are_bootstrapping = 0;
+  int we_are_bootstrapping = !networkstatus_get_reasonably_live_consensus(
+                                                  now,
+                                                  usable_consensus_flavor());
+  int we_can_use_mirrors = !directory_fetches_from_authorities(options);
 
   if (should_delay_dir_fetches(options, NULL))
     return;
-
-  const networkstatus_t *l = networkstatus_get_reasonably_live_consensus(
-                                                  now,
-                                                  usable_consensus_flavor());
-  if (!l) {
-    we_are_bootstrapping = 1;
-  }
 
   for (i=0; i < N_CONSENSUS_FLAVORS; ++i) {
     /* XXXX need some way to download unknown flavors if we are caching. */
@@ -785,19 +781,19 @@ update_consensus_networkstatus_downloads(time_t now)
         >= options->TestingConsensusMaxInProgressTries)
       continue; /* There are too many in-progress connections already. */
 
-    int consensus_conn_flav_count =
-      connection_dir_count_by_purpose_resource_and_flavor(
-                                DIR_PURPOSE_FETCH_CONSENSUS,
-                                resource,
-                                usable_consensus_flavor());
-    int connecting_consensus_conn_flav_count =
-      connection_dir_count_by_purpose_resource_state_and_flavor(
+    const char *usable_resource = networkstatus_get_flavor_name(
+                                                  usable_consensus_flavor());
+    int consens_conn_usable_count =
+      connection_dir_count_by_purpose_and_resource(
           DIR_PURPOSE_FETCH_CONSENSUS,
-          resource,
-          DIR_CONN_STATE_CONNECTING,
-          usable_consensus_flavor());
+          usable_resource);
+    int connect_consens_conn_usable_count =
+      connection_dir_count_by_purpose_resource_and_state(
+          DIR_PURPOSE_FETCH_CONSENSUS,
+          usable_resource,
+          DIR_CONN_STATE_CONNECTING);
     if (i == usable_consensus_flavor()
-        && connecting_consensus_conn_flav_count < consensus_conn_flav_count)
+        && connect_consens_conn_usable_count < consens_conn_usable_count)
       continue; /* We have a consensus connection exchanging data,
                  * (that is, it's successfully connected),
                  * for the flavor we will use,
@@ -825,7 +821,6 @@ update_consensus_networkstatus_downloads(time_t now)
        * the mirror and authority schedules */
       static time_t next_authority_attempt_time = 0;
       static time_t next_mirror_attempt_time = 0;
-      static int prefer_ipv6 = 0;
 
       int flags = PDS_RETRY_IF_NO_SERVERS;
 
@@ -838,10 +833,6 @@ update_consensus_networkstatus_downloads(time_t now)
         next_authority_attempt_time = now;
       }
 
-      if (prefer_ipv6) {
-        flags |= PDS_PREFER_IPv6;
-      }
-
       if (now >= next_authority_attempt_time) {
         /* Try an authority*/
         directory_get_from_dirserver(DIR_PURPOSE_FETCH_CONSENSUS,
@@ -851,7 +842,7 @@ update_consensus_networkstatus_downloads(time_t now)
         next_authority_attempt_time = now + 5;
       }
 
-      if (now >= next_mirror_attempt_time) {
+      if (we_can_use_mirrors && now >= next_mirror_attempt_time) {
         directory_get_from_dirserver(DIR_PURPOSE_FETCH_CONSENSUS,
                                      ROUTER_PURPOSE_GENERAL, resource,
                                      flags, 0);
@@ -859,8 +850,6 @@ update_consensus_networkstatus_downloads(time_t now)
         next_mirror_attempt_time = now + 1;
       }
 
-      /* choose the other ip version next time */
-      prefer_ipv6 = !prefer_ipv6;
     } else {
       /* Try the requested attempt */
       directory_get_from_dirserver(DIR_PURPOSE_FETCH_CONSENSUS,

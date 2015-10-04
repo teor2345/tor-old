@@ -19,7 +19,8 @@ void directory_post_to_dirservers(uint8_t dir_purpose, uint8_t router_purpose,
 MOCK_DECL(void, directory_get_from_dirserver, (uint8_t dir_purpose,
                                                uint8_t router_purpose,
                                                const char *resource,
-                                               int pds_flags));
+                                               int pds_flags,
+                                               int want_authority));
 void directory_get_from_all_authorities(uint8_t dir_purpose,
                                         uint8_t router_purpose,
                                         const char *resource);
@@ -72,6 +73,8 @@ void directory_initiate_command(const tor_addr_t *addr,
                                 const char *resource,
                                 const char *payload, size_t payload_len,
                                 time_t if_modified_since);
+int directory_get_authority_clock_checked(void);
+void directory_set_authority_clock_checked(void);
 
 #define DSR_HEX       (1<<0)
 #define DSR_BASE64    (1<<1)
