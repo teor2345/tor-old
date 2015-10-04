@@ -1006,6 +1006,9 @@ directory_initiate_command_rend(const tor_addr_t *_addr,
         conn->base_.state = DIR_CONN_STATE_CLIENT_SENDING;
         /* fall through */
       case 0:
+        if (connection_dir_consider_close_extra_consensus_conns(conn)) {
+          return;
+        }
         /* queue the command on the outbuf */
         directory_send_command(conn, dir_purpose, 1, resource,
                                payload, payload_len,
@@ -1047,6 +1050,9 @@ directory_initiate_command_rend(const tor_addr_t *_addr,
     if (connection_add(TO_CONN(conn)) < 0) {
       log_warn(LD_NET,"Unable to add connection for link to dirserver.");
       connection_mark_for_close(TO_CONN(conn));
+      return;
+    }
+    if (connection_dir_consider_close_extra_consensus_conns(conn)) {
       return;
     }
     conn->base_.state = DIR_CONN_STATE_CLIENT_SENDING;
@@ -3461,24 +3467,26 @@ directory_set_authority_clock_checked(void)
   authority_clock_checked = 1;
 }
 
-/** Connected handler for directory connections: begin sending data to the
- * server, and return 0, or, if the connection is an excess bootstrap
- * connection, close all excess bootstrap connections. */
+/* check if we have excess consensus connection attempts, and close them.
+ * If we haven't done a clock check, we keep authority connections around,
+ * but only ask for the HEAD of the document. */
 int
-connection_dir_finished_connecting(dir_connection_t *conn)
+connection_dir_consider_close_extra_consensus_conns(dir_connection_t *conn)
 {
+  tor_assert(conn);
+
+  /* We're not interested in connections that aren't fetching a consensus. */
+  if (conn->base_.type != CONN_TYPE_DIR
+      || conn->base_.purpose != DIR_PURPOSE_FETCH_CONSENSUS) {
+    return 0;
+  }
+
   /* If we don't have a consensus, we must still be bootstrapping */
   int we_are_bootstrapping = !networkstatus_get_reasonably_live_consensus(
                                                   time(NULL),
                                                   usable_consensus_flavor());
   int we_have_excess_bootstrap_connections = 0;
 
-  tor_assert(conn);
-  tor_assert(conn->base_.type == CONN_TYPE_DIR);
-  tor_assert(conn->base_.state == DIR_CONN_STATE_CONNECTING);
-
-  log_debug(LD_HTTP,"Dir connection to router %s:%u established.",
-            conn->base_.address,conn->base_.port);
 
   /* During normal operation, Tor only makes one consensus download
    * connection. If there are more than this, we must have connections left
@@ -3513,8 +3521,8 @@ connection_dir_finished_connecting(dir_connection_t *conn)
     }
 
     /* If we already have a consensus connection exchanging data, (that is,
-     * it's already successfully connected before this one), don't request data
-     * on this one, and close any other pending attempts.
+     * it's already successfully connected before this one), don't request
+     * data on this one, and close any other pending attempts.
      * However, if we haven't contacted an authority this run, allow
      * authority connections to connect, then close them all.
      * Also close the current connection if needed. */
@@ -3540,22 +3548,43 @@ connection_dir_finished_connecting(dir_connection_t *conn)
      * waiting to do an authority clock check */
     if (auth_clock_check) {
       tor_assert(connection_dir_count_by_purpose_resource_and_state(
-                                              DIR_PURPOSE_FETCH_CONSENSUS,
-                                              usable_resource,
-                                              DIR_CONN_STATE_CONNECTING)
+                                                DIR_PURPOSE_FETCH_CONSENSUS,
+                                                usable_resource,
+                                                DIR_CONN_STATE_CONNECTING)
                  <= expected_consens_conn_usable_count);
     }
     smartlist_free(connect_consens_usable_conns);
   }
 
   if (conn->base_.marked_for_close) {
+    printf("We marked this connection for close\n");
     /* we marked this connection for close because it's not needed */
     return -1;
   } else {
-    /* start flushing conn */
-    conn->base_.state = DIR_CONN_STATE_CLIENT_SENDING;
+    printf("We kept this connection around\n");
     return 0;
   }
+}
+
+/** Connected handler for directory connections: begin sending data to the
+ * server, and return 0. */
+int
+connection_dir_finished_connecting(dir_connection_t *conn)
+{
+  tor_assert(conn);
+  tor_assert(conn->base_.type == CONN_TYPE_DIR);
+  tor_assert(conn->base_.state == DIR_CONN_STATE_CONNECTING);
+
+  log_debug(LD_HTTP,"Dir connection to router %s:%u established.",
+            conn->base_.address,conn->base_.port);
+
+  if (connection_dir_consider_close_extra_consensus_conns(conn)) {
+    return -1;
+  }
+
+  /* start flushing conn */
+  conn->base_.state = DIR_CONN_STATE_CLIENT_SENDING;
+  return 0;
 }
 
 /** Decide which download schedule we want to use based on descriptor type
