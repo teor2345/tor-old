@@ -3467,9 +3467,7 @@ directory_set_authority_clock_checked(void)
   authority_clock_checked = 1;
 }
 
-/* check if we have excess consensus connection attempts, and close them.
- * If we haven't done a clock check, we keep authority connections around,
- * but only ask for the HEAD of the document. */
+/* check if we have excess consensus connection attempts, and close them. */
 int
 connection_dir_consider_close_extra_consensus_conns(dir_connection_t *conn)
 {
@@ -3497,23 +3495,21 @@ connection_dir_consider_close_extra_consensus_conns(dir_connection_t *conn)
                                                   usable_consensus_flavor());
   int consens_conn_usable_count =
     connection_dir_count_by_purpose_and_resource(
-        DIR_PURPOSE_FETCH_CONSENSUS,
-        usable_resource);
+                                               DIR_PURPOSE_FETCH_CONSENSUS,
+                                               usable_resource);
   const int expected_consens_conn_usable_count = 1;
   if (consens_conn_usable_count > expected_consens_conn_usable_count) {
     we_have_excess_bootstrap_connections = 1;
   }
 
   /* special handling for consensus connections during bootstrap */
-  if (conn->base_.purpose == DIR_PURPOSE_FETCH_CONSENSUS
-      && (we_are_bootstrapping || we_have_excess_bootstrap_connections)) {
+  if (we_are_bootstrapping || we_have_excess_bootstrap_connections) {
     smartlist_t *connect_consens_usable_conns =
       connection_dir_list_by_purpose_resource_and_state(
-                                                  DIR_PURPOSE_FETCH_CONSENSUS,
-                                                  usable_resource,
-                                                  DIR_CONN_STATE_CONNECTING);
+                                                DIR_PURPOSE_FETCH_CONSENSUS,
+                                                usable_resource,
+                                                DIR_CONN_STATE_CONNECTING);
     int is_usable_consensus_downloading = 0;
-    const int auth_clock_check = directory_get_authority_clock_checked();
 
     if (smartlist_len(connect_consens_usable_conns)
         < consens_conn_usable_count) {
@@ -3523,36 +3519,25 @@ connection_dir_consider_close_extra_consensus_conns(dir_connection_t *conn)
     /* If we already have a consensus connection exchanging data, (that is,
      * it's already successfully connected before this one), don't request
      * data on this one, and close any other pending attempts.
-     * However, if we haven't contacted an authority this run, allow
-     * authority connections to connect, then close them all.
      * Also close the current connection if needed. */
     SMARTLIST_FOREACH_BEGIN(connect_consens_usable_conns,
                             dir_connection_t *, d) {
+      printf("We are thinking about closing connection %p\n", d);
+      printf("Checking if it's the first\n");
       /* don't close this connection if it's the first one to connect */
       if (!is_usable_consensus_downloading && d == conn)
         continue;
-      /* don't close authority connections until we've done a clock check */
-      const int is_to_auth = router_digest_is_trusted_dir(d->identity_digest);
-      if (!auth_clock_check && is_to_auth)
-        continue;
+      printf("Now we're closing it\n");
       /* mark all other connections for close */
       connection_close_immediate(&d->base_);
       connection_mark_for_close(&d->base_);
     } SMARTLIST_FOREACH_END(d);
-    /* make sure we've closed the current connection if we're already
-     * downloading a consensus and we have a clock check */
-    if (is_usable_consensus_downloading && auth_clock_check) {
-      tor_assert(conn->base_.marked_for_close);
-    }
-    /* make sure we've closed all excess connections, unless we're still
-     * waiting to do an authority clock check */
-    if (auth_clock_check) {
-      tor_assert(connection_dir_count_by_purpose_resource_and_state(
+    /* make sure we've closed all excess connections */
+    tor_assert(connection_dir_count_by_purpose_resource_and_state(
                                                 DIR_PURPOSE_FETCH_CONSENSUS,
                                                 usable_resource,
                                                 DIR_CONN_STATE_CONNECTING)
-                 <= expected_consens_conn_usable_count);
-    }
+               <= expected_consens_conn_usable_count);
     smartlist_free(connect_consens_usable_conns);
   }
 
