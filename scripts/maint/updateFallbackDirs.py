@@ -84,11 +84,14 @@ PERMITTED_BADEXIT = .00
 # The target for these parameters is 20% of the guards in the network
 # This is around 200 as of October 2015
 # Limit the number of fallbacks (eliminating lowest by weight)
-MAX_FALLBACK_COUNT = 100
+MAX_FALLBACK_COUNT = 500
 # Emit a C #error if the number of fallbacks is below
 MIN_FALLBACK_COUNT = 100
 
-## Target Fallback Weight Settings
+## Fallback Weight Settings
+
+# Any fallback with the Exit flag has its weight multipled by this fraction
+EXIT_WEIGHT_FRACTION = 0.2
 
 # If True, emit a C #error if we can't satisfy various constraints
 # If False, emit a C comment instead
@@ -372,10 +375,12 @@ class Candidate(object):
               'consensus_weight', 'or_addresses', 'dir_address']:
       if not f in details: raise Exception("Document has no %s field."%(f,))
 
-    if not 'contact' in details: details['contact'] = None
+    if not 'contact' in details:
+      details['contact'] = None
+    if not 'flags' in details or details['flags'] is None:
+      details['flags'] = []
     details['last_changed_address_or_port'] = parse_ts(
                                       details['last_changed_address_or_port'])
-
     self._data = details
     self._stable_sort_or_addresses()
 
@@ -388,6 +393,12 @@ class Candidate(object):
     self._compute_ipv6addr()
     if self.ipv6addr is None:
       logging.debug("Failed to get an ipv6 address for %s."%(self._fpr,))
+    # Reduce the weight of exits to EXIT_WEIGHT_FRACTION * consensus_weight
+    if 'Exit' in self._data['flags']:
+      current_weight = self._data['consensus_weight']
+      exit_weight = current_weight * EXIT_WEIGHT_FRACTION
+      self._data['original_consensus_weight'] = current_weight
+      self._data['consensus_weight'] = exit_weight
 
   def _stable_sort_or_addresses(self):
     # replace self._data['or_addresses'] with a stable ordering,
@@ -748,6 +759,7 @@ class Candidate(object):
   def fallbackdir_line(self, total_weight, original_total_weight):
     # /*
     # nickname
+    # flags
     # weight / total (percentage)
     # [original weight / original total (original percentage)]
     # [contact]
@@ -759,6 +771,9 @@ class Candidate(object):
     s = '/*'
     s += '\n'
     s += cleanse_c_multiline_comment(self._data['nickname'])
+    s += '\n'
+    s += 'Flags: '
+    s += cleanse_c_multiline_comment(' '.join(sorted(self._data['flags'])))
     s += '\n'
     weight = self._data['consensus_weight']
     percent_weight = self.fallback_weight_fraction(total_weight)*100
@@ -822,7 +837,8 @@ class CandidateList(dict):
     logging.debug('Loading details document.')
     d = fetch('details',
         fields=('fingerprint,nickname,contact,last_changed_address_or_port,' +
-              'consensus_weight,or_addresses,dir_address,recommended_version'))
+                'consensus_weight,or_addresses,dir_address,' +
+                'recommended_version,flags'))
     logging.debug('Loading details document done.')
 
     if not 'relays' in d: raise Exception("No relays found in document.")
@@ -978,7 +994,10 @@ class CandidateList(dict):
       if frac_weight > MAX_WEIGHT_FRACTION:
         relays_clamped += 1
         current_weight = f._data['consensus_weight']
-        f._data['original_consensus_weight'] = current_weight
+        # if we already have an original weight, keep it
+        if (not f._data.has_key('original_consensus_weight')
+            or f._data['original_consensus_weight'] == current_weight):
+          f._data['original_consensus_weight'] = current_weight
         f._data['consensus_weight'] = max_acceptable_weight
     return relays_clamped
 
