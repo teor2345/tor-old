@@ -4307,37 +4307,37 @@ connection_get_by_type_state_rendquery(int type, int state,
 }
 
 /** Return a directory connection (if any one exists) that is fetching
- * the item described by <b>state</b>/<b>resource</b>, otherwise return NULL.
+ * the item described by <b>purpose</b>/<b>resource</b>, otherwise return NULL.
  */
 dir_connection_t *
-connection_dir_get_by_purpose_and_resource(int purpose,
+connection_dir_get_by_purpose_and_resource(
+                                           int purpose,
                                            const char *resource)
 {
   smartlist_t *conns = connection_dir_list_by_purpose_and_resource(
-                                                           purpose, resource);
+                                                          purpose,
+                                                          resource);
   tor_assert(conns);
-
   if (smartlist_len(conns) > 0) {
     dir_connection_t *arbitrary_conn = smartlist_get(conns, 0);
-
-    /* free the list, but not the pointers in it */
     smartlist_free(conns);
-
     return arbitrary_conn;
   } else {
+    smartlist_free(conns);
     return NULL;
   }
 }
 
 /** Return a list of directory connections that are fetching the item
- * described by <b>state</b>/<b>resource</b>. If there are none,
+ * described by <b>purpose</b>/<b>resource</b>. If there are none,
  * return an empty list. This list must be freed using smartlist_free,
  * but the pointers in it must not be freed.
  * Note that this list should not be cached, as the pointers in it can be
  * freed if their connections close. */
 smartlist_t *
-connection_dir_list_by_purpose_and_resource(int purpose,
-                                                const char *resource)
+connection_dir_list_by_purpose_and_resource(
+                                            int purpose,
+                                            const char *resource)
 {
   smartlist_t *conns = get_connection_array();
   smartlist_t *dir_conns = smartlist_new();
@@ -4346,7 +4346,7 @@ connection_dir_list_by_purpose_and_resource(int purpose,
     dir_connection_t *dirconn;
     if (conn->type != CONN_TYPE_DIR || conn->marked_for_close ||
         conn->purpose != purpose)
-    continue;
+      continue;
     dirconn = TO_DIR_CONN(conn);
     if (dirconn->requested_resource == NULL) {
       if (resource == NULL) {
@@ -4362,6 +4362,65 @@ connection_dir_list_by_purpose_and_resource(int purpose,
   return dir_conns;
 }
 
+/** Return a directory connection (if any one exists) that is fetching
+ * the item described by <b>purpose</b>/<b>resource</b>/<b>state</b>,
+ * otherwise return NULL. */
+dir_connection_t *
+connection_dir_get_by_purpose_resource_and_state(
+                                                 int purpose,
+                                                 const char *resource,
+                                                 int state)
+{
+  smartlist_t *conns =
+    connection_dir_list_by_purpose_resource_and_state(
+                                                      purpose,
+                                                      resource,
+                                                      state);
+  tor_assert(conns);
+  if (smartlist_len(conns) > 0) {
+    dir_connection_t *arbitrary_conn = smartlist_get(conns, 0);
+    smartlist_free(conns);
+    return arbitrary_conn;
+  } else {
+    smartlist_free(conns);
+    return NULL;
+  }
+}
+
+/** Return a list of directory connections that are fetching the item
+ * described by <b>purpose</b>/<b>resource</b>/<b>state</b>. If there are
+ * none, return an empty list. This list must be freed using smartlist_free,
+ * but the pointers in it must not be freed.
+ * Note that this list should not be cached, as the pointers in it can be
+ * freed if their connections close. */
+smartlist_t *
+connection_dir_list_by_purpose_resource_and_state(
+                                                  int purpose,
+                                                  const char *resource,
+                                                  int state)
+{
+  smartlist_t *conns = get_connection_array();
+  smartlist_t *dir_conns = smartlist_new();
+
+  SMARTLIST_FOREACH_BEGIN(conns, connection_t *, conn) {
+    dir_connection_t *dirconn;
+    if (conn->type != CONN_TYPE_DIR || conn->marked_for_close ||
+        conn->purpose != purpose || conn->state != state)
+      continue;
+    dirconn = TO_DIR_CONN(conn);
+    if (dirconn->requested_resource == NULL) {
+      if (resource == NULL) {
+        smartlist_add(dir_conns, dirconn);
+      }
+    } else if (resource) {
+      if (0 == strcmp(resource, dirconn->requested_resource)) {
+        smartlist_add(dir_conns, dirconn);
+      }
+    }
+  } SMARTLIST_FOREACH_END(conn);
+
+  return dir_conns;
+}
 
 /** Return 1 if there are any active OR connections apart from
  * <b>this_conn</b>.
