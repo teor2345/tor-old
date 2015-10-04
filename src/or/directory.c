@@ -593,7 +593,7 @@ directory_get_from_all_authorities(uint8_t dir_purpose,
       if (!(ds->type & V3_DIRINFO))
         continue;
       rs = &ds->fake_status;
-      directory_initiate_command_routerstatus(rs, 0, dir_purpose, router_purpose,
+      directory_initiate_command_routerstatus(rs, dir_purpose, router_purpose,
                                               DIRIND_ONEHOP, resource, NULL,
                                               0, 0);
   } SMARTLIST_FOREACH_END(ds);
@@ -3463,7 +3463,7 @@ connection_dir_finished_connecting(dir_connection_t *conn)
 
   /* If we don't have a consensus, we must still be bootstrapping */
   networkstatus_t *l = networkstatus_get_reasonably_live_consensus(
-                                                  now,
+                                                  time(NULL),
                                                   usable_consensus_flavor());
   if (!l) {
     we_are_bootstrapping = 1;
@@ -3494,7 +3494,8 @@ connection_dir_finished_connecting(dir_connection_t *conn)
                                                   DIR_CONN_STATE_CONNECTING);
     int is_usable_consensus_downloading = 0;
 
-    if (smartlist_len(connecting_consensus_flav_conns) < c_conn_count) {
+    if (smartlist_len(connecting_consensus_flav_conns)
+        < consensus_conn_flav_count) {
       is_usable_consensus_downloading = 1;
     }
 
@@ -3518,8 +3519,8 @@ connection_dir_finished_connecting(dir_connection_t *conn)
       if (!have_authority_clock_check && is_to_auth)
         continue;
       /* mark all other connections for close */
-      connection_close_immediate(d->base_);
-      connection_mark_for_close(d->base_);
+      connection_close_immediate(&d->base_);
+      connection_mark_for_close(&d->base_);
     } SMARTLIST_FOREACH_END(d);
     /* make sure we've closed the current connection if we're already
      * downloading a consensus */
@@ -3533,17 +3534,13 @@ connection_dir_finished_connecting(dir_connection_t *conn)
                                               resource,
                                               DIR_CONN_STATE_CONNECTING,
                                               usable_consensus_flavor())
-               <= expected_c_conn_count);
+               <= expected_consensus_conn_flav_count);
+    smartlist_free(connecting_consensus_flav_conns);
+    /* we marked this connection for close because it's not needed */
+    return -1;
   } else {
     /* start flushing conn */
     conn->base_.state = DIR_CONN_STATE_CLIENT_SENDING;
-  }
-  smartlist_free(connecting_consensus_flav_conns);
-
-  /* if we marked this connection for close because it's excess, return -1 */
-  if (conn->base_.marked_for_close) {
-    return -1;
-  } else {
     return 0;
   }
 }
