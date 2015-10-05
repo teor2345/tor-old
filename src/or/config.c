@@ -471,9 +471,21 @@ static config_var_t option_vars_[] = {
   V(TestingServerConsensusDownloadSchedule, CSV_INTERVAL, "0, 0, 60, "
                                  "300, 600, 1800, 1800, 1800, 1800, "
                                  "1800, 3600, 7200"),
+  V(TestingServerBootstrapConsensusAuthorityDownloadSchedule, CSV_INTERVAL,
+    "0, 10, 20, 40, 80, 160, 320, 640, 1280, 2560, 5120, 10240, 20480, "
+    "40960, 81920, 163840, 262800"),
+  V(TestingServerBootstrapConsensusFallbackDownloadSchedule, CSV_INTERVAL,
+    "0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, "
+    "32768, 65536, 131072, " /* skip 262144, */ "262800"),
   V(TestingClientConsensusDownloadSchedule, CSV_INTERVAL, "0, 0, 60, "
                                  "300, 600, 1800, 3600, 3600, 3600, "
                                  "10800, 21600, 43200"),
+  V(TestingClientBootstrapConsensusAuthorityDownloadSchedule, CSV_INTERVAL,
+    "0, 10, 20, 40, 80, 160, 320, 640, 1280, 2560, 5120, 10240, 20480, "
+    "40960, 81920, 163840, 262800"),
+  V(TestingClientBootstrapConsensusFallbackDownloadSchedule, CSV_INTERVAL,
+    "0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, "
+    "32768, 65536, 131072, " /* skip 262144, */ "262800"),
   V(TestingBridgeDownloadSchedule, CSV_INTERVAL, "3600, 900, 900, 3600"),
   V(TestingClientMaxIntervalWithoutRequest, INTERVAL, "10 minutes"),
   V(TestingDirConnectionMaxStall, INTERVAL, "5 minutes"),
@@ -524,8 +536,18 @@ static const config_var_t testing_tor_network_defaults[] = {
                                  "30, 60"),
   V(TestingServerConsensusDownloadSchedule, CSV_INTERVAL, "0, 0, 5, 10, "
                                  "15, 20, 30, 60"),
+  V(TestingServerBootstrapConsensusAuthorityDownloadSchedule, CSV_INTERVAL,
+    "0, 1, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 8, 16, 32, 60"),
+  V(TestingServerBootstrapConsensusFallbackDownloadSchedule, CSV_INTERVAL,
+    "0, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, "
+    "8, 16, 32, 60"),
   V(TestingClientConsensusDownloadSchedule, CSV_INTERVAL, "0, 0, 5, 10, "
                                  "15, 20, 30, 60"),
+  V(TestingClientBootstrapConsensusAuthorityDownloadSchedule, CSV_INTERVAL,
+    "0, 1, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 8, 16, 32, 60"),
+  V(TestingClientBootstrapConsensusFallbackDownloadSchedule, CSV_INTERVAL,
+    "0, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 8, "
+    "16, 32, 60"),
   V(TestingBridgeDownloadSchedule, CSV_INTERVAL, "60, 30, 30, 60"),
   V(TestingClientMaxIntervalWithoutRequest, INTERVAL, "5 seconds"),
   V(TestingDirConnectionMaxStall, INTERVAL, "30 seconds"),
@@ -3738,7 +3760,11 @@ options_validate(or_options_t *old_options, or_options_t *options,
   CHECK_DEFAULT(TestingServerDownloadSchedule);
   CHECK_DEFAULT(TestingClientDownloadSchedule);
   CHECK_DEFAULT(TestingServerConsensusDownloadSchedule);
+  CHECK_DEFAULT(TestingServerBootstrapConsensusAuthorityDownloadSchedule);
+  CHECK_DEFAULT(TestingServerBootstrapConsensusFallbackDownloadSchedule);
   CHECK_DEFAULT(TestingClientConsensusDownloadSchedule);
+  CHECK_DEFAULT(TestingClientBootstrapConsensusAuthorityDownloadSchedule);
+  CHECK_DEFAULT(TestingClientBootstrapConsensusFallbackDownloadSchedule);
   CHECK_DEFAULT(TestingBridgeDownloadSchedule);
   CHECK_DEFAULT(TestingClientMaxIntervalWithoutRequest);
   CHECK_DEFAULT(TestingDirConnectionMaxStall);

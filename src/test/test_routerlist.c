@@ -13,7 +13,7 @@ static char output[4*BASE64_DIGEST256_LEN+3+2+2+1];
 static void
 mock_get_from_dirserver(uint8_t dir_purpose, uint8_t router_purpose,
                         const char *resource, int pds_flags,
-                        int want_authority)
+                        download_want_authority_t want_authority)
 {
   (void)dir_purpose;
   (void)router_purpose;

@@ -428,11 +428,12 @@ directory_pick_generic_dirserver(dirinfo_type_t type, int pds_flags,
  * Use <b>pds_flags</b> as arguments to router_pick_directory_server()
  * or router_pick_trusteddirserver().
  */
-MOCK_IMPL(void, directory_get_from_dirserver, (uint8_t dir_purpose,
-                                               uint8_t router_purpose,
-                                               const char *resource,
-                                               int pds_flags,
-                                               int want_authority))
+MOCK_IMPL(void, directory_get_from_dirserver, (
+                            uint8_t dir_purpose,
+                            uint8_t router_purpose,
+                            const char *resource,
+                            int pds_flags,
+                            download_want_authority_t want_authority))
 {
   const routerstatus_t *rs = NULL;
   const or_options_t *options = get_options();
@@ -3480,9 +3481,8 @@ connection_dir_consider_close_extra_consensus_conns(dir_connection_t *conn)
   }
 
   /* If we don't have a consensus, we must still be bootstrapping */
-  int we_are_bootstrapping = !networkstatus_get_reasonably_live_consensus(
-                                                  time(NULL),
-                                                  usable_consensus_flavor());
+  int we_are_bootstrapping = networkstatus_consensus_is_boostrapping(
+                                                                  time(NULL));
   int we_have_excess_bootstrap_connections = 0;
 
 
@@ -3573,26 +3573,49 @@ connection_dir_finished_connecting(dir_connection_t *conn)
 }
 
 /** Decide which download schedule we want to use based on descriptor type
- * in <b>dls</b> and whether we are acting as directory <b>server</b>, and
- * then return a list of int pointers defining download delays in seconds.
- * Helper function for download_status_increment_failure() and
- * download_status_reset(). */
+ * in <b>dls</b> and whether we are acting as directory <b>server</b> and
+ * whether we <b>want_authority</b> download or a fallback download.
+ * Then return a list of int pointers defining download delays in seconds.
+ * Helper function for download_status_increment_failure(),
+ * download_status_reset(), and download_status_increment_attempt(). */
 static const smartlist_t *
-find_dl_schedule_and_len(download_status_t *dls, int server)
+find_dl_schedule_and_len(download_status_t *dls,
+                         int server)
 {
+  const or_options_t *o = get_options();
+  const int we_are_bootstrapping = networkstatus_consensus_is_boostrapping(
+                                                                  time(NULL));
   switch (dls->schedule) {
     case DL_SCHED_GENERIC:
-      if (server)
-        return get_options()->TestingServerDownloadSchedule;
-      else
-        return get_options()->TestingClientDownloadSchedule;
+      if (server) {
+        return o->TestingServerDownloadSchedule;
+      } else {
+        return o->TestingClientDownloadSchedule;
+      }
     case DL_SCHED_CONSENSUS:
-      if (server)
-        return get_options()->TestingServerConsensusDownloadSchedule;
-      else
-        return get_options()->TestingClientConsensusDownloadSchedule;
+      if (server) {
+        if (we_are_bootstrapping) {
+          if (dls->want_authority) {
+            return o->TestingServerBootstrapConsensusAuthorityDownloadSchedule;
+          } else {
+            return o->TestingServerBootstrapConsensusFallbackDownloadSchedule;
+          }
+        } else {
+          return o->TestingServerConsensusDownloadSchedule;
+        }
+      } else {
+        if (we_are_bootstrapping) {
+          if (dls->want_authority) {
+            return o->TestingClientBootstrapConsensusAuthorityDownloadSchedule;
+          } else {
+            return o->TestingClientBootstrapConsensusFallbackDownloadSchedule;
+          }
+        } else {
+          return o->TestingClientConsensusDownloadSchedule;
+        }
+      }
     case DL_SCHED_BRIDGE:
-      return get_options()->TestingBridgeDownloadSchedule;
+      return o->TestingBridgeDownloadSchedule;
     default:
       tor_assert(0);
   }
@@ -3601,27 +3624,20 @@ find_dl_schedule_and_len(download_status_t *dls, int server)
   return NULL;
 }
 
-/** Called when an attempt to download <b>dls</b> has failed with HTTP status
- * <b>status_code</b>.  Increment the failure count (if the code indicates a
- * real failure) and set <b>dls</b>-\>next_attempt_at to an appropriate time
- * in the future. */
-time_t
-download_status_increment_failure(download_status_t *dls, int status_code,
-                                  const char *item, int server, time_t now)
+/* Increment dls according to its schedule and dls_n_download_increments.
+ * Helper for download_status_increment_failure and
+ * download_status_increment_attempt. */
+static int
+download_status_increment_helper(download_status_t *dls, int server,
+                                 uint8_t dls_n_download_increments,
+                                 time_t now)
 {
-  const smartlist_t *schedule;
+  const smartlist_t *schedule = find_dl_schedule_and_len(dls, server);
   int increment;
-  tor_assert(dls);
-  if (status_code != 503 || server) {
-    if (dls->n_download_failures < IMPOSSIBLE_TO_DOWNLOAD-1)
-      ++dls->n_download_failures;
-  }
 
-  schedule = find_dl_schedule_and_len(dls, server);
-
-  if (dls->n_download_failures < smartlist_len(schedule))
+  if (dls_n_download_increments < smartlist_len(schedule))
     increment = *(int *)smartlist_get(schedule, dls->n_download_failures);
-  else if (dls->n_download_failures == IMPOSSIBLE_TO_DOWNLOAD)
+  else if (dls_n_download_increments == IMPOSSIBLE_TO_DOWNLOAD)
     increment = INT_MAX;
   else
     increment = *(int *)smartlist_get(schedule, smartlist_len(schedule) - 1);
@@ -3631,19 +3647,106 @@ download_status_increment_failure(download_status_t *dls, int status_code,
   else
     dls->next_attempt_at = TIME_MAX;
 
+  return increment;
+}
+
+static void
+download_status_log_helper(const char *item, int not_this_schedule,
+                           const char *increment_on, const char *increment_alt,
+                           uint8_t dls_n_download_increments, int increment,
+                           time_t dls_next_attempt_at, time_t now)
+{
   if (item) {
-    if (increment == 0)
-      log_debug(LD_DIR, "%s failed %d time(s); I'll try again immediately.",
-                item, (int)dls->n_download_failures);
-    else if (dls->next_attempt_at < TIME_MAX)
-      log_debug(LD_DIR, "%s failed %d time(s); I'll try again in %d seconds.",
-                item, (int)dls->n_download_failures,
-                (int)(dls->next_attempt_at-now));
+    if (not_this_schedule)
+      log_debug(LD_DIR, "%s %s %d time(s); I'll try again %s.",
+                item, increment_on, (int)dls_n_download_increments,
+                increment_alt);
+    else if (increment == 0)
+      log_debug(LD_DIR, "%s %s %d time(s); I'll try again immediately.",
+                item, increment_on, (int)dls_n_download_increments);
+    else if (dls_next_attempt_at < TIME_MAX)
+      log_debug(LD_DIR, "%s %s %d time(s); I'll try again in %d seconds.",
+                item, increment_on, (int)dls_n_download_increments,
+                (int)(dls_next_attempt_at-now));
     else
-      log_debug(LD_DIR, "%s failed %d time(s); Giving up for a while.",
-                item, (int)dls->n_download_failures);
+      log_debug(LD_DIR, "%s %s %d time(s); Giving up for a while.",
+                item, increment_on, (int)dls_n_download_increments);
   }
-  return dls->next_attempt_at;
+}
+
+/** Called when an attempt to download <b>dls</b> has failed with HTTP status
+ * <b>status_code</b>.  Increment the failure count (if the code indicates a
+ * real failure) and set <b>dls</b>-\>next_attempt_at to an appropriate time
+ * in the future and return it.
+ * If <b>dls->increment_on_attempt</b>, don't increment, return a time
+ * in the far future for the next attempt (to avoid an immediate retry), and
+ * count the failure. */
+time_t
+download_status_increment_failure(download_status_t *dls, int status_code,
+                                  const char *item, int server, time_t now)
+{
+  int increment;
+  tor_assert(dls);
+
+  if (status_code != 503 || server) {
+    if (dls->n_download_failures < IMPOSSIBLE_TO_DOWNLOAD-1)
+      ++dls->n_download_failures;
+  }
+
+  /* only increment this schedule if it's increment-on-failure */
+  if (!dls->increment_on_attempt) {
+    increment = download_status_increment_helper(dls,
+                                                 server,
+                                                 dls->n_download_failures,
+                                                 now);
+  } else {
+    increment = 0;
+  }
+
+  download_status_log_helper(item, dls->increment_on_attempt, "failed",
+                             "concurrently", dls->n_download_failures,
+                             increment, dls->next_attempt_at, now);
+
+  if (dls->increment_on_attempt) {
+    /* don't retry on failure, retry concurrently instead */
+    return TIME_MAX;
+  } else {
+    return dls->next_attempt_at;
+  }
+}
+
+/** Called when an attempt to download <b>dls</b> is being initiated.
+ * Increment the attempt count and set <b>dls</b>-\>next_attempt_at to an
+ * appropriate time in the future and return it.
+ * If <b>!dls->increment_on_attempt</b>, don't increment, and return a time
+ * in the far future for the next attempt (to avoid concurrent attempts). */
+time_t
+download_status_increment_attempt(download_status_t *dls, const char *item,
+                                  int server, time_t now)
+{
+  int increment;
+  tor_assert(dls);
+
+  /* only increment this schedule if it's increment-on-attempt */
+  if (dls->increment_on_attempt) {
+    increment = download_status_increment_helper(dls,
+                                                 server,
+                                                 dls->n_download_attempts,
+                                                 now);
+  } else {
+    increment = 0;
+  }
+
+  download_status_log_helper(item, !dls->increment_on_attempt, "attempted",
+                             "on failure", dls->n_download_attempts,
+                             increment, dls->next_attempt_at, now);
+
+  if (!dls->increment_on_attempt) {
+    /* don't retry concurrently, retry on failure instead */
+    return TIME_MAX;
+  } else {
+    return dls->next_attempt_at;
+  }
 }
 
 /** Reset <b>dls</b> so that it will be considered downloadable
@@ -3664,7 +3767,9 @@ download_status_reset(download_status_t *dls)
                           dls, get_options()->DirPort_set);
 
   dls->n_download_failures = 0;
+  dls->n_download_attempts = 0;
   dls->next_attempt_at = time(NULL) + *(int *)smartlist_get(schedule, 0);
+  /* Don't reset dls->want_authority or dls->increment_on_attempt */
 }
 
 /** Return the number of failures on <b>dls</b> since the last success (if
@@ -3673,6 +3778,22 @@ int
 download_status_get_n_failures(const download_status_t *dls)
 {
   return dls->n_download_failures;
+}
+
+/** Return the number of attempts to download <b>dls</b> since the last success
+ * (if any). This can differ from download_status_get_n_failures() due to
+ * outstanding concurrent attempts. */
+int
+download_status_get_n_attempts(const download_status_t *dls)
+{
+  return dls->n_download_attempts;
+}
+
+/** Return the next time to attempt to download <b>dls</b>. */
+time_t
+download_status_get_next_attempt_at(const download_status_t *dls)
+{
+  return dls->next_attempt_at;
 }
 
 /** Called when one or more routerdesc (or extrainfo, if <b>was_extrainfo</b>)
