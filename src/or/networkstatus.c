@@ -856,20 +856,25 @@ static void
 update_consensus_bootstrap_downloads(time_t now)
 {
   const or_options_t *options = get_options();
+  const int server = directory_fetches_from_authorities(options);
   /* XXX - while bootstrapping, even a relay can use mirrors.
    * Will this allow relays to bootstrap even if they have bad connectivity?
+   * (And is that a good thing, or a bad thing?)
    * We could use !directory_fetches_from_authorities(options) */
   const int we_can_use_mirrors = 1;
   const char *resource = networkstatus_get_flavor_name(
                                                   usable_consensus_flavor());
+
   /* Since we use independent download schedules for bootstrapping, any
    * failures will increment the consensus_dl_status entries, not these
-   * entries. This ends up being a useful feature, not a bug. */
+   * entries. This ends up being a useful feature, not a bug.
+   * (And, regardless, DL_SCHED_INCREMENT_ATTEMPT means that 
+   *  download_status_increment_failure won't increment the entry.) */
   static download_status_t cbds[CBDS_N_SCHEDULE_ALTERNATIVES] =
   {
-    { 0, 0, 0, DL_SCHED_CONSENSUS, DL_SCHED_WANT_AUTHORITY,
+    { 0, 0, 0, DL_SCHED_CONSENSUS, DL_WANT_AUTHORITY,
                                    DL_SCHED_INCREMENT_ATTEMPT },
-    { 0, 0, 0, DL_SCHED_CONSENSUS, DL_SCHED_WANT_FALLBACK,
+    { 0, 0, 0, DL_SCHED_CONSENSUS, DL_WANT_FALLBACK,
                                    DL_SCHED_INCREMENT_ATTEMPT },
   };
 
@@ -895,7 +900,7 @@ update_consensus_bootstrap_downloads(time_t now)
                                  flags, DL_WANT_AUTHORITY);
     /* schedule the next attempt */
     download_status_increment_attempt(&cbds[CBDS_SCHEDULE_AUTHORITY],
-                                      resource, now);
+                                      resource, server, now);
   }
 
   if (we_can_use_mirrors && now >= download_status_get_next_attempt_at(
@@ -907,7 +912,7 @@ update_consensus_bootstrap_downloads(time_t now)
                                  flags, DL_WANT_FALLBACK);
     /* schedule the next attempt */
     download_status_increment_attempt(&cbds[CBDS_SCHEDULE_FALLBACK],
-                                      resource, now);
+                                      resource, server, now);
   }
 }
 

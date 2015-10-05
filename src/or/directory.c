@@ -3693,7 +3693,7 @@ download_status_increment_failure(download_status_t *dls, int status_code,
  * in the far future for the next attempt (to avoid concurrent attempts). */
 time_t
 download_status_increment_attempt(download_status_t *dls, const char *item,
-                                  time_t now)
+                                  int server, time_t now)
 {
   const smartlist_t *schedule;
   int increment;
