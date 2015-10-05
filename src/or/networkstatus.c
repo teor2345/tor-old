@@ -798,9 +798,9 @@ update_consensus_networkstatus_downloads(time_t now)
                                                  resource);
     int connect_consens_conn_count =
       connection_dir_count_by_purpose_resource_and_state(
-                                                       DIR_PURPOSE_FETCH_CONSENSUS,
-                                                       resource,
-                                                       DIR_CONN_STATE_CONNECTING);
+                                                  DIR_PURPOSE_FETCH_CONSENSUS,
+                                                  resource,
+                                                  DIR_CONN_STATE_CONNECTING);
     /* We have a consensus connection exchanging data for this flavor (it's
      * successfully connected), so don't make any other ones. */
     if (connect_consens_conn_count < consens_conn_count)
@@ -868,7 +868,7 @@ update_consensus_bootstrap_downloads(time_t now)
   /* Since we use independent download schedules for bootstrapping, any
    * failures will increment the consensus_dl_status entries, not these
    * entries. This ends up being a useful feature, not a bug.
-   * (And, regardless, DL_SCHED_INCREMENT_ATTEMPT means that 
+   * (And, regardless, DL_SCHED_INCREMENT_ATTEMPT means that
    *  download_status_increment_failure won't increment the entry.) */
   static download_status_t cbds[CBDS_N_SCHEDULE_ALTERNATIVES] =
   {
@@ -919,7 +919,6 @@ update_consensus_bootstrap_downloads(time_t now)
 #undef UCBD_N_SCHEDULE_ALTERNATIVES
 #undef UCBD_SCHEDULE_AUTHORITY
 #undef UCBD_SCHEDULE_FALLBACK
-
 
 /** Called when an attempt to download a consensus fails: note that the
  * failure occurred, and possibly retry. */
@@ -1192,7 +1191,6 @@ networkstatus_consensus_is_boostrapping(time_t now)
                                                   now,
                                                   usable_consensus_flavor());
 }
-
 
 /** Given two router status entries for the same router identity, return 1 if
  * if the contents have changed between them. Otherwise, return 0. */
