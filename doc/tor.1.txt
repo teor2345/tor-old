@@ -2274,7 +2274,15 @@ The following options are used for running a testing Tor network.
        TestingServerDownloadSchedule 0, 0, 0, 5, 10, 15, 20, 30, 60
        TestingClientDownloadSchedule 0, 0, 5, 10, 15, 20, 30, 60
        TestingServerConsensusDownloadSchedule 0, 0, 5, 10, 15, 20, 30, 60
+       TestingServerBootstrapConsensusAuthorityDownloadSchedule 0, 1, 2, 4, 8,
+           16, 32, 60
+       TestingServerBootstrapConsensusFallbackDownloadSchedule 0, 0, 1, 1, 2,
+           2, 4, 8, 16, 32, 60
        TestingClientConsensusDownloadSchedule 0, 0, 5, 10, 15, 20, 30, 60
+       TestingClientBootstrapConsensusAuthorityDownloadSchedule 0, 1, 2, 4, 8,
+           16, 32, 60
+       TestingClientBootstrapConsensusFallbackDownloadSchedule 0, 0, 1, 1, 2,
+           2, 4, 8, 16, 32, 60
        TestingBridgeDownloadSchedule 60, 30, 30, 60
        TestingClientMaxIntervalWithoutRequest 5 seconds
        TestingDirConnectionMaxStall 30 seconds
@@ -2336,10 +2344,46 @@ The following options are used for running a testing Tor network.
     requires that **TestingTorNetwork** is set. (Default: 0, 0, 60, 300, 600,
     1800, 1800, 1800, 1800, 1800, 3600, 7200)
 
+[[TestingServerBootstrapConsensusAuthorityDownloadSchedule]] **TestingServerBootstrapConsensusAuthorityDownloadSchedule** __N__,__N__,__...__::
+    Schedule for when servers should download consensuses from authorities if
+    they are bootstrapping (that is, they don't have a usable, reasonably live
+    consensus). This schedule is indexed by (potentially concurrent)
+    connection attempt, unlike other schedules, which are indexed by failure
+    count. Changing this requires that **TestingTorNetwork** is set.
+    (Default: 0, 10, 20, 40, 80, 160, 320, 640, 1280, 2560, 5120, 10240,
+    20480, 40960, 81920, 163840, 262800)
+
+[[TestingServerBootstrapConsensusFallbackDownloadSchedule]] **TestingServerBootstrapConsensusFallbackDownloadSchedule** __N__,__N__,__...__::
+    Schedule for when servers should download consensuses from fallback
+    directory mirrors if they are bootstrapping (that is, they don't have a
+    usable, reasonably live consensus). This schedule is indexed by
+    (potentially concurrent) connection attempt, unlike other schedules, which
+    are indexed by failure count.  Changing this requires that
+    **TestingTorNetwork** is set. (Default: 0, 10, 20, 40, 80, 160, 320, 640,
+    1280, 2560, 5120, 10240, 20480, 40960, 81920, 163840, 262800)
+
 [[TestingClientConsensusDownloadSchedule]] **TestingClientConsensusDownloadSchedule** __N__,__N__,__...__::
     Schedule for when clients should download consensuses. Changing this
     requires that **TestingTorNetwork** is set. (Default: 0, 0, 60, 300, 600,
     1800, 3600, 3600, 3600, 10800, 21600, 43200)
+
+[[TestingClientBootstrapConsensusAuthorityDownloadSchedule]] **TestingClientBootstrapConsensusAuthorityDownloadSchedule** __N__,__N__,__...__::
+    Schedule for when clients should download consensuses from authorities if
+    they are bootstrapping (that is, they don't have a usable, reasonably live
+    consensus). This schedule is indexed by (potentially concurrent)
+    connection attempt, unlike other schedules, which are indexed by failure
+    count. Changing this requires that **TestingTorNetwork** is set.
+    (Default: 0, 10, 20, 40, 80, 160, 320, 640, 1280, 2560, 5120, 10240,
+    20480, 40960, 81920, 163840, 262800)
+
+[[TestingClientBootstrapConsensusFallbackDownloadSchedule]] **TestingClientBootstrapConsensusFallbackDownloadSchedule** __N__,__N__,__...__::
+    Schedule for when clients should download consensuses from fallback
+    directory mirrors if they are bootstrapping (that is, they don't have a
+    usable, reasonably live consensus). This schedule is indexed by
+    (potentially concurrent) connection attempt, unlike other schedules, which
+    are indexed by failure count. Changing this requires that
+    **TestingTorNetwork** is set. (Default: 0, 10, 20, 40, 80, 160, 320, 640,
+    1280, 2560, 5120, 10240, 20480, 40960, 81920, 163840, 262800)
 
 [[TestingBridgeDownloadSchedule]] **TestingBridgeDownloadSchedule** __N__,__N__,__...__::
     Schedule for when clients should download bridge descriptors. Changing this

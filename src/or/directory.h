@@ -16,11 +16,12 @@ int directories_have_accepted_server_descriptor(void);
 void directory_post_to_dirservers(uint8_t dir_purpose, uint8_t router_purpose,
                                   dirinfo_type_t type, const char *payload,
                                   size_t payload_len, size_t extrainfo_len);
-MOCK_DECL(void, directory_get_from_dirserver, (uint8_t dir_purpose,
-                                               uint8_t router_purpose,
-                                               const char *resource,
-                                               int pds_flags,
-                                               int want_authority));
+MOCK_DECL(void, directory_get_from_dirserver, (
+                          uint8_t dir_purpose,
+                          uint8_t router_purpose,
+                          const char *resource,
+                          int pds_flags,
+                          download_want_authority_t want_authority));
 void directory_get_from_all_authorities(uint8_t dir_purpose,
                                         uint8_t router_purpose,
                                         const char *resource);
@@ -95,6 +96,8 @@ int router_supports_extrainfo(const char *identity_digest, int is_authority);
 time_t download_status_increment_failure(download_status_t *dls,
                                          int status_code, const char *item,
                                          int server, time_t now);
+time_t download_status_increment_attempt(download_status_t *dls,
+                                         const char *item, time_t now);
 /** Increment the failure count of the download_status_t <b>dls</b>, with
  * the optional status code <b>sc</b>. */
 #define download_status_failed(dls, sc)                                 \
@@ -123,6 +126,8 @@ download_status_mark_impossible(download_status_t *dl)
 }
 
 int download_status_get_n_failures(const download_status_t *dls);
+int download_status_get_n_attempts(const download_status_t *dls);
+time_t download_status_get_next_attempt_at(const download_status_t *dls);
 
 #ifdef TOR_UNIT_TESTS
 /* Used only by directory.c and test_dir.c */
