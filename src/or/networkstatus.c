@@ -812,7 +812,6 @@ update_consensus_networkstatus_downloads(time_t now)
         >= options->TestingConsensusMaxInProgressTries)
       continue; /* There are too many in-progress connections already. */
 
-
     waiting = &consensus_waiting_for_certs[i];
     if (waiting->consensus) {
       /* XXXX make sure this doesn't delay sane downloads. */
@@ -825,8 +824,6 @@ update_consensus_networkstatus_downloads(time_t now)
         }
       }
     }
-
-    printf("We are not waiting for certificates\n");
 
     if (we_are_bootstrapping && i == usable_consensus_flavor()) {
       update_consensus_bootstrap_downloads(now);
@@ -1095,9 +1092,6 @@ should_delay_dir_fetches(const or_options_t *options, const char **msg_out)
 void
 update_networkstatus_downloads(time_t now)
 {
-  const or_options_t *options = get_options();
-  if (should_delay_dir_fetches(options, NULL))
-    return;
   update_consensus_networkstatus_downloads(now);
   update_certificate_downloads(now);
 }

@@ -3485,7 +3485,6 @@ connection_dir_consider_close_extra_consensus_conns(dir_connection_t *conn)
                                                                   time(NULL));
   int we_have_excess_bootstrap_connections = 0;
 
-
   /* During normal operation, Tor only makes one consensus download
    * connection. If there are more than this, we must have connections left
    * over from bootstrapping. However, some of the connections may have
@@ -3522,12 +3521,9 @@ connection_dir_consider_close_extra_consensus_conns(dir_connection_t *conn)
      * Also close the current connection if needed. */
     SMARTLIST_FOREACH_BEGIN(connect_consens_usable_conns,
                             dir_connection_t *, d) {
-      printf("We are thinking about closing connection %p\n", d);
-      printf("Checking if it's the first\n");
       /* don't close this connection if it's the first one to connect */
       if (!is_usable_consensus_downloading && d == conn)
         continue;
-      printf("Now we're closing it\n");
       /* mark all other connections for close */
       connection_close_immediate(&d->base_);
       connection_mark_for_close(&d->base_);
@@ -3542,11 +3538,9 @@ connection_dir_consider_close_extra_consensus_conns(dir_connection_t *conn)
   }
 
   if (conn->base_.marked_for_close) {
-    printf("We marked this connection for close\n");
     /* we marked this connection for close because it's not needed */
     return -1;
   } else {
-    printf("We kept this connection around\n");
     return 0;
   }
 }

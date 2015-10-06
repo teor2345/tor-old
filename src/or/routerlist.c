@@ -899,7 +899,8 @@ authority_certs_fetch_missing(networkstatus_t *status, time_t now)
       resource = smartlist_join_strings(fps, "", 0, NULL);
       /* XXX - do we want certs from authorities or mirrors? - teor */
       directory_get_from_dirserver(DIR_PURPOSE_FETCH_CERTIFICATE, 0,
-                                   resource, PDS_RETRY_IF_NO_SERVERS, 0);
+                                   resource, PDS_RETRY_IF_NO_SERVERS,
+                                   DL_WANT_FALLBACK);
       tor_free(resource);
     }
     /* else we didn't add any: they were all pending */
@@ -944,7 +945,8 @@ authority_certs_fetch_missing(networkstatus_t *status, time_t now)
       resource = smartlist_join_strings(fp_pairs, "", 0, NULL);
       /* XXX - do we want certs from authorities or mirrors? - teor */
       directory_get_from_dirserver(DIR_PURPOSE_FETCH_CERTIFICATE, 0,
-                                   resource, PDS_RETRY_IF_NO_SERVERS, 0);
+                                   resource, PDS_RETRY_IF_NO_SERVERS,
+                                   DL_WANT_FALLBACK);
       tor_free(resource);
     }
     /* else they were all pending */
@@ -4377,7 +4379,7 @@ MOCK_IMPL(STATIC void, initiate_descriptor_downloads,
                                             resource, NULL, 0, 0);
   } else {
     directory_get_from_dirserver(purpose, ROUTER_PURPOSE_GENERAL, resource,
-                                 pds_flags, 0);
+                                 pds_flags, DL_WANT_FALLBACK);
   }
   tor_free(resource);
 }
@@ -4661,7 +4663,7 @@ launch_dummy_descriptor_download_as_needed(time_t now,
     last_dummy_download = now;
     directory_get_from_dirserver(DIR_PURPOSE_FETCH_SERVERDESC,
                                  ROUTER_PURPOSE_GENERAL, "authority.z",
-                                 PDS_RETRY_IF_NO_SERVERS, 0);
+                                 PDS_RETRY_IF_NO_SERVERS, DL_WANT_FALLBACK);
   }
 }
 
