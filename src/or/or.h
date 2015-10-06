@@ -1951,7 +1951,7 @@ typedef enum {
 typedef enum {
   DL_SCHED_GENERIC = 0,
   DL_SCHED_CONSENSUS = 1,
-  DL_SCHED_BRIDGE = 2
+  DL_SCHED_BRIDGE = 2,
 } download_schedule_t;
 #define download_schedule_bitfield_t ENUM_BF(download_schedule_t)
 
@@ -1959,7 +1959,7 @@ typedef enum {
  * mirror for our download? */
 typedef enum {
   DL_WANT_FALLBACK = 0,
-  DL_WANT_AUTHORITY = 1
+  DL_WANT_AUTHORITY = 1,
 } download_want_authority_t;
 #define download_want_authority_bitfield_t \
                                         ENUM_BF(download_want_authority_t)
@@ -1968,7 +1968,7 @@ typedef enum {
  * concurrent) attempt or on failure? */
 typedef enum {
   DL_SCHED_INCREMENT_FAILURE = 0,
-  DL_SCHED_INCREMENT_ATTEMPT = 1
+  DL_SCHED_INCREMENT_ATTEMPT = 1,
 } download_schedule_increment_t;
 #define download_schedule_increment_bitfield_t \
                                         ENUM_BF(download_schedule_increment_t)
@@ -4090,16 +4090,17 @@ typedef struct {
 
   /** Schedule for when servers should download consensuses from authorities
    * if they are bootstrapping (that is, they don't have a usable, reasonably
-   * live consensus).  This schedule is indexed by (potentially concurrent)
-   * connection attempt, unlike other schedules, which are indexed by failure
-   * count.  Only altered on testing networks. */
+   * live consensus).  This schedule is incremented by (potentially concurrent)
+   * connection attempts, unlike other schedules, which are incremented by
+   * connection failures.  Only altered on testing networks. */
   smartlist_t *TestingServerBootstrapConsensusAuthorityDownloadSchedule;
 
   /** Schedule for when servers should download consensuses from fallback
    * directory mirrors if they are bootstrapping (that is, they don't have a
-   * usable, reasonably live consensus).  This schedule is indexed by
-   * (potentially concurrent) connection attempt, unlike other schedules,
-   * which are indexed by failure count.  Only altered on testing networks. */
+   * usable, reasonably live consensus).  This schedule is incremented by
+   * (potentially concurrent) connection attempts, unlike other schedules,
+   * which are incremented by connection failures.  Only altered on testing
+   * networks. */
   smartlist_t *TestingServerBootstrapConsensusFallbackDownloadSchedule;
 
   /** Schedule for when clients should download consensuses.  Only altered
@@ -4108,16 +4109,17 @@ typedef struct {
 
   /** Schedule for when clients should download consensuses from authorities
    * if they are bootstrapping (that is, they don't have a usable, reasonably
-   * live consensus).  This schedule is indexed by (potentially concurrent)
-   * connection attempt, unlike other schedules, which are indexed by failure
-   * count.  Only altered on testing networks. */
+   * live consensus).  This schedule is incremented by (potentially concurrent)
+   * connection attempts, unlike other schedules, which are incremented by
+   * connection failures.  Only altered on testing networks. */
   smartlist_t *TestingClientBootstrapConsensusAuthorityDownloadSchedule;
 
   /** Schedule for when clients should download consensuses from fallback
    * directory mirrors if they are bootstrapping (that is, they don't have a
-   * usable, reasonably live consensus).  This schedule is indexed by
-   * (potentially concurrent) connection attempt, unlike other schedules,
-   * which are indexed by failure count.  Only altered on testing networks. */
+   * usable, reasonably live consensus).  This schedule is incremented by
+   * (potentially concurrent) connection attempts, unlike other schedules,
+   * which are incremented by connection failures.  Only altered on testing
+   * networks. */
   smartlist_t *TestingClientBootstrapConsensusFallbackDownloadSchedule;
 
   /** Schedule for when clients should download bridge descriptors.  Only

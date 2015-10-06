@@ -865,11 +865,12 @@ update_consensus_bootstrap_downloads(time_t now)
   const char *resource = networkstatus_get_flavor_name(
                                                   usable_consensus_flavor());
 
-  /* Since we use independent download schedules for bootstrapping, any
-   * failures will increment the consensus_dl_status entries, not these
-   * entries. This ends up being a useful feature, not a bug.
-   * (And, regardless, DL_SCHED_INCREMENT_ATTEMPT means that
-   *  download_status_increment_failure won't increment the entry.) */
+  /* Using DL_SCHED_INCREMENT_ATTEMPT on these schedules means that
+   *  download_status_increment_failure won't increment these entries.
+   * However, any bootstrap connection failures that occur after we have
+   * a valid consensus will count against the standard schedule failure
+   * counts. There should only be one of these, as all the others will have
+   * been cancelled. (This doesn't seem to be a significant issue.) */
   static download_status_t cbds[CBDS_N_SCHEDULE_ALTERNATIVES] =
   {
     { 0, 0, 0, DL_SCHED_CONSENSUS, DL_WANT_AUTHORITY,
@@ -1094,6 +1095,9 @@ should_delay_dir_fetches(const or_options_t *options, const char **msg_out)
 void
 update_networkstatus_downloads(time_t now)
 {
+  const or_options_t *options = get_options();
+  if (should_delay_dir_fetches(options, NULL))
+    return;
   update_consensus_networkstatus_downloads(now);
   update_certificate_downloads(now);
 }

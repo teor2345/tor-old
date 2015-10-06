@@ -3764,7 +3764,7 @@ download_status_reset(download_status_t *dls)
     return; /* Don't reset this. */
 
   const smartlist_t *schedule = find_dl_schedule_and_len(
-                                            dls, get_options()->DirPort_set);
+                          dls, get_options()->DirPort_set);
 
   dls->n_download_failures = 0;
   dls->n_download_attempts = 0;

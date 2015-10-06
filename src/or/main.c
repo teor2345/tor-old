@@ -1593,6 +1593,8 @@ run_scheduled_events(time_t now)
   const int we_are_bootstrapping = networkstatus_consensus_is_boostrapping(
                                                                         now);
   int networkstatus_dl_check_interval = 60;
+  /* check more often when testing, or when bootstrapping
+   * (connection limits prevent too many connections being made) */
   if (options->TestingTorNetwork || we_are_bootstrapping) {
     networkstatus_dl_check_interval = 1;
   }
