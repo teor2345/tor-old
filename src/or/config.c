@@ -537,15 +537,17 @@ static const config_var_t testing_tor_network_defaults[] = {
   V(TestingServerConsensusDownloadSchedule, CSV_INTERVAL, "0, 0, 5, 10, "
                                  "15, 20, 30, 60"),
   V(TestingServerBootstrapConsensusAuthorityDownloadSchedule, CSV_INTERVAL,
-    "0, 1, 2, 4, 8, 16, 32, 60"),
+    "0, 1, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 8, 16, 32, 60"),
   V(TestingServerBootstrapConsensusFallbackDownloadSchedule, CSV_INTERVAL,
-    "0, 0, 1, 1, 2, 2, 4, 8, 16, 32, 60"),
+    "0, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, "
+    "8, 16, 32, 60"),
   V(TestingClientConsensusDownloadSchedule, CSV_INTERVAL, "0, 0, 5, 10, "
                                  "15, 20, 30, 60"),
   V(TestingClientBootstrapConsensusAuthorityDownloadSchedule, CSV_INTERVAL,
-    "0, 1, 2, 4, 8, 16, 32, 60"),
+    "0, 1, 2, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 8, 16, 32, 60"),
   V(TestingClientBootstrapConsensusFallbackDownloadSchedule, CSV_INTERVAL,
-    "0, 0, 1, 1, 2, 2, 4, 8, 16, 32, 60"),
+    "0, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 8, "
+    "16, 32, 60"),
   V(TestingBridgeDownloadSchedule, CSV_INTERVAL, "60, 30, 30, 60"),
   V(TestingClientMaxIntervalWithoutRequest, INTERVAL, "5 seconds"),
   V(TestingDirConnectionMaxStall, INTERVAL, "30 seconds"),
