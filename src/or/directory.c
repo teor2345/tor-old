@@ -3624,6 +3624,56 @@ find_dl_schedule_and_len(download_status_t *dls,
   return NULL;
 }
 
+/* Increment dls according to its schedule and dls_n_download_increments.
+ * Helper for download_status_increment_failure and
+ * download_status_increment_attempt. */
+static int
+download_status_increment_helper(download_status_t *dls, int server,
+                                 uint8_t dls_n_download_increments,
+                                 time_t now)
+{
+  const smartlist_t *schedule = find_dl_schedule_and_len(dls, server);
+  int increment;
+
+  if (dls_n_download_increments < smartlist_len(schedule))
+    increment = *(int *)smartlist_get(schedule, dls->n_download_failures);
+  else if (dls_n_download_increments == IMPOSSIBLE_TO_DOWNLOAD)
+    increment = INT_MAX;
+  else
+    increment = *(int *)smartlist_get(schedule, smartlist_len(schedule) - 1);
+
+  if (increment < INT_MAX)
+    dls->next_attempt_at = now+increment;
+  else
+    dls->next_attempt_at = TIME_MAX;
+
+  return increment;
+}
+
+static void
+download_status_log_helper(const char *item, int not_this_schedule,
+                           const char *increment_on, const char *increment_alt,
+                           uint8_t dls_n_download_increments, int increment,
+                           time_t dls_next_attempt_at, time_t now)
+{
+  if (item) {
+    if (not_this_schedule)
+      log_debug(LD_DIR, "%s %s %d time(s); I'll try again %s.",
+                item, increment_on, (int)dls_n_download_increments,
+                increment_alt);
+    else if (increment == 0)
+      log_debug(LD_DIR, "%s %s %d time(s); I'll try again immediately.",
+                item, increment_on, (int)dls_n_download_increments);
+    else if (dls_next_attempt_at < TIME_MAX)
+      log_debug(LD_DIR, "%s %s %d time(s); I'll try again in %d seconds.",
+                item, increment_on, (int)dls_n_download_increments,
+                (int)(dls_next_attempt_at-now));
+    else
+      log_debug(LD_DIR, "%s %s %d time(s); Giving up for a while.",
+                item, increment_on, (int)dls_n_download_increments);
+  }
+}
+
 /** Called when an attempt to download <b>dls</b> has failed with HTTP status
  * <b>status_code</b>.  Increment the failure count (if the code indicates a
  * real failure) and set <b>dls</b>-\>next_attempt_at to an appropriate time
@@ -3635,48 +3685,27 @@ time_t
 download_status_increment_failure(download_status_t *dls, int status_code,
                                   const char *item, int server, time_t now)
 {
-  const smartlist_t *schedule;
   int increment;
   tor_assert(dls);
+
   if (status_code != 503 || server) {
     if (dls->n_download_failures < IMPOSSIBLE_TO_DOWNLOAD-1)
       ++dls->n_download_failures;
   }
 
-  schedule = find_dl_schedule_and_len(dls, server);
-
   /* only increment this schedule if it's increment-on-failure */
   if (!dls->increment_on_attempt) {
-    if (dls->n_download_failures < smartlist_len(schedule))
-      increment = *(int *)smartlist_get(schedule, dls->n_download_failures);
-    else if (dls->n_download_failures == IMPOSSIBLE_TO_DOWNLOAD)
-      increment = INT_MAX;
-    else
-      increment = *(int *)smartlist_get(schedule, smartlist_len(schedule) - 1);
-
-    if (increment < INT_MAX)
-      dls->next_attempt_at = now+increment;
-    else
-      dls->next_attempt_at = TIME_MAX;
+    increment = download_status_increment_helper(dls,
+                                                 server,
+                                                 dls->n_download_failures,
+                                                 now);
   } else {
     increment = 0;
   }
 
-  if (item) {
-    if (dls->increment_on_attempt)
-      log_debug(LD_DIR, "%s failed %d time(s); I'll try again concurrently.",
-                item, (int)dls->n_download_failures);
-    else if (increment == 0)
-      log_debug(LD_DIR, "%s failed %d time(s); I'll try again immediately.",
-                item, (int)dls->n_download_failures);
-    else if (dls->next_attempt_at < TIME_MAX)
-      log_debug(LD_DIR, "%s failed %d time(s); I'll try again in %d seconds.",
-                item, (int)dls->n_download_failures,
-                (int)(dls->next_attempt_at-now));
-    else
-      log_debug(LD_DIR, "%s failed %d time(s); Giving up for a while.",
-                item, (int)dls->n_download_failures);
-  }
+  download_status_log_helper(item, dls->increment_on_attempt, "failed",
+                             "concurrently", dls->n_download_failures,
+                             increment, dls->next_attempt_at, now);
 
   if (dls->increment_on_attempt) {
     /* don't retry on failure, retry concurrently instead */
@@ -3695,44 +3724,22 @@ time_t
 download_status_increment_attempt(download_status_t *dls, const char *item,
                                   int server, time_t now)
 {
-  const smartlist_t *schedule;
   int increment;
   tor_assert(dls);
 
-  schedule = find_dl_schedule_and_len(dls, server);
-
   /* only increment this schedule if it's increment-on-attempt */
   if (dls->increment_on_attempt) {
-    if (dls->n_download_attempts < smartlist_len(schedule))
-      increment = *(int *)smartlist_get(schedule, dls->n_download_attempts);
-    else if (dls->n_download_attempts == IMPOSSIBLE_TO_DOWNLOAD)
-      increment = INT_MAX;
-    else
-      increment = *(int *)smartlist_get(schedule, smartlist_len(schedule) - 1);
-
-    if (increment < INT_MAX)
-      dls->next_attempt_at = now+increment;
-    else
-      dls->next_attempt_at = TIME_MAX;
+    increment = download_status_increment_helper(dls,
+                                                 server,
+                                                 dls->n_download_attempts,
+                                                 now);
   } else {
     increment = 0;
   }
 
-  if (item) {
-    if (!dls->increment_on_attempt)
-      log_debug(LD_DIR, "%s attempted %d time(s); I'll try again on failure.",
-                item, (int)dls->n_download_attempts);
-    else if (increment == 0)
-      log_debug(LD_DIR, "%s failed %d time(s); I'll try again immediately.",
-                item, (int)dls->n_download_attempts);
-    else if (dls->next_attempt_at < TIME_MAX)
-      log_debug(LD_DIR, "%s failed %d time(s); I'll try again in %d seconds.",
-                item, (int)dls->n_download_attempts,
-                (int)(dls->next_attempt_at-now));
-    else
-      log_debug(LD_DIR, "%s failed %d time(s); Giving up for a while.",
-                item, (int)dls->n_download_attempts);
-  }
+  download_status_log_helper(item, !dls->increment_on_attempt, "attempted",
+                             "on failure", dls->n_download_attempts,
+                             increment, dls->next_attempt_at, now);
 
   if (!dls->increment_on_attempt) {
     /* don't retry concurrently, retry on failure instead */
