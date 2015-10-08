@@ -1616,13 +1616,13 @@ connection_init_accepted_conn(connection_t *conn,
   return 0;
 }
 
-static int
-connection_connect_sockaddr(connection_t *conn,
+MOCK_IMPL(STATIC int,
+connection_connect_sockaddr,(connection_t *conn,
                             const struct sockaddr *sa,
                             socklen_t sa_len,
                             const struct sockaddr *bindaddr,
                             socklen_t bindaddr_len,
-                            int *socket_error)
+                            int *socket_error))
 {
   tor_socket_t s;
   int inprogress = 0;
