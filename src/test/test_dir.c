@@ -3494,6 +3494,18 @@ test_dir_packages(void *arg)
   tor_free(res);
 }
 
+static void
+test_dir_auth_clock_check(void *arg)
+{
+  (void)arg;
+
+  tt_assert(directory_get_authority_clock_checked() == 0);
+  directory_set_authority_clock_checked();
+  tt_assert(directory_get_authority_clock_checked() != 0);
+
+ done: ;
+}
+
 #define DIR_LEGACY(name)                                                   \
   { #name, test_dir_ ## name , TT_FORK, NULL, NULL }
 
@@ -3525,6 +3537,7 @@ struct testcase_t dir_tests[] = {
   DIR(purpose_needs_anonymity, 0),
   DIR(fetch_type, 0),
   DIR(packages, 0),
+  DIR(auth_clock_check, TT_FORK),
   END_OF_TESTCASES
 };
 
