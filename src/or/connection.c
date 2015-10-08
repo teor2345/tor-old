@@ -1621,13 +1621,13 @@ connection_init_accepted_conn(connection_t *conn,
  * applicable put your best guess about errno into *<b>socket_error</b>.
  * If connected return 1, if EAGAIN return 0.
  */
-static int
-connection_connect_sockaddr(connection_t *conn,
+MOCK_IMPL(STATIC int,
+connection_connect_sockaddr,(connection_t *conn,
                             const struct sockaddr *sa,
                             socklen_t sa_len,
                             const struct sockaddr *bindaddr,
                             socklen_t bindaddr_len,
-                            int *socket_error)
+                            int *socket_error))
 {
   tor_socket_t s;
   int inprogress = 0;
