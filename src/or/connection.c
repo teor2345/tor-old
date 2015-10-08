@@ -1710,6 +1710,9 @@ connection_connect_sockaddr(connection_t *conn,
  * applicable put your best guess about errno into *<b>socket_error</b>.
  * Else assign s to conn-\>s: if connected return 1, if EAGAIN return 0.
  *
+ * The caller must ensure that &conn->addr tor_addr_eq addr, and
+ * conn->port == port.
+ *
  * address is used to make the logs useful.
  *
  * On success, add conn to the list of polled connections.
@@ -1725,6 +1728,10 @@ connection_connect(connection_t *conn, const char *address,
   int dest_addr_len, bind_addr_len = 0;
   const or_options_t *options = get_options();
   int protocol_family;
+
+  /* XXXX - set these instead? */
+  tor_assert(tor_addr_eq(addr, &conn->addr));
+  tor_assert(port == conn->port);
 
   if (tor_addr_family(addr) == AF_INET6)
     protocol_family = PF_INET6;
