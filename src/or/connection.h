@@ -279,6 +279,13 @@ void connection_buckets_note_empty_ts(uint32_t *timestamp_var,
                                       int tokens_before,
                                       size_t tokens_removed,
                                       const struct timeval *tvnow);
+MOCK_DECL(STATIC int,connection_connect_sockaddr,
+                                            (connection_t *conn,
+                                             const struct sockaddr *sa,
+                                             socklen_t sa_len,
+                                             const struct sockaddr *bindaddr,
+                                             socklen_t bindaddr_len,
+                                             int *socket_error));
 #endif
 
 #endif
