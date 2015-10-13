@@ -83,6 +83,8 @@ PERMITTED_BADEXIT = .00
 
 # The target for these parameters is 20% of the guards in the network
 # This is around 200 as of October 2015
+FALLBACK_PROPORTION_OF_GUARDS = 0.2
+
 # Limit the number of fallbacks (eliminating lowest by weight)
 MAX_FALLBACK_COUNT = 500
 # Emit a C #error if the number of fallbacks is below
@@ -394,7 +396,7 @@ class Candidate(object):
     if self.ipv6addr is None:
       logging.debug("Failed to get an ipv6 address for %s."%(self._fpr,))
     # Reduce the weight of exits to EXIT_WEIGHT_FRACTION * consensus_weight
-    if 'Exit' in self._data['flags']:
+    if self.is_exit():
       current_weight = self._data['consensus_weight']
       exit_weight = current_weight * EXIT_WEIGHT_FRACTION
       self._data['original_consensus_weight'] = current_weight
@@ -742,6 +744,12 @@ class Candidate(object):
               return True
     return False
 
+  def is_exit(self):
+    return 'Exit' in self._data['flags']
+
+  def is_guard(self):
+    return 'Guard' in self._data['flags']
+
   def fallback_weight_fraction(self, total_weight):
     return float(self._data['consensus_weight']) / total_weight
 
@@ -856,6 +864,13 @@ class CandidateList(dict):
   def add_relays(self):
     self._add_details()
     self._add_uptimes()
+
+  def count_guards(self):
+    guard_count = 0
+    for fpr in self.keys():
+      if self[fpr].is_guard():
+        guard_count += 1
+    return guard_count
 
   # Find fallbacks that fit the uptime, stability, and flags criteria
   def compute_fallbacks(self):
@@ -1025,7 +1040,8 @@ class CandidateList(dict):
       return None
 
   def summarise_fallbacks(self, eligible_count, eligible_weight,
-                          relays_clamped, clamped_weight):
+                          relays_clamped, clamped_weight,
+                          guard_count, target_count, max_count):
     # Report:
     #  the number of fallback directories (with min & max limits);
     #    #error if below minimum count
@@ -1038,9 +1054,14 @@ class CandidateList(dict):
     s += '\n'
     # Integers don't need escaping in C comments
     fallback_count = len(self.fallbacks)
-    s += 'Final Count:  %d (Eligible %d, Clamped to %d)'%(
-            fallback_count,
+    s += 'Final Count:  %d (Eligible %d, Usable %d, Target %d (%d * %f), '%(
+            max_count,
             eligible_count,
+            fallback_count,
+            target_count,
+            guard_count,
+            FALLBACK_PROPORTION_OF_GUARDS)
+    s += 'Clamped to %d)'%(
             MAX_FALLBACK_COUNT)
     s += '\n'
     if fallback_count < MIN_FALLBACK_COUNT:
@@ -1076,7 +1097,7 @@ class CandidateList(dict):
                                                 MIN_WEIGHT_FRACTION*100)
     s += '\n'
     if eligible_count != fallback_count:
-      s += 'Excluded:     %d (Clamped or Low Weight)'%(
+      s += 'Excluded:     %d (Clamped, Below Target, or Low Weight)'%(
                                               eligible_count - fallback_count)
       s += '\n'
     if relays_clamped > 0:
@@ -1109,6 +1130,14 @@ def list_fallbacks():
 
   candidates = CandidateList()
   candidates.add_relays()
+
+  guard_count = candidates.count_guards()
+  target_count = int(guard_count * FALLBACK_PROPORTION_OF_GUARDS)
+  # the maximum number of fallbacks is the least of:
+  # - the target fallback count (FALLBACK_PROPORTION_OF_GUARDS * guard count)
+  # - the maximum fallback count (MAX_FALLBACK_COUNT)
+  max_count = min(target_count, MAX_FALLBACK_COUNT)
+
   candidates.compute_fallbacks()
 
   initial_count = len(candidates.fallbacks)
@@ -1162,14 +1191,15 @@ def list_fallbacks():
 
     print candidates.summarise_fallbacks(eligible_count, eligible_weight,
                                          relays_clamped,
-                                         pre_clamp_total_weight - total_weight)
+                                         pre_clamp_total_weight - total_weight,
+                                         guard_count, target_count, max_count)
   else:
     print '/* No Fallbacks met criteria */'
 
   for s in fetch_source_list():
     print describe_fetch_source(s)
 
-  for x in candidates.fallbacks[:MAX_FALLBACK_COUNT]:
+  for x in candidates.fallbacks[:max_count]:
     print x.fallbackdir_line(total_weight, pre_clamp_total_weight)
     #print json.dumps(candidates[x]._data, sort_keys=True, indent=4,
     #                  separators=(',', ': '), default=json_util.default)
