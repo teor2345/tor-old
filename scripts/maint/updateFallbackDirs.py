@@ -313,9 +313,9 @@ def onionoo_fetch(what, **kwargs):
     except urllib2.HTTPError, error:
       response_code = error.code
       # strip any timezone out (to match dateutil.parser)
-      six_hours_ago = datetime.datetime.now()
-      six_hours_ago -= datetime.timedelta(hours=6)
+      six_hours_ago = datetime.datetime.utcnow()
       six_hours_ago = six_hours_ago.replace(tzinfo=None)
+      six_hours_ago -= datetime.timedelta(hours=6)
       # Not Modified and still recent enough to be useful (Globe uses 6 hours)
       if response_code == 304:
         if last_mod < six_hours_ago:
