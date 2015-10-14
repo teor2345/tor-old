@@ -1538,7 +1538,7 @@ run_scheduled_events(time_t now)
       dns_init();
   }
 
-  /* 2. Periodically, we consider force-uploading our descriptor
+  /* 2a. Periodically, we consider force-uploading our descriptor
    * (if we've passed our internal checks). */
 
 /** How often do we check whether part of our router info has changed in a
@@ -1546,7 +1546,7 @@ run_scheduled_events(time_t now)
  * address has changed. */
 #define CHECK_DESCRIPTOR_INTERVAL (60)
 
-  /* 2b. Once per minute, regenerate and upload the descriptor if the old
+  /* Once per minute, regenerate and upload the descriptor if the old
    * one is inaccurate. */
   if (time_to.check_descriptor < now && !options->DisableNetwork) {
     static int dirport_reachability_count = 0;
@@ -1579,8 +1579,8 @@ run_scheduled_events(time_t now)
       }
     }
 
-    /* If any networkstatus documents are no longer recent, we need to
-     * update all the descriptors' running status. */
+    /* 2b. If any networkstatus documents are no longer recent, we need to
+     * update all the descriptors' running status. (Also once per minute.) */
     /* Remove dead routers. */
     routerlist_remove_old_routers();
   }
@@ -1613,7 +1613,7 @@ run_scheduled_events(time_t now)
    * that are clearly excess, but this check is more thorough. */
   connection_dir_close_extra_consensus_conns();
 
-  /* 2c. Let directory voting happen. */
+  /* 2e. Let directory voting happen. */
   if (authdir_mode_v3(options))
     dirvote_act(options, now);
 
