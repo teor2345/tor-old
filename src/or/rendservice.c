@@ -1478,7 +1478,10 @@ rend_service_receive_introduction(origin_circuit_t *circuit,
   }
 
 #ifndef NON_ANONYMOUS_MODE_ENABLED
-  tor_assert(!(circuit->build_state->onehop_tunnel));
+  if (get_options()->OnionSrvIntroRouteLength
+      != MIN_ONION_SRV_INTRO_ROUTE_LEN) {
+    tor_assert(!(circuit->build_state->onehop_tunnel));
+  }
 #endif
   tor_assert(circuit->rend_data);
 
@@ -2693,7 +2696,10 @@ rend_service_intro_has_opened(origin_circuit_t *circuit)
 
   tor_assert(circuit->base_.purpose == CIRCUIT_PURPOSE_S_ESTABLISH_INTRO);
 #ifndef NON_ANONYMOUS_MODE_ENABLED
-  tor_assert(!(circuit->build_state->onehop_tunnel));
+  if (get_options()->OnionSrvIntroRouteLength
+      != MIN_ONION_SRV_INTRO_ROUTE_LEN) {
+    tor_assert(!(circuit->build_state->onehop_tunnel));
+  }
 #endif
   tor_assert(circuit->cpath);
   tor_assert(circuit->rend_data);
@@ -2892,7 +2898,10 @@ rend_service_rendezvous_has_opened(origin_circuit_t *circuit)
   tor_assert(circuit->cpath);
   tor_assert(circuit->build_state);
 #ifndef NON_ANONYMOUS_MODE_ENABLED
-  tor_assert(!(circuit->build_state->onehop_tunnel));
+  if (get_options()->OnionSrvRendRouteLength
+      != MIN_ONION_SRV_REND_ROUTE_LEN) {
+    tor_assert(!(circuit->build_state->onehop_tunnel));
+  }
 #endif
   tor_assert(circuit->rend_data);
 
