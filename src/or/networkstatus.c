@@ -1248,9 +1248,9 @@ networkstatus_consensus_is_downloading_usable_flavor(void)
 
   const int connect_consens_conn_usable_count =
               connection_dir_count_by_purpose_resource_and_state(
-                                                    DIR_PURPOSE_FETCH_CONSENSUS,
-                                                    usable_resource,
-                                                    DIR_CONN_STATE_CONNECTING);
+                                                DIR_PURPOSE_FETCH_CONSENSUS,
+                                                usable_resource,
+                                                DIR_CONN_STATE_CONNECTING);
   if (connect_consens_conn_usable_count < consens_conn_usable_count) {
     return 1;
   }
