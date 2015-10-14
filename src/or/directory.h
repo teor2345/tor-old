@@ -76,8 +76,8 @@ void directory_initiate_command(const tor_addr_t *addr,
                                 time_t if_modified_since);
 int directory_get_authority_clock_checked(void);
 void directory_set_authority_clock_checked(void);
-int connection_dir_consider_close_extra_consensus_conns(
-                                                      dir_connection_t *conn);
+int connection_dir_close_consensus_conn_if_extra(dir_connection_t *conn);
+void connection_dir_close_extra_consensus_conns(void);
 
 #define DSR_HEX       (1<<0)
 #define DSR_BASE64    (1<<1)
@@ -142,6 +142,7 @@ STATIC int directory_handle_command_get(dir_connection_t *conn,
                                         const char *headers,
                                         const char *req_body,
                                         size_t req_body_len);
+int connection_dir_would_close_consensus_conn_helper(void);
 #endif
 
 #endif
