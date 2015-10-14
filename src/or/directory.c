@@ -3502,7 +3502,8 @@ connection_dir_would_close_consensus_conn_helper(void)
  * - if we don't have a consensus, and we're downloading a consensus, and conn
  *   is not a connection downloading a consensus (but conn is excess), or
  * - if we do have a consensus, and the connection is clearly excess. */
-int connection_dir_close_consensus_conn_if_extra(dir_connection_t *conn)
+int
+connection_dir_close_consensus_conn_if_extra(dir_connection_t *conn)
 {
   tor_assert(conn);
   tor_assert(conn->base_.type == CONN_TYPE_DIR);
