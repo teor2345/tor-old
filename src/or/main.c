@@ -1585,8 +1585,9 @@ run_scheduled_events(time_t now)
     routerlist_remove_old_routers();
   }
 
-  /* 2c. Every minute (or every second if TestingTorNetwork), check
-   * whether we want to download any networkstatus documents. */
+  /* 2c. Every minute (or every second if TestingTorNetwork, or during
+   * client bootstrap), check whether we want to download any networkstatus
+   * documents. */
 
   /* How often do we check whether we should download network status
    * documents? */
@@ -1606,6 +1607,11 @@ run_scheduled_events(time_t now)
       now + networkstatus_dl_check_interval;
     update_networkstatus_downloads(now);
   }
+
+  /* 2d. Cleanup excess consensus bootstrap connections every second.
+   * connection_dir_close_consensus_conn_if_extra() will close connections
+   * that are clearly excess, but this check is more thorough. */
+  connection_dir_close_extra_consensus_conns();
 
   /* 2c. Let directory voting happen. */
   if (authdir_mode_v3(options))

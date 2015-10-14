@@ -1007,7 +1007,7 @@ directory_initiate_command_rend(const tor_addr_t *_addr,
         conn->base_.state = DIR_CONN_STATE_CLIENT_SENDING;
         /* fall through */
       case 0:
-        if (connection_dir_consider_close_extra_consensus_conns(conn)) {
+        if (connection_dir_close_consensus_conn_if_extra(conn)) {
           return;
         }
         /* queue the command on the outbuf */
@@ -1053,7 +1053,7 @@ directory_initiate_command_rend(const tor_addr_t *_addr,
       connection_mark_for_close(TO_CONN(conn));
       return;
     }
-    if (connection_dir_consider_close_extra_consensus_conns(conn)) {
+    if (connection_dir_close_consensus_conn_if_extra(conn)) {
       return;
     }
     conn->base_.state = DIR_CONN_STATE_CLIENT_SENDING;
@@ -3468,113 +3468,156 @@ directory_set_authority_clock_checked(void)
   authority_clock_checked = 1;
 }
 
-/* check if we have excess consensus connection attempts, and close them. */
+/* A helper function for connection_dir_close_consensus_conn_if_extra()
+ * and connection_dir_close_extra_consensus_conns() that returns 0 if
+ * we can't have, or don't want to close, excess consensus connections. */
 int
-connection_dir_consider_close_extra_consensus_conns(dir_connection_t *conn)
+connection_dir_would_close_consensus_conn_helper(void)
 {
-  tor_assert(conn);
-
-  /* We're not interested in connections that aren't fetching a consensus. */
-  if (conn->base_.type != CONN_TYPE_DIR
-      || conn->base_.purpose != DIR_PURPOSE_FETCH_CONSENSUS) {
-    return 0;
-  }
-
   /* we're only interested in closing excess connections if we could
    * have created any in the first place */
   if (!networkstatus_consensus_can_use_fallbacks()) {
     return 0;
   }
 
-  /* If we don't have a consensus, we must still be bootstrapping */
-  int we_are_bootstrapping = networkstatus_consensus_is_boostrapping(
-                                                                  time(NULL));
-  int we_have_excess_bootstrap_connections = 0;
-
-  /* During normal operation, Tor only makes one consensus download
-   * connection. If there are more than this, we must have connections left
-   * over from bootstrapping. However, some of the connections may have
-   * completed and been cleaned up, so this is not a sufficient check by
-   * itself. */
-  const char *usable_resource = networkstatus_get_flavor_name(
-                                                  usable_consensus_flavor());
-  int consens_conn_usable_count =
-    connection_dir_count_by_purpose_and_resource(
-                                               DIR_PURPOSE_FETCH_CONSENSUS,
-                                               usable_resource);
-  const int expected_consens_conn_usable_count = 1;
-  if (consens_conn_usable_count > expected_consens_conn_usable_count) {
-    we_have_excess_bootstrap_connections = 1;
+  /* We want to close excess connections downloading a consensus.
+   * If there aren't any excess, we don't have anything to close. */
+  if (!networkstatus_consensus_has_excess_connections()) {
+    return 0;
   }
 
-  /* special handling for consensus connections during bootstrap */
-  if (we_are_bootstrapping || we_have_excess_bootstrap_connections) {
-    smartlist_t *connect_consens_usable_conns =
-      connection_dir_list_by_purpose_resource_and_state(
+  /* If we have excess connections, but none of them are downloading a
+   * consensus, and we are still bootstrapping (that is, we have no usable
+   * consensus), we don't want to close any until one starts downloading. */
+  if (!networkstatus_consensus_is_downloading_usable_flavor()
+      && networkstatus_consensus_is_boostrapping(time(NULL))) {
+    return 0;
+  }
+
+  return 1;
+}
+
+/* check if we have excess consensus download connection attempts, and close
+ * conn:
+ * - if we don't have a consensus, and we're downloading a consensus, and conn
+ *   is not a connection downloading a consensus (but conn is excess), or
+ * - if we do have a consensus, and the connection is clearly excess. */
+int connection_dir_close_consensus_conn_if_extra(dir_connection_t *conn)
+{
+  tor_assert(conn);
+  tor_assert(conn->base_.type == CONN_TYPE_DIR);
+
+  /* We're not interested in connections that aren't fetching a consensus. */
+  if (conn->base_.purpose != DIR_PURPOSE_FETCH_CONSENSUS) {
+    return 0;
+  }
+
+  if (!connection_dir_would_close_consensus_conn_helper()) {
+    return 0;
+  }
+
+  const int we_are_bootstrapping = networkstatus_consensus_is_boostrapping(
+                                                                  time(NULL));
+
+  /* If we have excess connections, and we have a usable consensus, we want
+   * to close all excess connections. Otherwise, we want one connection that
+   * is downloading a consensus to continue, and the rest to be closed
+   * (even if they are also downloading consensuses).
+   *
+   * We don't want to check other connections to see if they are downloading,
+   * as this is prone to race-conditions. So leave it for
+   * connection_dir_consider_close_extra_consensus_conns() to clean up.
+   *
+   * But if it's only started connecting, or we have a consensus already,
+   * we can be sure it's not needed any more. */
+  if (!we_are_bootstrapping
+      || conn->base_.state == DIR_CONN_STATE_CONNECTING) {
+    connection_close_immediate(&conn->base_);
+    connection_mark_for_close(&conn->base_);
+    return -1;
+  }
+
+  return 0;
+}
+
+/* check if we have excess consensus download connection attempts, and close
+ * any excess connections, that:
+ * - if we don't have a consensus, and we're downloading a consensus, and the
+ *   connection is not the "first" connection downloading a consensus, or
+ * - if we do have a consensus, and the connections are clearly excess. */
+void
+connection_dir_close_extra_consensus_conns(void)
+{
+  if (!connection_dir_would_close_consensus_conn_helper()) {
+    return;
+  }
+
+  int we_are_bootstrapping = networkstatus_consensus_is_boostrapping(
+                                                                  time(NULL));
+
+  /* If we have excess connections, and we have a usable consensus (that is,
+   * we are not bootstrapping), we want to close all excess connections.
+   * Otherwise, we want one connection that is downloading a consensus to
+   * continue, and the rest to be closed (even if they are also downloading
+   * consensuses). */
+  const char *usable_resource = networkstatus_get_flavor_name(
+                                                  usable_consensus_flavor());
+  smartlist_t *consens_usable_conns =
+                 connection_dir_list_by_purpose_and_resource(
+                                                  DIR_PURPOSE_FETCH_CONSENSUS,
+                                                  usable_resource);
+
+  /* If we want to keep a connection that's downloading, find an arbitrary one
+   * XXXX - should this be the "first" connection to start downloading?
+   * The current implementation will keep the first connection opened,
+   * which is close enough for our purposes, but will favour authorities
+   * if both an authority and fallback are downloading. This is good,
+   * because authorities give us a clock check we trust. */
+  dir_connection_t *kept_download_conn = NULL;
+  if (we_are_bootstrapping) {
+    SMARTLIST_FOREACH_BEGIN(consens_usable_conns,
+                            dir_connection_t *, d) {
+      /* keep the first connection that is past the connecting state */
+      if (d->base_.state != DIR_CONN_STATE_CONNECTING) {
+        kept_download_conn = d;
+        break;
+      }
+    } SMARTLIST_FOREACH_END(d);
+  }
+
+  SMARTLIST_FOREACH_BEGIN(consens_usable_conns,
+                          dir_connection_t *, d) {
+    /* If the connection is NULL, something has gone horribly wrong. */
+    tor_assert(d);
+    /* don't close this connection if it's the one we want to keep */
+    if (kept_download_conn && d == kept_download_conn)
+      continue;
+    /* mark all other connections for close */
+    connection_close_immediate(&d->base_);
+    connection_mark_for_close(&d->base_);
+  } SMARTLIST_FOREACH_END(d);
+
+  smartlist_free(consens_usable_conns);
+  consens_usable_conns = NULL;
+
+  /* make sure we've closed all excess connections */
+  const int final_connecting_conn_count =
+              connection_dir_count_by_purpose_resource_and_state(
                                                 DIR_PURPOSE_FETCH_CONSENSUS,
                                                 usable_resource,
                                                 DIR_CONN_STATE_CONNECTING);
-    int is_usable_consensus_downloading = 0;
-
-    if (smartlist_len(connect_consens_usable_conns)
-        < consens_conn_usable_count) {
-      is_usable_consensus_downloading = 1;
-    }
-
-    /* Begin critical section */
-    {
-      /* This function can be called from the second_elapsed callback, the
-       * process_signal HUP callback, and various event callbacks.
-       * This lock has an obvious race condition where multiple connections
-       * can prevent other connection(s) from closing excess connections. In
-       * the worst case scenario, this means that multiple connections
-       * download a consensus. As long as it doesn't happen too often, that's
-       * ok. */
-      static volatile int closing_connections_lock = 0;
-      closing_connections_lock++;
-      if (closing_connections_lock > 1) {
-        tor_log(LOG_WARN, LD_BUG, "Connection " U64_FORMAT " tried to close "
-                "excess connections while excess connections were already "
-                "being closed.",
-                U64_PRINTF_ARG(conn->base_.global_identifier));
-        tor_fragile_assert();
-        return 0;
-      }
-
-      /* If we already have a consensus connection exchanging data, (that is,
-       * it's already successfully connected before this one), don't request
-       * data on this one, and close any other pending attempts.
-       * Also close the current connection if needed. */
-      SMARTLIST_FOREACH_BEGIN(connect_consens_usable_conns,
-                              dir_connection_t *, d) {
-        /* don't close this connection if it's the first one to connect */
-        if (!is_usable_consensus_downloading && d == conn)
-          continue;
-        /* mark all other connections for close */
-        connection_close_immediate(&d->base_);
-        connection_mark_for_close(&d->base_);
-      } SMARTLIST_FOREACH_END(d);
-      /* make sure we've closed all excess connections */
-      tor_assert(connection_dir_count_by_purpose_resource_and_state(
-                                                DIR_PURPOSE_FETCH_CONSENSUS,
-                                                usable_resource,
-                                                DIR_CONN_STATE_CONNECTING)
-                 <= expected_consens_conn_usable_count);
-
-      /* Assume the critical section is only being executed once */
-      closing_connections_lock = 0;
-    }
-    /* End critical section */
-
-    smartlist_free(connect_consens_usable_conns);
+  if (final_connecting_conn_count > 0) {
+    log_warn(LD_BUG, "Expected 0 consensus connections connecting after "
+             "cleanup, got %d.", final_connecting_conn_count);
   }
-
-  if (conn->base_.marked_for_close) {
-    printf("We marked this connection for close\n");
-    /* we marked this connection for close because it's not needed */
-    return -1;
-  } else {
-    return 0;
+  const int expected_final_conn_count = (we_are_bootstrapping ? 1 : 0);
+  const int final_conn_count =
+              connection_dir_count_by_purpose_and_resource(
+                                                DIR_PURPOSE_FETCH_CONSENSUS,
+                                                usable_resource);
+  if (final_conn_count > expected_final_conn_count) {
+    log_warn(LD_BUG, "Expected %d consensus connections after cleanup, got "
+             "%d.", expected_final_conn_count, final_connecting_conn_count);
   }
 }
 
@@ -3592,7 +3635,7 @@ connection_dir_finished_connecting(dir_connection_t *conn)
   log_debug(LD_HTTP,"Dir connection to router %s:%u established.",
             conn->base_.address,conn->base_.port);
 
-  if (connection_dir_consider_close_extra_consensus_conns(conn)) {
+  if (connection_dir_close_consensus_conn_if_extra(conn)) {
     return -1;
   }
 
