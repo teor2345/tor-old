@@ -580,6 +580,12 @@ MOCK_IMPL(void, directory_get_from_dirserver, (
     if (prefer_authority || (type & BRIDGE_DIRINFO)) {
       /* only ask authdirservers, and don't ask myself */
       rs = router_pick_trusteddirserver(type, pds_flags);
+      if (rs) {
+        directory_get_from_dirserver_helper(rs, get_via_tor, dir_purpose,
+                                            router_purpose, resource,
+                                            if_modified_since);
+        return;
+      }
       if (rs == NULL && (pds_flags & (PDS_NO_EXISTING_SERVERDESC_FETCH|
                                       PDS_NO_EXISTING_MICRODESC_FETCH))) {
         /* We don't want to fetch from any authorities that we're currently
@@ -604,13 +610,20 @@ MOCK_IMPL(void, directory_get_from_dirserver, (
         return;
       }
     }
+
     if (!rs && !(type & BRIDGE_DIRINFO)) {
       /* Fall back to choosing any dirserver (except if we want bridge info,
        * because that has to come from an authority) */
       rs = directory_pick_generic_dirserver(type, pds_flags,
                                             dir_purpose);
-      if (!rs)
+      if (rs) {
+        directory_get_from_dirserver_helper(rs, get_via_tor, dir_purpose,
+                                            router_purpose, resource,
+                                            if_modified_since);
+        return;
+      } else {
         get_via_tor = 1; /* last resort: try routing it via Tor */
+      }
     }
   }
 
