@@ -422,6 +422,119 @@ directory_pick_generic_dirserver(dirinfo_type_t type, int pds_flags,
   return rs;
 }
 
+/** Calculate the if_modified_since time for a consensus download based on
+ * the resource (flavor) name.
+ */
+MOCK_IMPL(time_t, directory_get_consensus_if_modified_since, (
+                                               const char *resource))
+{
+  int flav = FLAV_NS;
+  networkstatus_t *v;
+  if (resource)
+    flav = networkstatus_parse_flavor_name(resource);
+
+  /* DEFAULT_IF_MODIFIED_SINCE_DELAY is 1/20 of the default consensus
+   * period of 1 hour.
+   */
+#define DEFAULT_IF_MODIFIED_SINCE_DELAY (180)
+  if (flav != -1) {
+    /* IF we have a parsed consensus of this type, we can do an
+     * if-modified-time based on it. */
+    v = networkstatus_get_latest_consensus_by_flavor(flav);
+    if (v) {
+      /* In networks with particularly short V3AuthVotingIntervals,
+       * ask for the consensus if it's been modified since half the
+       * V3AuthVotingInterval of the most recent consensus. */
+      time_t ims_delay = DEFAULT_IF_MODIFIED_SINCE_DELAY;
+      if (v->fresh_until > v->valid_after
+          && ims_delay > (v->fresh_until - v->valid_after)/2) {
+        ims_delay = (v->fresh_until - v->valid_after)/2;
+      }
+      return v->valid_after + ims_delay;
+    }
+  } else {
+    /* Otherwise it might be a consensus we don't parse, but which we
+     * do cache.  Look at the cached copy, perhaps. */
+    cached_dir_t *cd = dirserv_get_consensus(resource);
+    /* We have no method of determining the voting interval from an
+     * unparsed consensus, so we use the default. */
+    if (cd)
+      return cd->published + DEFAULT_IF_MODIFIED_SINCE_DELAY;
+  }
+
+  return 0;
+}
+
+/* We want to ask a running bridge for which we have a descriptor.
+ *
+ * When we ask choose_random_entry() for a bridge, we specify what
+ * sort of dir fetch we'll be doing, so it won't return a bridge
+ * that can't answer our question.
+ */
+MOCK_IMPL(void, directory_get_from_bridge, (
+                                            dirinfo_type_t type,
+                                            uint8_t dir_purpose,
+                                            uint8_t router_purpose,
+                                            const char *resource,
+                                            time_t if_modified_since))
+{
+  /* XXX024 Not all bridges handle conditional consensus downloading,
+   * so, for now, never assume the server supports that. -PP */
+  const node_t *node = choose_random_dirguard(type);
+  if (node && node->ri) {
+    /* every bridge has a routerinfo. */
+    tor_addr_t addr;
+    routerinfo_t *ri = node->ri;
+    node_get_addr(node, &addr);
+    directory_initiate_command(&addr,
+                               ri->or_port, 0/*no dirport*/,
+                               ri->cache_info.identity_digest,
+                               dir_purpose,
+                               router_purpose,
+                               DIRIND_ONEHOP,
+                               resource, NULL, 0, if_modified_since);
+  } else {
+    log_notice(LD_DIR, "Ignoring directory request, since no bridge "
+               "nodes are available yet.");
+  }
+}
+
+/** If rs is not NULL, call directory_initiate_command_routerstatus(),
+ * otherwise, log that we could not find any servers, and, if appropriate,
+ * record that all servers were unreachable.
+ * Helper function for directory_get_from_dirserver().
+ */
+MOCK_IMPL(void, directory_get_from_dirserver_helper, (
+                                               const routerstatus_t *rs,
+                                               int get_via_tor,
+                                               uint8_t dir_purpose,
+                                               uint8_t router_purpose,
+                                               const char *resource,
+                                               time_t if_modified_since))
+{
+  /* If we have any hope of building an indirect conn, we know some router
+   * descriptors.  If (rs==NULL), we can't build circuits anyway, so
+   * there's no point in falling back to the authorities in this case. */
+  if (rs) {
+    const dir_indirection_t indirection =
+    get_via_tor ? DIRIND_ANONYMOUS : DIRIND_ONEHOP;
+    directory_initiate_command_routerstatus(rs, dir_purpose,
+                                            router_purpose,
+                                            indirection,
+                                            resource, NULL, 0,
+                                            if_modified_since);
+  } else {
+    log_notice(LD_DIR,
+               "While fetching directory info, "
+               "no running dirservers known. Will try again later. "
+               "(purpose %d)", dir_purpose);
+    if (!purpose_needs_anonymity(dir_purpose, router_purpose)) {
+      /* remember we tried them all and failed. */
+      directory_all_unreachable(time(NULL));
+    }
+  }
+}
+
 /** Start a connection to a random running directory server, using
  * connection purpose <b>dir_purpose</b>, intending to fetch descriptors
  * of purpose <b>router_purpose</b>, and requesting <b>resource</b>.
@@ -447,40 +560,9 @@ MOCK_IMPL(void, directory_get_from_dirserver, (
   if (type == NO_DIRINFO)
     return;
 
+  /* Only calculate an if-modified-since value for consensuses. */
   if (dir_purpose == DIR_PURPOSE_FETCH_CONSENSUS) {
-    int flav = FLAV_NS;
-    networkstatus_t *v;
-    if (resource)
-      flav = networkstatus_parse_flavor_name(resource);
-
-    /* DEFAULT_IF_MODIFIED_SINCE_DELAY is 1/20 of the default consensus
-     * period of 1 hour.
-     */
-#define DEFAULT_IF_MODIFIED_SINCE_DELAY (180)
-    if (flav != -1) {
-      /* IF we have a parsed consensus of this type, we can do an
-       * if-modified-time based on it. */
-      v = networkstatus_get_latest_consensus_by_flavor(flav);
-      if (v) {
-        /* In networks with particularly short V3AuthVotingIntervals,
-         * ask for the consensus if it's been modified since half the
-         * V3AuthVotingInterval of the most recent consensus. */
-        time_t ims_delay = DEFAULT_IF_MODIFIED_SINCE_DELAY;
-        if (v->fresh_until > v->valid_after
-            && ims_delay > (v->fresh_until - v->valid_after)/2) {
-          ims_delay = (v->fresh_until - v->valid_after)/2;
-        }
-        if_modified_since = v->valid_after + ims_delay;
-      }
-    } else {
-      /* Otherwise it might be a consensus we don't parse, but which we
-       * do cache.  Look at the cached copy, perhaps. */
-      cached_dir_t *cd = dirserv_get_consensus(resource);
-      /* We have no method of determining the voting interval from an
-       * unparsed consensus, so we use the default. */
-      if (cd)
-        if_modified_since = cd->published + DEFAULT_IF_MODIFIED_SINCE_DELAY;
-    }
+    if_modified_since = directory_get_consensus_if_modified_since(resource);
   }
 
   if (!options->FetchServerDescriptors)
@@ -488,30 +570,10 @@ MOCK_IMPL(void, directory_get_from_dirserver, (
 
   if (!get_via_tor) {
     if (options->UseBridges && !(type & BRIDGE_DIRINFO)) {
-      /* We want to ask a running bridge for which we have a descriptor.
-       *
-       * When we ask choose_random_entry() for a bridge, we specify what
-       * sort of dir fetch we'll be doing, so it won't return a bridge
-       * that can't answer our question.
-       */
-      /* XXX024 Not all bridges handle conditional consensus downloading,
-       * so, for now, never assume the server supports that. -PP */
-      const node_t *node = choose_random_dirguard(type);
-      if (node && node->ri) {
-        /* every bridge has a routerinfo. */
-        tor_addr_t addr;
-        routerinfo_t *ri = node->ri;
-        node_get_addr(node, &addr);
-        directory_initiate_command(&addr,
-                                   ri->or_port, 0/*no dirport*/,
-                                   ri->cache_info.identity_digest,
-                                   dir_purpose,
-                                   router_purpose,
-                                   DIRIND_ONEHOP,
-                                   resource, NULL, 0, if_modified_since);
-      } else
-        log_notice(LD_DIR, "Ignoring directory request, since no bridge "
-                           "nodes are available yet.");
+      /* Clients that use bridges only fetch directory info from their bridges,
+       * except for bridge directory info itself. */
+      directory_get_from_bridge(type, dir_purpose, router_purpose, resource,
+                                if_modified_since);
       return;
     } else {
       if (prefer_authority || (type & BRIDGE_DIRINFO)) {
@@ -542,7 +604,8 @@ MOCK_IMPL(void, directory_get_from_dirserver, (
         }
       }
       if (!rs && !(type & BRIDGE_DIRINFO)) {
-        /* */
+        /* Fall back to choosing any dirserver (except if we want bridge info,
+         * because that has to come from an authority) */
         rs = directory_pick_generic_dirserver(type, pds_flags,
                                               dir_purpose);
         if (!rs)
@@ -557,27 +620,9 @@ MOCK_IMPL(void, directory_get_from_dirserver, (
     rs = router_pick_directory_server(type, pds_flags);
   }
 
-  /* If we have any hope of building an indirect conn, we know some router
-   * descriptors.  If (rs==NULL), we can't build circuits anyway, so
-   * there's no point in falling back to the authorities in this case. */
-  if (rs) {
-    const dir_indirection_t indirection =
-      get_via_tor ? DIRIND_ANONYMOUS : DIRIND_ONEHOP;
-    directory_initiate_command_routerstatus(rs, dir_purpose,
-                                            router_purpose,
-                                            indirection,
-                                            resource, NULL, 0,
-                                            if_modified_since);
-  } else {
-    log_notice(LD_DIR,
-               "While fetching directory info, "
-               "no running dirservers known. Will try again later. "
-               "(purpose %d)", dir_purpose);
-    if (!purpose_needs_anonymity(dir_purpose, router_purpose)) {
-      /* remember we tried them all and failed. */
-      directory_all_unreachable(time(NULL));
-    }
-  }
+  directory_get_from_dirserver_helper(rs, get_via_tor, dir_purpose,
+                                      router_purpose, resource,
+                                      if_modified_since);
 }
 
 /** As directory_get_from_dirserver, but initiates a request to <i>every</i>
