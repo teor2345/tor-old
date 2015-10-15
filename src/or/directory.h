@@ -143,6 +143,21 @@ STATIC int directory_handle_command_get(dir_connection_t *conn,
                                         const char *req_body,
                                         size_t req_body_len);
 int connection_dir_would_close_consensus_conn_helper(void);
+MOCK_DECL(time_t, directory_get_consensus_if_modified_since, (
+                                                      const char *resource));
+MOCK_DECL(void, directory_get_from_bridge, (
+                                            dirinfo_type_t type,
+                                            uint8_t dir_purpose,
+                                            uint8_t router_purpose,
+                                            const char *resource,
+                                            time_t if_modified_since));
+MOCK_DECL(void, directory_get_from_dirserver_helper, (
+                                                    const routerstatus_t *rs,
+                                                    int get_via_tor,
+                                                    uint8_t dir_purpose,
+                                                    uint8_t router_purpose,
+                                                    const char *resource,
+                                                    time_t if_modified_since));
 #endif
 
 #endif
