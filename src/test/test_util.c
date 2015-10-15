@@ -634,6 +634,19 @@ test_util_time(void *arg)
 }
 
 static void
+test_util_time_constants(void *arg)
+{
+  (void)arg;
+
+  /* This is one of the few essential properties of these constants,
+   * which holds whether time_t is signed or unsigned. */
+  tt_assert(TIME_MIN < TIME_MAX);
+
+ done:
+  ;
+}
+
+static void
 test_util_parse_http_time(void *arg)
 {
   struct tm a_time;
@@ -4416,6 +4429,7 @@ test_util_get_avail_disk_space(void *arg)
 
 struct testcase_t util_tests[] = {
   UTIL_LEGACY(time),
+  UTIL_TEST(time_constants, 0),
   UTIL_TEST(parse_http_time, 0),
   UTIL_LEGACY(config_line),
   UTIL_LEGACY(config_line_quotes),
