@@ -575,42 +575,42 @@ MOCK_IMPL(void, directory_get_from_dirserver, (
       directory_get_from_bridge(type, dir_purpose, router_purpose, resource,
                                 if_modified_since);
       return;
-    } else {
-      if (prefer_authority || (type & BRIDGE_DIRINFO)) {
-        /* only ask authdirservers, and don't ask myself */
+    }
+
+    if (prefer_authority || (type & BRIDGE_DIRINFO)) {
+      /* only ask authdirservers, and don't ask myself */
+      rs = router_pick_trusteddirserver(type, pds_flags);
+      if (rs == NULL && (pds_flags & (PDS_NO_EXISTING_SERVERDESC_FETCH|
+                                      PDS_NO_EXISTING_MICRODESC_FETCH))) {
+        /* We don't want to fetch from any authorities that we're currently
+         * fetching server descriptors from, and we got no match.  Did we
+         * get no match because all the authorities have connections
+         * fetching server descriptors (in which case we should just
+         * return,) or because all the authorities are down or on fire or
+         * unreachable or something (in which case we should go on with
+         * our fallback code)? */
+        pds_flags &= ~(PDS_NO_EXISTING_SERVERDESC_FETCH|
+                       PDS_NO_EXISTING_MICRODESC_FETCH);
         rs = router_pick_trusteddirserver(type, pds_flags);
-        if (rs == NULL && (pds_flags & (PDS_NO_EXISTING_SERVERDESC_FETCH|
-                                        PDS_NO_EXISTING_MICRODESC_FETCH))) {
-          /* We don't want to fetch from any authorities that we're currently
-           * fetching server descriptors from, and we got no match.  Did we
-           * get no match because all the authorities have connections
-           * fetching server descriptors (in which case we should just
-           * return,) or because all the authorities are down or on fire or
-           * unreachable or something (in which case we should go on with
-           * our fallback code)? */
-          pds_flags &= ~(PDS_NO_EXISTING_SERVERDESC_FETCH|
-                         PDS_NO_EXISTING_MICRODESC_FETCH);
-          rs = router_pick_trusteddirserver(type, pds_flags);
-          if (rs) {
-            log_debug(LD_DIR, "Deferring serverdesc fetch: all authorities "
-                      "are in use.");
-            return;
-          }
-        }
-        if (rs == NULL && require_authority) {
-          log_info(LD_DIR, "No authorities were available for %s: will try "
-                   "later.", dir_conn_purpose_to_string(dir_purpose));
+        if (rs) {
+          log_debug(LD_DIR, "Deferring serverdesc fetch: all authorities "
+                    "are in use.");
           return;
         }
       }
-      if (!rs && !(type & BRIDGE_DIRINFO)) {
-        /* Fall back to choosing any dirserver (except if we want bridge info,
-         * because that has to come from an authority) */
-        rs = directory_pick_generic_dirserver(type, pds_flags,
-                                              dir_purpose);
-        if (!rs)
-          get_via_tor = 1; /* last resort: try routing it via Tor */
+      if (rs == NULL && require_authority) {
+        log_info(LD_DIR, "No authorities were available for %s: will try "
+                 "later.", dir_conn_purpose_to_string(dir_purpose));
+        return;
       }
+    }
+    if (!rs && !(type & BRIDGE_DIRINFO)) {
+      /* Fall back to choosing any dirserver (except if we want bridge info,
+       * because that has to come from an authority) */
+      rs = directory_pick_generic_dirserver(type, pds_flags,
+                                            dir_purpose);
+      if (!rs)
+        get_via_tor = 1; /* last resort: try routing it via Tor */
     }
   }
 
