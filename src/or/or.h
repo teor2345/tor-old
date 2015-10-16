@@ -3588,15 +3588,16 @@ typedef struct {
    * they reach the normal circuit-build timeout. */
   int CloseHSServiceRendCircuitsImmediatelyOnTimeout;
 
-  /** How many hops does a Onion Service Server Introduction Point circuit
-   * have between the Onion Service Server & the Introduction Point,
-   * including the server-chosen Introduction Point. */
-  int OnionSrvIntroRouteLength;
-
-  /** How many hops does a Onion Service Server Rendezvous circuit have
-   * between the Onion Service Server & the Rendezvous Point, excluding
-   * the client-chosen Rendezvous Point. */
-  int OnionSrvRendRouteLength;
+  /** Rendezvous Single Onion Service (Non-Anonymous) Servers make one-hop
+   * circuits between the onion service server, and the introduction and
+   * rendezvous points. (Onion service descriptors are still posted using
+   * 3-hop paths, to avoid hidden/onion service directories blocking the
+   * service.) This option makes every hidden service instance hosted by
+   * this tor instance a Rendezvous Single Onion Service (RSOS). One-hop
+   * circuits make RSOS servers easily locatable, but clients remain
+   * location-anonymous. However, client use of a RSOS may be statistically
+   * distinguishable.*/
+  int RendezvousSingleOnionServiceNonAnonymousServer;
 
   int ConnLimit; /**< Demanded minimum number of simultaneous connections. */
   int ConnLimit_; /**< Maximum allowed number of simultaneous connections. */
@@ -4404,38 +4405,12 @@ struct socks_request_t {
 /** How many hops does a general-purpose circuit have by default? */
 #define DEFAULT_ROUTE_LEN 3
 
-/** How many hops do Hidden/Onion Service Server Intro Point and Rendezvous
- * circuits have? */
-
-/** This circuit is between the Hidden Service Server & the Introduction Point
- * The hop count includes the Introduction Point
- * For testing only, no proven anonymity gains past DEFAULT_ROUTE_LEN */
-/** Hidden Services - server anonymous Intro Point connections */
-#define DEFAULT_ONION_SRV_INTRO_ROUTE_LEN  DEFAULT_ROUTE_LEN
-/** Direct Onion Services - server can be located from Intro Point */
-#define MIN_ONION_SRV_INTRO_ROUTE_LEN     1
-/** Experimental Long Intro Point Circuits - Soft limited to 7 by RELAY_EARLY
- * Circuits longer than 7 will log warnings */
-#define MAX_SOFT_ONION_SRV_INTRO_ROUTE_LEN \
-                                     ((MAX_RELAY_EARLY_CELLS_PER_CIRCUIT) - 1)
-/** Experimental Long Intro Point Circuits - Hard limited to 8 by RELAY_EARLY
- * Circuits longer than 8 won't connect */
-#define MAX_HARD_ONION_SRV_INTRO_ROUTE_LEN MAX_RELAY_EARLY_CELLS_PER_CIRCUIT
-
-/** This circuit is between the Hidden Service Server & the Rendezvous Point
- * The hop count does not include the Rendezvous Point
- * For testing only, no proven anonymity gains past DEFAULT_ROUTE_LEN */
-/** Hidden Services - server anonymous Rendezvous Point connections */
-#define DEFAULT_ONION_SRV_REND_ROUTE_LEN  DEFAULT_ROUTE_LEN
-/** Direct Onion Services - server can be located from Rendezvous Point */
-#define MIN_ONION_SRV_REND_ROUTE_LEN      0
-/** Experimental Long Rend Point Circuits - Soft limited to 7 by RELAY_EARLY
- * Circuits longer than 7 will log warnings */
-#define MAX_SOFT_ONION_SRV_REND_ROUTE_LEN \
-                                     ((MAX_RELAY_EARLY_CELLS_PER_CIRCUIT) - 1)
-/** Experimental Long Rend Point Circuits - Hard limited to 8 by RELAY_EARLY
- * Circuits longer than 8 won't connect */
-#define MAX_HARD_ONION_SRV_REND_ROUTE_LEN MAX_RELAY_EARLY_CELLS_PER_CIRCUIT
+/** How many hops do Rendezvous Single Onion Service (RSOS) Server Intro
+ * Point and Rendezvous circuits have? (This includes the server-chosen intro
+ * point and client-chosen rendezvous point.)
+ * RSOSs use one-hop circuits and are non-anonymous.
+ * Only used when RendezvousSingleOnionServiceNonAnonymousServer is set. */
+#define RSOS_NON_ANONYMOUS_ROUTE_LEN 1
 
 /* Circuit Build Timeout "public" structures. */
 

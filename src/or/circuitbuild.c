@@ -1425,22 +1425,20 @@ new_route_len(uint8_t purpose, extend_info_t *exit, smartlist_t *nodes)
 
   routelen = DEFAULT_ROUTE_LEN;
 
-  /* an OnionSrvIntroRouteLength of -1 means the default behavior: 3 hops
-   * (for new and cannibalized circuits) */
-  if (purpose == CIRCUIT_PURPOSE_S_ESTABLISH_INTRO &&
-      get_options()->OnionSrvIntroRouteLength >= MIN_ONION_SRV_INTRO_ROUTE_LEN)
-    routelen = get_options()->OnionSrvIntroRouteLength;
-
-  /* an OnionSrvRendRouteLength of -1 means the default behavior: 3 hops for
-   * new circuits, and 4 for cannibalized circuits */
-  if (purpose == CIRCUIT_PURPOSE_S_CONNECT_REND &&
-      get_options()->OnionSrvRendRouteLength >= MIN_ONION_SRV_REND_ROUTE_LEN)
-    routelen = get_options()->OnionSrvRendRouteLength;
-
   if (exit &&
       purpose != CIRCUIT_PURPOSE_TESTING &&
       purpose != CIRCUIT_PURPOSE_S_ESTABLISH_INTRO)
     routelen++;
+
+  /* If RSOS is set, make one-hop routes from the server to the intro point
+   * and rendezvous point */
+  if (get_options()->RendezvousSingleOnionServiceNonAnonymousServer
+      && (purpose == CIRCUIT_PURPOSE_S_ESTABLISH_INTRO
+          || purpose == CIRCUIT_PURPOSE_S_CONNECT_REND)) {
+    routelen = RSOS_NON_ANONYMOUS_ROUTE_LEN;
+  }
+
+  tor_assert(routelen > 0);
 
   num_acceptable_routers = count_acceptable_nodes(nodes);
 
@@ -1958,11 +1956,9 @@ onion_pick_cpath_exit(origin_circuit_t *circ, extend_info_t *exit)
   cpath_build_state_t *state = circ->build_state;
 
   if (state->onehop_tunnel) {
-    log_debug(LD_CIRC, "Launching a one-hop circuit for dir%s%s tunnel.",
-              (get_options()->OnionSrvIntroRouteLength
-               == MIN_ONION_SRV_INTRO_ROUTE_LEN ? "or intro" : ""),
-              (get_options()->OnionSrvRendRouteLength
-               == MIN_ONION_SRV_REND_ROUTE_LEN ? "or rendezvous" : ""));
+    log_debug(LD_CIRC, "Launching a one-hop circuit for dir%s tunnel.",
+              (get_options()->RendezvousSingleOnionServiceNonAnonymousServer ?
+               "or intro or rendezvous" : ""));
     state->desired_path_len = 1;
   } else {
     int r = new_route_len(circ->base_.purpose, exit, nodelist_get_list());
