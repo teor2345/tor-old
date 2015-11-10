@@ -432,8 +432,8 @@ MOCK_IMPL(void, directory_get_from_dirserver, (uint8_t dir_purpose,
 {
   const routerstatus_t *rs = NULL;
   const or_options_t *options = get_options();
-  int prefer_authority = directory_fetches_from_authorities(options);
-  int require_authority = 0;
+  int prefer_authority = directory_should_fetch_from_authorities(options);
+  int require_authority = directory_must_fetch_from_authorities();
   int get_via_tor = purpose_needs_anonymity(dir_purpose, router_purpose);
   dirinfo_type_t type = dir_fetch_type(dir_purpose, router_purpose, resource);
   time_t if_modified_since = 0;
@@ -872,7 +872,7 @@ directory_command_should_use_begindir(const or_options_t *options,
     return 0;
   if (indirection == DIRIND_ONEHOP)
     if (!fascist_firewall_allows_address_or(addr, or_port) ||
-        directory_fetches_from_authorities(options))
+        directory_should_fetch_from_authorities(options))
       return 0; /* We're firewalled or are acting like a relay -- also no. */
   return 1;
 }
@@ -3570,7 +3570,7 @@ dir_routerdesc_download_failed(smartlist_t *failed, int status_code,
 {
   char digest[DIGEST_LEN];
   time_t now = time(NULL);
-  int server = directory_fetches_from_authorities(get_options());
+  int server = directory_should_fetch_from_authorities(get_options());
   if (!was_descriptor_digests) {
     if (router_purpose == ROUTER_PURPOSE_BRIDGE) {
       tor_assert(!was_extrainfo);
@@ -3615,7 +3615,7 @@ dir_microdesc_download_failed(smartlist_t *failed,
   routerstatus_t *rs;
   download_status_t *dls;
   time_t now = time(NULL);
-  int server = directory_fetches_from_authorities(get_options());
+  int server = directory_should_fetch_from_authorities(get_options());
 
   if (! consensus)
     return;
