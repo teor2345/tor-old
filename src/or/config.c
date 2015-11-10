@@ -4046,6 +4046,14 @@ options_transition_allowed(const or_options_t *old,
     return -1;
   }
 
+  if (old->RendezvousSingleOnionServiceNonAnonymousServer !=
+      new_val->RendezvousSingleOnionServiceNonAnonymousServer) {
+    *msg = tor_strdup("While Tor is running, changing "
+                      "RendezvousSingleOnionServiceNonAnonymousServer is not "
+                      "allowed.");
+    return -1;
+  }
+
   if (old->DisableDebuggerAttachment &&
       !new_val->DisableDebuggerAttachment) {
     *msg = tor_strdup("While Tor is running, disabling "
