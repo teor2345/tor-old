@@ -1077,25 +1077,14 @@ dirserv_dump_directory_to_string(char **dir_out,
 
 /** Return 1 if we must fetch our directory material directly from the
  * authorities, rather than from a mirror. (If the authorities are not
- * accessible, fail the directory request.) */
+ * accessible, fail the directory request.)
+ * Currently, hardcoded fallback directory mirrors must fetch from the
+ * authorities to avoid download loops. */
 int
-directory_must_fetch_from_authorities(const or_options_t *options)
+directory_must_fetch_from_authorities(void)
 {
-  const routerinfo_t *me;
-  uint32_t addr;
-  if (server_mode(options) && router_pick_published_address(options, &addr)<0)
-    return 1; /* we don't know our IP address; ask an authority. */
-  /* Prevent (potential) fallback directory mirrors fetching from other
-   * (potential) fallback directory mirrors. A relay can't know the hard-coded
-   * fallbacks in future tor releases, so we have to exclude all potential
-   * fallbacks from using all other potential fallbacks.
-   *
-   * If dirport is set, use the authorities. */
-  if (options->DirPort_set)
-    return 1;
-  /* If dirport is advertised, use the authorities. */
-  me = router_get_my_routerinfo();
-  if (me && me->dir_port)
+  const char *my_id_digest = (const char *)router_get_my_id_digest();
+  if (my_id_digest && router_get_fallback_dirserver_by_digest(my_id_digest))
     return 1;
   return 0;
 }
@@ -1107,13 +1096,16 @@ int
 directory_should_fetch_from_authorities(const or_options_t *options)
 {
   const routerinfo_t *me;
+  uint32_t addr;
   int refuseunknown;
-  if (directory_must_fetch_from_authorities(options))
+  if (directory_must_fetch_from_authorities())
     return 1;
   if (options->FetchDirInfoEarly)
     return 1;
   if (options->BridgeRelay == 1)
     return 0;
+  if (server_mode(options) && router_pick_published_address(options, &addr)<0)
+    return 1; /* we don't know our IP address; ask an authority. */
   refuseunknown = ! router_my_exit_policy_is_reject_star() &&
     should_refuse_unknown_exits(options);
   if (!options->DirPort_set && !refuseunknown)

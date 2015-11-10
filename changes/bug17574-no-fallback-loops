@@ -1,4 +1,4 @@
   o Minor bugfix (fallback directories):
-    - Prevent fallback directory mirror loops by making all potential
-      fallbacks use the authorities for all directory downloads.
+    - Prevent fallback directory mirror loops by making hard-coded
+      fallbacks use the authorities for their own directory downloads.
       Fixes bug 17574; bugfix on 0.2.4.7-alpha. Patch by "teor".

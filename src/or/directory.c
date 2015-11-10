@@ -433,7 +433,7 @@ MOCK_IMPL(void, directory_get_from_dirserver, (uint8_t dir_purpose,
   const routerstatus_t *rs = NULL;
   const or_options_t *options = get_options();
   int prefer_authority = directory_should_fetch_from_authorities(options);
-  int require_authority = directory_must_fetch_from_authorities(options);
+  int require_authority = directory_must_fetch_from_authorities();
   int get_via_tor = purpose_needs_anonymity(dir_purpose, router_purpose);
   dirinfo_type_t type = dir_fetch_type(dir_purpose, router_purpose, resource);
   time_t if_modified_since = 0;
