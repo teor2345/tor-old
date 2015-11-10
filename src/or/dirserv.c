@@ -1075,14 +1075,31 @@ dirserv_dump_directory_to_string(char **dir_out,
 /* A set of functions to answer questions about how we'd like to behave
  * as a directory mirror/client. */
 
-/** Return 1 if we fetch our directory material directly from the
- * authorities, rather than from a mirror. */
+/** Return 1 if we must fetch our directory material directly from the
+ * authorities, rather than from a mirror. (If the authorities are not
+ * accessible, fail the directory request.)
+ * Currently, hardcoded fallback directory mirrors must fetch from the
+ * authorities to avoid download loops. */
 int
-directory_fetches_from_authorities(const or_options_t *options)
+directory_must_fetch_from_authorities(void)
+{
+  const char *my_id_digest = (const char *)router_get_my_id_digest();
+  if (my_id_digest && router_get_fallback_dirserver_by_digest(my_id_digest))
+    return 1;
+  return 0;
+}
+
+/** Return 1 if we should fetch our directory material directly from the
+ * authorities, rather than from a mirror. (If the authorities are not
+ * accessible, we can use a fallback directory mirror.) */
+int
+directory_should_fetch_from_authorities(const or_options_t *options)
 {
   const routerinfo_t *me;
   uint32_t addr;
   int refuseunknown;
+  if (directory_must_fetch_from_authorities())
+    return 1;
   if (options->FetchDirInfoEarly)
     return 1;
   if (options->BridgeRelay == 1)
@@ -1107,7 +1124,7 @@ directory_fetches_from_authorities(const or_options_t *options)
 int
 directory_fetches_dir_info_early(const or_options_t *options)
 {
-  return directory_fetches_from_authorities(options);
+  return directory_should_fetch_from_authorities(options);
 }
 
 /** Return 1 if we should fetch new networkstatuses, descriptors, etc
