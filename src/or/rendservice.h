@@ -105,8 +105,10 @@ rend_service_port_config_t *rend_service_parse_port_config(const char *string,
                                                            const char *sep,
                                                            char **err_msg_out);
 void rend_service_port_config_free(rend_service_port_config_t *p);
-
 void rend_authorized_client_free(rend_authorized_client_t *client);
+
+int rend_services_are_rsos_poisoned(void);
+int rend_service_poison_all_rsos_dirs(void);
 
 /** Return value from rend_service_add_ephemeral. */
 typedef enum {
