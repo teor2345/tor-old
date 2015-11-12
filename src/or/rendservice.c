@@ -999,6 +999,113 @@ rend_service_update_descriptor(rend_service_t *service)
   }
 }
 
+#define RSOS_POISON_FNAME "non_anonymous_hidden_service_rsos"
+
+/** Return True if hidden services <b>service> has been poisoned by RSOS
+ *  mode. */
+static int
+service_is_rsos_poisoned(const rend_service_t *service)
+{
+  char *poison_fname = NULL;
+  file_status_t fstatus;
+
+  if (!service->directory) {
+    return 0;
+  }
+
+  tor_asprintf(&poison_fname, "%s%s%s",
+               service->directory, PATH_SEPARATOR, RSOS_POISON_FNAME);
+
+  fstatus = file_status(poison_fname);
+
+  /* If this fname is occupied, the hidden service has been poisoned. */
+  if (fstatus == FN_FILE || fstatus == FN_EMPTY) {
+    tor_free(poison_fname);
+    return 1;
+  }
+
+  tor_free(poison_fname);
+  return 0;
+}
+
+/** Return True if any of the active hidden services have been poisoned by RSOS
+ *  mode. */
+int
+rend_services_are_rsos_poisoned(void)
+{
+  SMARTLIST_FOREACH_BEGIN(rend_service_list, rend_service_t *, s) {
+    if (service_is_rsos_poisoned(s)) {
+      return 1;
+    }
+  } SMARTLIST_FOREACH_END(s);
+
+  return 0;
+}
+
+/*** Helper for rend_service_poison_all_rsos_dirs(). When in RSOS mode, add a
+ *   file to each hidden service directory that marks it as an RSOS hidden
+ *   service. */
+static int
+poison_rsos_hidden_service_dir(const rend_service_t *service)
+{
+  int fd;
+  int retval = -1;
+  char *poison_fname = NULL;
+
+  if (!service->directory) {
+    log_warn(LD_GENERAL, "Ephemeral HS can't be started as RSOS.");
+    goto done;
+  }
+
+  tor_asprintf(&poison_fname, "%s%s%s",
+               service->directory, PATH_SEPARATOR, RSOS_POISON_FNAME);
+
+  switch (file_status(poison_fname)) {
+  case FN_DIR:
+  case FN_ERROR:
+    log_warn(LD_FS, "Can't read RSOS poison file \"%s\"", poison_fname);
+    goto done;
+  case FN_FILE: /* RSOS poison file already exists. NOP. */
+  case FN_EMPTY: /* RSOS poison file already exists. NOP. */
+    break;
+  case FN_NOENT:
+    fd = tor_open_cloexec(poison_fname, O_RDWR|O_CREAT|O_TRUNC, 0600);
+    if (fd < 0) {
+      log_warn(LD_FS, "Could not create RSOS poison file %s", poison_fname);
+      goto done;
+    }
+    close(fd);
+    break;
+  default:
+    tor_assert(0);
+  }
+
+  retval = 0;
+
+ done:
+  tor_free(poison_fname);
+
+  return retval;
+}
+
+/** We just got launched in RSOS mode (Rendezvous Single Onion Service). That's
+ *  a non-anoymous mode for hidden services; hence we should mark all hidden
+ *  service directories appropriately so that they are never launched as
+ *  location-private hidden services again. Return 0 on success, -1 on fail. */
+int
+rend_service_poison_all_rsos_dirs(void)
+{
+  SMARTLIST_FOREACH_BEGIN(rend_service_list, rend_service_t *, s) {
+    if (poison_rsos_hidden_service_dir(s) < 0) {
+      return -1;
+    }
+  } SMARTLIST_FOREACH_END(s);
+
+  return 0;
+}
+
+#undef RSOS_POISON_FNAME
+
 /** Load and/or generate private keys for all hidden services, possibly
  * including keys for client authorization.  Return 0 on success, -1 on
  * failure. */

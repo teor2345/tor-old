@@ -1585,6 +1585,27 @@ options_act(const or_options_t *old_options)
     return -1;
   }
 
+  /* If we use the insecure RSOS mode, make sure we poison our hidden service
+     directories, so that we never accidentally launch the non-anonymous hidden
+     services thinking they are anonymous. */
+  if (running_tor && options->RendezvousSingleOnionServiceNonAnonymousServer) {
+    if (rend_service_poison_all_rsos_dirs() < 0) {
+      log_warn(LD_GENERAL,"Failed to mark hidden services as RSOS.");
+      return -1;
+    }
+  }
+
+  /* If we are running hidden services not in RSOS mode, check if they have
+     been poisoned by RSOS, and refuse to launch them if so. */
+  if (!options->RendezvousSingleOnionServiceNonAnonymousServer &&
+      num_rend_services()) {
+    if (rend_services_are_rsos_poisoned()) {
+      log_warn(LD_GENERAL, "Trying to launch hidden services that used to be "
+               "in the non-anonymous RSOS mode. This is not allowed.");
+      return -1;
+    }
+  }
+
   /* Set up scheduler thresholds */
   scheduler_set_watermarks((uint32_t)options->SchedulerLowWaterMark__,
                            (uint32_t)options->SchedulerHighWaterMark__,
@@ -3203,10 +3224,12 @@ options_validate(or_options_t *old_options, or_options_t *options,
    * hidden/onion service server and intro / rendezvous points */
   if (options->RendezvousSingleOnionServiceNonAnonymousServer) {
     log_warn(LD_CONFIG,
-             "RendezvousSingleOnionServiceNonAnonymousServer is set to 1."
+             "RendezvousSingleOnionServiceNonAnonymousServer (RSOS) is set."
              " Every hidden/onion service on this instance is NON-ANONYMOUS."
              " Clients remain location-anonymous, but may be statistically"
-             " distinguishable. This setting is for experimental use only.");
+             " distinguishable. If RSOS is disabled, Tor will refuse to "
+             " launch RSOS hidden services to protect against misconfiguration"
+             " errors. This setting is for experimental use only.");
   }
 
   if (!options->LearnCircuitBuildTimeout && options->CircuitBuildTimeout &&
