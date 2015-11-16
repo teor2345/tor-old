@@ -51,7 +51,7 @@ test_policy_summary_helper(const char *policy_str,
 
   r = policies_parse_exit_policy(&line, &policy,
                                  EXIT_POLICY_IPV6_ENABLED |
-                                 EXIT_POLICY_ADD_DEFAULT, 0, NULL, 0);
+                                 EXIT_POLICY_ADD_DEFAULT, 0, NULL, NULL, NULL);
   tt_int_op(r,OP_EQ, 0);
 
   summary = policy_summarize(policy, AF_INET);
@@ -118,7 +118,7 @@ test_policies_general(void *arg)
                                               EXIT_POLICY_IPV6_ENABLED |
                                               EXIT_POLICY_REJECT_PRIVATE |
                                               EXIT_POLICY_ADD_DEFAULT, 0,
-                                              NULL, 0));
+                                              NULL, NULL, NULL));
 
   tt_assert(policy2);
 
@@ -127,7 +127,8 @@ test_policies_general(void *arg)
                                                  EXIT_POLICY_IPV6_ENABLED |
                                                  EXIT_POLICY_REJECT_PRIVATE |
                                                  EXIT_POLICY_ADD_DEFAULT,
-                                                 0x0306090cu, &tar, 1));
+                                                 0x0306090cu, &tar, NULL,
+                                                 NULL));
 
   tt_assert(policy12);
 
@@ -209,14 +210,14 @@ test_policies_general(void *arg)
                                                  EXIT_POLICY_IPV6_ENABLED |
                                                  EXIT_POLICY_REJECT_PRIVATE |
                                                  EXIT_POLICY_ADD_DEFAULT, 0,
-                                                 NULL, 0));
+                                                 NULL, NULL, NULL));
 
   tt_assert(policy8);
 
   tt_int_op(0, OP_EQ, policies_parse_exit_policy(NULL, &policy9,
                                                  EXIT_POLICY_REJECT_PRIVATE |
                                                  EXIT_POLICY_ADD_DEFAULT, 0,
-                                                 NULL, 0));
+                                                 NULL, NULL, NULL));
 
   tt_assert(policy9);
 
@@ -271,7 +272,7 @@ test_policies_general(void *arg)
   tt_int_op(0, OP_EQ, policies_parse_exit_policy(&line,&policy,
                                               EXIT_POLICY_IPV6_ENABLED |
                                               EXIT_POLICY_ADD_DEFAULT, 0,
-                                              NULL, 0));
+                                              NULL, NULL, NULL));
   tt_assert(policy);
 
   //test_streq(policy->string, "accept *:80");
@@ -532,7 +533,7 @@ test_policies_reject_exit_address(void *arg)
   /* test that local_address is interpreted as an IPv4 host-order address and
    * rejected on an IPv4-only exit */
   policies_parse_exit_policy_reject_private(&policy, 0, TEST_IPV4_ADDR, NULL,
-                                            0, 0, 0);
+                                            NULL, NULL, 0, 0);
   tt_assert(policy);
   tt_assert(smartlist_len(policy) == 1);
   tt_assert(test_policy_has_address_helper(policy, &ipv4_addr));
@@ -542,7 +543,7 @@ test_policies_reject_exit_address(void *arg)
   /* test that local_address is interpreted as an IPv4 host-order address and
    * rejected on an IPv4/IPv6 exit */
   policies_parse_exit_policy_reject_private(&policy, 1, TEST_IPV4_ADDR, NULL,
-                                            0, 0, 0);
+                                            NULL, NULL, 0, 0);
   tt_assert(policy);
   tt_assert(smartlist_len(policy) == 1);
   tt_assert(test_policy_has_address_helper(policy, &ipv4_addr));
@@ -550,8 +551,8 @@ test_policies_reject_exit_address(void *arg)
   policy = NULL;
 
   /* test that ipv6_local_address is rejected on an IPv4/IPv6 exit */
-  policies_parse_exit_policy_reject_private(&policy, 1, 0, &ipv6_addr, 0, 0,
-                                            0);
+  policies_parse_exit_policy_reject_private(&policy, 1, 0, &ipv6_addr, NULL,
+                                            NULL,  0, 0);
   tt_assert(policy);
   tt_assert(smartlist_len(policy) == 1);
   tt_assert(test_policy_has_address_helper(policy, &ipv6_addr));
@@ -562,22 +563,12 @@ test_policies_reject_exit_address(void *arg)
    * (all IPv6 addresses are rejected by policies_parse_exit_policy_internal
    * on IPv4-only exits, so policies_parse_exit_policy_reject_private doesn't
    * need to do anything) */
-  policies_parse_exit_policy_reject_private(&policy, 0, 0, &ipv6_addr, 0, 0,
-                                            0);
+  policies_parse_exit_policy_reject_private(&policy, 0, 0, &ipv6_addr, NULL,
+                                            NULL,  0, 0);
   tt_assert(policy == NULL);
 
  done:
   addr_policy_list_free(policy);
-}
-
-static or_options_t test_options;
-const or_options_t *mock_get_options(void);
-
-/** Returns test_options */
-const or_options_t *
-mock_get_options(void)
-{
-  return &test_options;
 }
 
 /** Run unit tests for rejecting outbound connection addresses on this
@@ -586,43 +577,73 @@ static void
 test_policies_reject_outbound_address(void *arg)
 {
   smartlist_t *policy = NULL;
+  tor_addr_t ipv4_addr, ipv6_addr;
   (void)arg;
 
-  memset(&test_options, 0, sizeof(or_options_t));
-  tor_addr_from_ipv4h(&test_options.OutboundBindAddressIPv4_, TEST_IPV4_ADDR);
-  tor_addr_parse(&test_options.OutboundBindAddressIPv6_, TEST_IPV6_ADDR);
+  tor_addr_from_ipv4h(&ipv4_addr, TEST_IPV4_ADDR);
+  tor_addr_parse(&ipv6_addr, TEST_IPV6_ADDR);
 
-  MOCK(get_options, mock_get_options);
+  /* test that OutboundBindAddressIPv4_ is rejected on an IPv4-only exit */
+  policies_parse_exit_policy_reject_private(&policy, 0, 0, NULL, &ipv4_addr,
+                                            NULL, 0, 0);
+  tt_assert(policy);
+  tt_assert(smartlist_len(policy) == 1);
+  tt_assert(test_policy_has_address_helper(policy, &ipv4_addr));
+  addr_policy_list_free(policy);
+  policy = NULL;
+
+  /* test that OutboundBindAddressIPv4_ is rejected on an IPv4/IPv6 exit */
+  policies_parse_exit_policy_reject_private(&policy, 1, 0, NULL, &ipv4_addr,
+                                            NULL, 0, 0);
+  tt_assert(policy);
+  tt_assert(smartlist_len(policy) == 1);
+  tt_assert(test_policy_has_address_helper(policy, &ipv4_addr));
+  addr_policy_list_free(policy);
+  policy = NULL;
+
+  /* test that OutboundBindAddressIPv6_ is rejected on an IPv4/IPv6 exit */
+  policies_parse_exit_policy_reject_private(&policy, 1, 0, NULL, NULL,
+                                            &ipv6_addr, 0, 0);
+  tt_assert(policy);
+  tt_assert(smartlist_len(policy) == 1);
+  tt_assert(test_policy_has_address_helper(policy, &ipv6_addr));
+  addr_policy_list_free(policy);
+  policy = NULL;
+
+  /* test that OutboundBindAddressIPv6_ is NOT rejected on an IPv4-only exit
+   * (all IPv6 addresses are rejected by policies_parse_exit_policy_internal
+   * on IPv4-only exits, so policies_parse_exit_policy_reject_private doesn't
+   * need to do anything with IPv6 addresses on IPv4-only exits) */
+  policies_parse_exit_policy_reject_private(&policy, 0, 0, NULL, NULL,
+                                            &ipv6_addr, 0, 0);
+  tt_assert(policy == NULL);
 
   /* test that OutboundBindAddressIPv4_ is rejected on an IPv4-only exit,
    * but OutboundBindAddressIPv6_ is NOT rejected (all IPv6 addresses are
    * rejected by policies_parse_exit_policy_internal on IPv4-only exits, so
    * policies_parse_exit_policy_reject_private doesn't need to do anything
    * with IPv6 addresses on IPv4-only exits) */
-  policies_parse_exit_policy_reject_private(&policy, 0, 0, NULL, 0, 1, 0);
+  policies_parse_exit_policy_reject_private(&policy, 0, 0, NULL, &ipv4_addr,
+                                            &ipv6_addr, 0, 0);
   tt_assert(policy);
   tt_assert(smartlist_len(policy) == 1);
-  tt_assert(test_policy_has_address_helper(policy,
-                                    &test_options.OutboundBindAddressIPv4_));
+  tt_assert(test_policy_has_address_helper(policy, &ipv4_addr));
   addr_policy_list_free(policy);
   policy = NULL;
 
   /* test that OutboundBindAddressIPv4_ and OutboundBindAddressIPv6_ are
    * rejected on an IPv4/IPv6 exit */
-  policies_parse_exit_policy_reject_private(&policy, 1, 0, NULL, 0, 1, 0);
+  policies_parse_exit_policy_reject_private(&policy, 1, 0, NULL, &ipv4_addr,
+                                            &ipv6_addr, 0, 0);
   tt_assert(policy);
   tt_assert(smartlist_len(policy) == 2);
-  tt_assert(test_policy_has_address_helper(policy,
-                                    &test_options.OutboundBindAddressIPv4_));
-  tt_assert(test_policy_has_address_helper(policy,
-                                    &test_options.OutboundBindAddressIPv6_));
+  tt_assert(test_policy_has_address_helper(policy, &ipv4_addr));
+  tt_assert(test_policy_has_address_helper(policy, &ipv6_addr));
   addr_policy_list_free(policy);
   policy = NULL;
 
 done:
   addr_policy_list_free(policy);
-  memset(&test_options, 0, sizeof(or_options_t));
-  UNMOCK(get_options);
 }
 
 static smartlist_t *test_configured_ports = NULL;
@@ -662,7 +683,8 @@ test_policies_reject_port_address(void *arg)
    * policies_parse_exit_policy_internal on IPv4-only exits, so
    * policies_parse_exit_policy_reject_private doesn't need to do anything
    * with IPv6 addresses on IPv4-only exits) */
-  policies_parse_exit_policy_reject_private(&policy, 0, 0, NULL, 0, 0, 1);
+  policies_parse_exit_policy_reject_private(&policy, 0, 0, NULL, NULL, NULL,
+                                            0, 1);
   tt_assert(policy);
   tt_assert(smartlist_len(policy) == 1);
   tt_assert(test_policy_has_address_helper(policy, &ipv4_port->addr));
@@ -670,7 +692,8 @@ test_policies_reject_port_address(void *arg)
   policy = NULL;
 
   /* test that IPv4 and IPv6 ports are rejected on an IPv4/IPv6 exit */
-  policies_parse_exit_policy_reject_private(&policy, 1, 0, NULL, 0, 0, 1);
+  policies_parse_exit_policy_reject_private(&policy, 1, 0, NULL, NULL, NULL,
+                                            0, 1);
   tt_assert(policy);
   tt_assert(smartlist_len(policy) == 2);
   tt_assert(test_policy_has_address_helper(policy, &ipv4_port->addr));
@@ -705,12 +728,14 @@ test_policies_reject_interface_address(void *arg)
   (void)arg;
 
   /* test that no addresses are rejected when none are supplied/requested */
-  policies_parse_exit_policy_reject_private(&policy, 0, 0, NULL, 0, 0, 0);
+  policies_parse_exit_policy_reject_private(&policy, 0, 0, NULL, NULL, NULL,
+                                            0, 0);
   tt_assert(policy == NULL);
 
   /* test that only IPv4 interface addresses are rejected on an IPv4-only exit
    */
-  policies_parse_exit_policy_reject_private(&policy, 0, 0, NULL, 1, 0, 0);
+  policies_parse_exit_policy_reject_private(&policy, 0, 0, NULL, NULL, NULL,
+                                            1, 0);
   if (policy) {
     tt_assert(smartlist_len(policy) == smartlist_len(public_ipv4_addrs));
     addr_policy_list_free(policy);
@@ -719,7 +744,8 @@ test_policies_reject_interface_address(void *arg)
 
   /* test that IPv4 and IPv6 interface addresses are rejected on an IPv4/IPv6
    * exit */
-  policies_parse_exit_policy_reject_private(&policy, 0, 0, NULL, 1, 0, 0);
+  policies_parse_exit_policy_reject_private(&policy, 0, 0, NULL, NULL, NULL,
+                                            1, 0);
   if (policy) {
     tt_assert(smartlist_len(policy) == (smartlist_len(public_ipv4_addrs)
                                         + smartlist_len(public_ipv6_addrs)));
