@@ -62,7 +62,8 @@ void policies_parse_exit_policy_reject_private(smartlist_t **dest,
                                                int ipv6_exit,
                                                uint32_t local_address,
                                                tor_addr_t *ipv6_local_address,
-                                               int reject_interface_addresses);
+                                               int reject_interface_addresses,
+                                               int reject_outbound_addresses);
 void policies_exit_policy_append_reject_star(smartlist_t **dest);
 void addr_policy_append_reject_addr(smartlist_t **dest,
                                     const tor_addr_t *addr);
