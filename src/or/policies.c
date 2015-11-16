@@ -1014,6 +1014,8 @@ policies_parse_exit_policy_reject_private(smartlist_t **dest,
                                           tor_addr_t *ipv6_local_address,
                                           int reject_interface_addresses)
 {
+  tor_assert(dest);
+  
   /* Reject our local IPv4 address */
   if (local_address) {
     tor_addr_t v4_local;
@@ -1035,9 +1037,7 @@ policies_parse_exit_policy_reject_private(smartlist_t **dest,
     }
   }
 
-  /* Reject local addresses from public netblocks on any interface.
-   * exit_policy_remove_redundancies will remove any addresses that are
-   * rejected multiple times. */
+  /* Reject local addresses from public netblocks on any interface. */
   if (reject_interface_addresses) {
     smartlist_t *public_addresses = NULL;
 
@@ -1052,6 +1052,11 @@ policies_parse_exit_policy_reject_private(smartlist_t **dest,
       addr_policy_append_reject_addr_list(dest, public_addresses);
       free_interface_address6_list(public_addresses);
     }
+  }
+
+  /* If addresses were added multiple times, remove all but one of them. */
+  if (*dest) {
+    exit_policy_remove_redundancies(*dest);
   }
 }
 
