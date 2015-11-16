@@ -868,7 +868,7 @@ addr_policy_intersects(addr_policy_t *a, addr_policy_t *b)
 
 /** Add the exit policy described by <b>more</b> to <b>policy</b>.
  */
-static void
+STATIC void
 append_exit_policy_string(smartlist_t **policy, const char *more)
 {
   config_line_t tmp;
@@ -2085,6 +2085,44 @@ getinfo_helper_policies(control_connection_t *conn,
   (void) errmsg;
   if (!strcmp(question, "exit-policy/default")) {
     *answer = tor_strdup(DEFAULT_EXIT_POLICY);
+  } else if (!strcmp(question, "exit-policy/reject-private/default")) {
+    smartlist_t *private_policy_strings;
+    const char **priv = private_nets;
+
+    private_policy_strings = smartlist_new();
+
+    while (*priv != NULL) {
+      /* IPv6 addresses are in "[]" and contain ":",
+       * IPv4 addresses are not in "[]" and contain "." */
+      smartlist_add_asprintf(private_policy_strings, "reject %s:*", *priv);
+      priv++;
+    }
+
+    *answer = smartlist_join_strings(private_policy_strings,
+                                     ",", 0, NULL);
+
+    SMARTLIST_FOREACH(private_policy_strings, char *, str, tor_free(str));
+    smartlist_free(private_policy_strings);
+  } else if (!strcmp(question, "exit-policy/reject-private/relay")) {
+    const or_options_t *options = get_options();
+    const routerinfo_t *me = router_get_my_routerinfo();
+    smartlist_t *private_policy_list = smartlist_new();
+
+    if (!me) {
+      *errmsg = "router_get_my_routerinfo returned NULL";
+      return -1;
+    }
+
+    policies_parse_exit_policy_reject_private(
+                                            &private_policy_list,
+                                            options->IPv6Exit,
+                                            me->addr, &me->ipv6_addr,
+                                            &options->OutboundBindAddressIPv4_,
+                                            &options->OutboundBindAddressIPv6_,
+                                            1, 1);
+    *answer = policy_dump_to_string(private_policy_list, 1, 1);
+
+    addr_policy_list_free(private_policy_list);
   } else if (!strcmpstart(question, "exit-policy/")) {
     const routerinfo_t *me = router_get_my_routerinfo();
 
