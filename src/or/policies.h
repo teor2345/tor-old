@@ -61,6 +61,8 @@ int policies_parse_exit_policy(config_line_t *cfg, smartlist_t **dest,
 void policies_exit_policy_append_reject_star(smartlist_t **dest);
 void addr_policy_append_reject_addr(smartlist_t **dest,
                                     const tor_addr_t *addr);
+void addr_policy_append_reject_addr_list(smartlist_t **dest,
+                                         const smartlist_t *addrs);
 void policies_set_node_exitpolicy_to_reject_all(node_t *exitrouter);
 int exit_policy_is_general_exit(smartlist_t *policy);
 int policy_is_reject_star(const smartlist_t *policy, sa_family_t family);
