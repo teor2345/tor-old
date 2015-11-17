@@ -55,17 +55,11 @@ int policies_parse_exit_policy_from_options(
                                           smartlist_t **result);
 int policies_parse_exit_policy(config_line_t *cfg, smartlist_t **dest,
                                exit_policy_parser_cfg_t options,
-                               uint32_t local_address,
-                               const tor_addr_t *ipv6_local_address,
-                               const tor_addr_t *ipv4_outbound_address,
-                               const tor_addr_t *ipv6_outbound_address);
+                               const smartlist_t *configured_addresses);
 void policies_parse_exit_policy_reject_private(
                                       smartlist_t **dest,
                                       int ipv6_exit,
-                                      uint32_t local_address,
-                                      const tor_addr_t *ipv6_local_address,
-                                      const tor_addr_t *ipv4_outbound_address,
-                                      const tor_addr_t *ipv6_outbound_address,
+                                      const smartlist_t *configured_addresses,
                                       int reject_interface_addresses,
                                       int reject_configured_port_addresses);
 void policies_exit_policy_append_reject_star(smartlist_t **dest);
