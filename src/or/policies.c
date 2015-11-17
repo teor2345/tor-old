@@ -2117,18 +2117,38 @@ getinfo_helper_policies(control_connection_t *conn,
     const or_options_t *options = get_options();
     const routerinfo_t *me = router_get_my_routerinfo();
     smartlist_t *private_policy_list = smartlist_new();
+    smartlist_t *configured_addresses = smartlist_new();
+    tor_addr_t ipv4_local_address;
 
     if (!me) {
       *errmsg = "router_get_my_routerinfo returned NULL";
       return -1;
     }
 
+    /* Add the configured addresses to the tor_addr_t* list */
+    if (me->addr) {
+      tor_addr_from_ipv4h(&ipv4_local_address, me->addr);
+      smartlist_add(configured_addresses, (void *)&ipv4_local_address);
+    }
+
+    if (!tor_addr_is_null(&me->ipv6_addr)) {
+      smartlist_add(configured_addresses, (void *)&me->ipv6_addr);
+    }
+
+    if (!tor_addr_is_null(&options->OutboundBindAddressIPv4_)) {
+      smartlist_add(configured_addresses,
+                    (void *)&options->OutboundBindAddressIPv4_);
+    }
+
+    if (!tor_addr_is_null(&options->OutboundBindAddressIPv6_)) {
+      smartlist_add(configured_addresses,
+                    (void *)&options->OutboundBindAddressIPv6_);
+    }
+
     policies_parse_exit_policy_reject_private(
                                             &private_policy_list,
                                             options->IPv6Exit,
-                                            me->addr, &me->ipv6_addr,
-                                            &options->OutboundBindAddressIPv4_,
-                                            &options->OutboundBindAddressIPv6_,
+                                            configured_addresses,
                                             1, 1);
     *answer = policy_dump_to_string(private_policy_list, 1, 1);
 
