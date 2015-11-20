@@ -1269,6 +1269,45 @@ policies_parse_exit_policy(config_line_t *cfg, smartlist_t **dest,
                                              add_default);
 }
 
+/** Helper function that adds addr to a smartlist as long as it is non-NULL
+ * and not tor_addr_is_null(). */
+static void
+policies_add_addr_to_smartlist(smartlist_t *addr_list, const tor_addr_t *addr)
+{
+  if (addr && !tor_addr_is_null(addr)) {
+    smartlist_add(addr_list, (void *)addr);
+  }
+}
+
+/** Helper function that adds ipv4h_addr to a smartlist as a tor_addr_t *,
+ * by converting it to a tor_addr_t and passing it to
+ * policies_add_addr_to_smartlist. */
+static void
+policies_add_ipv4h_to_smartlist(smartlist_t *addr_list, uint32_t ipv4h_addr)
+{
+  if (ipv4h_addr) {
+    tor_addr_t ipv4_tor_addr;
+    tor_addr_from_ipv4h(&ipv4_tor_addr, ipv4h_addr);
+    policies_add_addr_to_smartlist(addr_list, (void *)&ipv4_tor_addr);
+  }
+}
+
+/** Helper function that adds or_options->OutboundBindAddressIPv[4|6]_ to a
+ * smartlist as a tor_addr_t *, as long as or_options is non-NULL,
+ * by passing them to policies_add_addr_to_smartlist. */
+static void
+policies_add_outbound_addresses_to_smartlist(smartlist_t *addr_list,
+                                             const or_options_t *or_options)
+{
+  if (or_options) {
+    policies_add_addr_to_smartlist(addr_list,
+                                   &or_options->OutboundBindAddressIPv4_);
+    policies_add_addr_to_smartlist(addr_list,
+                                   &or_options->OutboundBindAddressIPv6_);
+  }
+}
+
+
 /** Parse <b>ExitPolicy</b> member of <b>or_options</b> into <b>result</b>
  * smartlist.
  * If <b>or_options->IPv6Exit</b> is false, prepend an entry that
@@ -1300,7 +1339,6 @@ policies_parse_exit_policy_from_options(const or_options_t *or_options,
 {
   exit_policy_parser_cfg_t parser_cfg = 0;
   smartlist_t *configured_addresses = smartlist_new();
-  tor_addr_t ipv4_local_address;
   int rv = 0;
 
   /* Short-circuit for non-exit relays */
@@ -1324,24 +1362,10 @@ policies_parse_exit_policy_from_options(const or_options_t *or_options,
   }
 
   /* Add the configured addresses to the tor_addr_t* list */
-  if (local_address) {
-    tor_addr_from_ipv4h(&ipv4_local_address, local_address);
-    smartlist_add(configured_addresses, (void *)&ipv4_local_address);
-  }
-
-  if (ipv6_local_address && !tor_addr_is_null(ipv6_local_address)) {
-    smartlist_add(configured_addresses, (void *)ipv6_local_address);
-  }
-
-  if (or_options && !tor_addr_is_null(&or_options->OutboundBindAddressIPv4_)) {
-    smartlist_add(configured_addresses,
-                  (void *)&or_options->OutboundBindAddressIPv4_);
-  }
-
-  if (or_options && !tor_addr_is_null(&or_options->OutboundBindAddressIPv6_)) {
-    smartlist_add(configured_addresses,
-                  (void *)&or_options->OutboundBindAddressIPv6_);
-  }
+  policies_add_ipv4h_to_smartlist(configured_addresses, local_address);
+  policies_add_addr_to_smartlist(configured_addresses, ipv6_local_address);
+  policies_add_outbound_addresses_to_smartlist(configured_addresses,
+                                               or_options);
 
   rv = policies_parse_exit_policy(or_options->ExitPolicy, result, parser_cfg,
                                   configured_addresses);
@@ -2118,7 +2142,6 @@ getinfo_helper_policies(control_connection_t *conn,
     const routerinfo_t *me = router_get_my_routerinfo();
     smartlist_t *private_policy_list = smartlist_new();
     smartlist_t *configured_addresses = smartlist_new();
-    tor_addr_t ipv4_local_address;
 
     if (!me) {
       *errmsg = "router_get_my_routerinfo returned NULL";
@@ -2126,24 +2149,10 @@ getinfo_helper_policies(control_connection_t *conn,
     }
 
     /* Add the configured addresses to the tor_addr_t* list */
-    if (me->addr) {
-      tor_addr_from_ipv4h(&ipv4_local_address, me->addr);
-      smartlist_add(configured_addresses, (void *)&ipv4_local_address);
-    }
-
-    if (!tor_addr_is_null(&me->ipv6_addr)) {
-      smartlist_add(configured_addresses, (void *)&me->ipv6_addr);
-    }
-
-    if (!tor_addr_is_null(&options->OutboundBindAddressIPv4_)) {
-      smartlist_add(configured_addresses,
-                    (void *)&options->OutboundBindAddressIPv4_);
-    }
-
-    if (!tor_addr_is_null(&options->OutboundBindAddressIPv6_)) {
-      smartlist_add(configured_addresses,
-                    (void *)&options->OutboundBindAddressIPv6_);
-    }
+    policies_add_ipv4h_to_smartlist(configured_addresses, me->addr);
+    policies_add_addr_to_smartlist(configured_addresses, &me->ipv6_addr);
+    policies_add_outbound_addresses_to_smartlist(configured_addresses,
+                                                 options);
 
     policies_parse_exit_policy_reject_private(
                                             &private_policy_list,
