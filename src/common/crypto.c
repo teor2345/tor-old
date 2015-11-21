@@ -2357,7 +2357,7 @@ crypto_seed_rng(void)
 }
 
 /** Write <b>n</b> bytes of strong random data to <b>to</b>. Return 0 on
- * success, -1 on failure, with support for mocking for unit tests.
+ * success, assert on failure, with support for mocking for unit tests.
  */
 MOCK_IMPL(int,
 crypto_rand, (char *to, size_t n))
@@ -2366,7 +2366,7 @@ crypto_rand, (char *to, size_t n))
 }
 
 /** Write <b>n</b> bytes of strong random data to <b>to</b>. Return 0 on
- * success, -1 on failure.  Most callers will want crypto_rand instead.
+ * success, assert on failure.  Most callers will want crypto_rand instead.
  */
 int
 crypto_rand_unmocked(char *to, size_t n)
@@ -2375,9 +2375,17 @@ crypto_rand_unmocked(char *to, size_t n)
   tor_assert(n < INT_MAX);
   tor_assert(to);
   r = RAND_bytes((unsigned char*)to, (int)n);
-  if (r == 0)
+  if (r == 0) {
+    /* Try again after reseeding the RNG */
     crypto_log_errors(LOG_WARN, "generating random data");
-  return (r == 1) ? 0 : -1;
+    crypto_seed_rng();
+    r = RAND_bytes((unsigned char*)to, (int)n);
+  }
+
+  /* Assert if the RNG fails (0) or if there's no RNG set (-1), or if OpenSSL
+   * returns anything but success (1). */
+  tor_assert(r == 1);
+  return 0;
 }
 
 /** Return a pseudorandom integer, chosen uniformly from the values

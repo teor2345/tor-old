@@ -1,0 +1,5 @@
+  o Minor bugfix (security, random number generation):
+    - Handle RAND_bytes failures by trying again, then asserting.
+      Fixes an unnumbered minor security bug; bugfix on tor 0.0.6rc4,
+      commit f6dbe5a0d42d / svn:r1717 on 27 Apr 2004.
+      Patch by "teor".
