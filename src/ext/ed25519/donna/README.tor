@@ -30,6 +30,13 @@ as of 8757bd4cd209cb032853ece0ce413f122eef212c.
     Tor's `crypto_rand()` routine, instead of directly using OpenSSL's
     CSPRNG.
 
+ * Even though tor doesn't use it (see above), it's worth noting that
+   `ED25519_FN(ed25519_randombytes_unsafe)` in `ed25519-randombytes.h`
+   doesn't check the return value of RAND_bytes for failures. (It also
+   passes a potentially uninitialised buffer to RAND_bytes, which OpenSSL
+   uses as an extra source of entropy. This is undefined behaviour, and
+   unnecessary.)
+
  * OSX pollutes the global namespace with an `ALIGN` macro, which is
    undef-ed right before the donna `ALIGN` macro is defined.
 
