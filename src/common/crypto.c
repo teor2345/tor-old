@@ -2374,6 +2374,12 @@ crypto_rand_unmocked(char *to, size_t n)
   int r;
   tor_assert(n < INT_MAX);
   tor_assert(to);
+
+  /* Don't pass uninitialised memory to OpenSSL
+   * OpenSSL will try to add 'to' to its entropy pool, which is unnecessary,
+   * and is undefined behaviour on uninitialised memory.
+   * (Valgrind and purify will complain.) */
+  memset(to, 0, n);
   r = RAND_bytes((unsigned char*)to, (int)n);
   if (r == 0) {
     /* Try again after reseeding the RNG */
