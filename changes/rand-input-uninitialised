@@ -1,0 +1,7 @@
+  o Minor bugfix (security, random number generation):
+    - Don't pass potentially uninitialised buffers to RAND_bytes.
+      (OpenSSL uses the buffer as an entropy source, which is
+      undefined behaviour on uninitialised memory.)
+      Bugfix on tor 0.0.6rc4, commit f6dbe5a0d42d / svn:r1717
+      on 27 Apr 2004.
+      Patch by "teor".
