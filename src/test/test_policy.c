@@ -905,7 +905,7 @@ test_dump_exit_policy_to_string(void *arg)
 }
 
 static routerinfo_t *mock_desc_routerinfo = NULL;
-const routerinfo_t *mock_router_get_my_routerinfo(void)
+static const routerinfo_t *mock_router_get_my_routerinfo(void)
 {
   return mock_desc_routerinfo;
 }
@@ -993,6 +993,7 @@ test_policies_getinfo_helper_policies(void *arg)
   append_exit_policy_string(&mock_my_routerinfo.exit_policy, "reject *6:*");
 
   mock_options.IPv6Exit = 1;
+  mock_options.ExitPolicyRejectPrivate = 1;
   tor_addr_from_ipv4h(&mock_options.OutboundBindAddressIPv4_, TEST_IPV4_ADDR);
   tor_addr_parse(&mock_options.OutboundBindAddressIPv6_, TEST_IPV6_ADDR);
 
