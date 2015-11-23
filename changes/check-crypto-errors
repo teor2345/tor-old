@@ -1,0 +1,5 @@
+  o Minor bugfix (crypto):
+    - Consistently check that lengths are sane in crypto.c.
+    - Check the return value of HMAC and assert on failure.
+      Fixes bug #17658; bugfix on multiple tor versions.
+      Patch by "teor".
