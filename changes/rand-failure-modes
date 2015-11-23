@@ -1,0 +1,4 @@
+  o Minor features (security, random number generation):
+    - Check for common RNG failure modes, such as returning all zeroes,
+      or OpenSSL's rand_predictable feature.
+      Patch by "teor".

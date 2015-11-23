@@ -261,6 +261,12 @@ int crypto_expand_key_material_rfc5869_sha256(
 int crypto_seed_rng(void);
 MOCK_DECL(int,crypto_rand,(char *to, size_t n));
 int crypto_rand_unmocked(char *to, size_t n);
+
+int crypto_rand_check_failure_mode_zero(void);
+int crypto_rand_check_failure_mode_identical(void);
+int crypto_rand_check_failure_mode_predict(void);
+int crypto_rand_check_failure_modes(int severity);
+
 int crypto_strongest_rand(uint8_t *out, size_t out_len);
 int crypto_rand_int(unsigned int max);
 int crypto_rand_int_range(unsigned int min, unsigned int max);

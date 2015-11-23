@@ -306,6 +306,10 @@ crypto_early_init(void)
 
     if (crypto_seed_rng() < 0)
       return -1;
+
+    if (crypto_rand_check_failure_modes(LOG_WARN) < 0)
+      return -1;
+
     if (crypto_init_siphash_key() < 0)
       return -1;
 
@@ -390,6 +394,8 @@ crypto_global_init(int useAccel, const char *accelName, const char *accelDir)
 
     if (crypto_force_rand_ssleay()) {
       if (crypto_seed_rng() < 0)
+        return -1;
+      if (crypto_rand_check_failure_modes(LOG_WARN) < 0)
         return -1;
     }
 
@@ -2378,6 +2384,115 @@ crypto_rand_unmocked(char *to, size_t n)
   if (r == 0)
     crypto_log_errors(LOG_WARN, "generating random data");
   return (r == 1) ? 0 : -1;
+}
+
+/* The likelihood that 256 random bits exhibit either of the regular patterns
+ * should be far less than the memory bit error rate. */
+#define FAILURE_MODE_BUFFER_SIZE (256/8)
+
+/** Check crypto_rand for a failure mode where it does nothing to the buffer,
+ * or it sets the buffer to all zeroes. Return 0 when the check passes,
+ * or -1 when it fails. */
+int
+crypto_rand_check_failure_mode_zero(void)
+{
+  char buf[FAILURE_MODE_BUFFER_SIZE];
+
+  memset(buf, 0, FAILURE_MODE_BUFFER_SIZE);
+  if (crypto_rand(buf, FAILURE_MODE_BUFFER_SIZE) < 0) {
+    return -1;
+  }
+
+  for (size_t i = 0; i < FAILURE_MODE_BUFFER_SIZE; i++) {
+    if (buf[i] != 0) {
+      return 0;
+    }
+  }
+
+  return -1;
+}
+
+/** Check crypto_rand for a failure mode where every int64_t in the buffer is
+ * the same. Return 0 when the check passes, or -1 when it fails. */
+int
+crypto_rand_check_failure_mode_identical(void)
+{
+  /* just in case the buffer size isn't a multiple of sizeof(int64_t) */
+#define FAILURE_MODE_BUFFER_SIZE_I64 \
+    (FAILURE_MODE_BUFFER_SIZE/SIZEOF_INT64_T)
+#define FAILURE_MODE_BUFFER_SIZE_I64_BYTES \
+    (FAILURE_MODE_BUFFER_SIZE_I64*SIZEOF_INT64_T)
+
+#if FAILURE_MODE_BUFFER_SIZE_I64 < 2
+#error FAILURE_MODE_BUFFER_SIZE needs to be at least 2*SIZEOF_INT64_T
+#endif
+
+  int64_t buf[FAILURE_MODE_BUFFER_SIZE_I64];
+
+  memset(buf, 0, FAILURE_MODE_BUFFER_SIZE_I64_BYTES);
+  if (crypto_rand((char *)buf, FAILURE_MODE_BUFFER_SIZE_I64_BYTES) < 0) {
+    return -1;
+  }
+
+  for (size_t i = 1; i < FAILURE_MODE_BUFFER_SIZE_I64; i++) {
+    if (buf[i] != buf[i-1]) {
+      return 0;
+    }
+  }
+
+  return -1;
+}
+
+/** Check crypto_rand for a failure mode where it increments the "random"
+ * value by 1 for every byte in the buffer. (This is OpenSSL's PREDICT mode.)
+ * Return 0 when the check passes, or -1 when it fails. */
+int
+crypto_rand_check_failure_mode_predict(void)
+{
+  unsigned char buf[FAILURE_MODE_BUFFER_SIZE];
+
+  memset(buf, 0, FAILURE_MODE_BUFFER_SIZE);
+  if (crypto_rand((char *)buf, FAILURE_MODE_BUFFER_SIZE) < 0) {
+    return -1;
+  }
+
+  for (size_t i = 1; i < FAILURE_MODE_BUFFER_SIZE; i++) {
+    /* check if the last byte was incremented by 1, including integer
+     * wrapping */
+    if (buf[i] - buf[i-1] != 1 && buf[i-1] - buf[i] != 255) {
+      return 0;
+    }
+  }
+
+  return -1;
+}
+
+#undef FAILURE_MODE_BUFFER_SIZE
+
+/** Check crypto_rand for various failure modes. Return 0 if all checks pass,
+ * or log a message with severity and return -1 if any check fails. */
+int
+crypto_rand_check_failure_modes(int severity)
+{
+  if (crypto_rand_check_failure_mode_zero()) {
+    log_fn(severity, LD_CRYPTO, "Random function unusable: random bytes are "
+           "all zero");
+    return -1;
+  }
+
+  if (crypto_rand_check_failure_mode_identical()) {
+    log_fn(severity, LD_CRYPTO, "Random function unusable: random values are "
+           "all identical");
+    return -1;
+  }
+
+  if (crypto_rand_check_failure_mode_predict()) {
+    log_fn(severity, LD_CRYPTO, "Random function unusable: random bytes all "
+           "increment sequentially (OpenSSL rand_predictable)");
+    return -1;
+  }
+
+  return 0;
 }
 
 /** Return a pseudorandom integer, chosen uniformly from the values

@@ -1803,6 +1803,92 @@ test_crypto_siphash(void *arg)
   ;
 }
 
+#define MOCK_RANDOM_DATA_SIZE (256/8)
+static char mock_random_data[MOCK_RANDOM_DATA_SIZE];
+
+/** Mock crypto_rand, writing <b>n</b> bytes of <b>mock_random_data</b> to
+ * <b>to</b>. Return 0 on success, -1 on failure.
+ * Fails if n is greater than MOCK_RANDOM_DATA_SIZE.
+ */
+static int
+mock_crypto_rand(char *to, size_t n)
+{
+  if (n > MOCK_RANDOM_DATA_SIZE) {
+    memset(to, 0, n);
+    return -1;
+  }
+
+  memcpy(to, mock_random_data, n);
+  return 0;
+}
+
+static void
+test_crypto_failure_modes(void *arg)
+{
+  int rv = 0;
+  (void)arg;
+
+  /* crypto_global_init also performs the failure modes check below */
+  rv = crypto_global_init(0, NULL, NULL);
+  tt_assert(rv == 0);
+
+  /* Check random works */
+  rv = crypto_rand_check_failure_mode_zero();
+  tt_assert(rv == 0);
+
+  rv = crypto_rand_check_failure_mode_identical();
+  tt_assert(rv == 0);
+
+  rv = crypto_rand_check_failure_mode_predict();
+  tt_assert(rv == 0);
+
+  rv = crypto_rand_check_failure_modes(LOG_DEBUG);
+  tt_assert(rv == 0);
+
+  MOCK(crypto_rand, mock_crypto_rand);
+
+  /* Check that the checks detect failure */
+  memset(mock_random_data, 0, MOCK_RANDOM_DATA_SIZE);
+  rv = crypto_rand_check_failure_mode_zero();
+  tt_assert(rv == -1);
+  rv = crypto_rand_check_failure_modes(LOG_DEBUG);
+  tt_assert(rv == -1);
+
+  memset(mock_random_data, 0x4e, MOCK_RANDOM_DATA_SIZE);
+  rv = crypto_rand_check_failure_mode_identical();
+  tt_assert(rv == -1);
+  rv = crypto_rand_check_failure_modes(LOG_DEBUG);
+  tt_assert(rv == -1);
+
+  unsigned char v = 0;
+  for (int i = 0; i < MOCK_RANDOM_DATA_SIZE; i++) {
+    mock_random_data[i] = v;
+    v++;
+  }
+
+  rv = crypto_rand_check_failure_mode_predict();
+  tt_assert(rv == -1);
+  rv = crypto_rand_check_failure_modes(LOG_DEBUG);
+  tt_assert(rv == -1);
+
+  /* Check that the predict check detects even with integer wrapping */
+  v = 255 - MOCK_RANDOM_DATA_SIZE/2;
+  for (int i = 0; i < MOCK_RANDOM_DATA_SIZE; i++) {
+    mock_random_data[i] = v;
+    v++;
+  }
+
+  rv = crypto_rand_check_failure_mode_predict();
+  tt_assert(rv == -1);
+  rv = crypto_rand_check_failure_modes(LOG_DEBUG);
+  tt_assert(rv == -1);
+
+done:
+  UNMOCK(crypto_rand);
+}
+
+#undef MOCK_RANDOM_DATA_SIZE
+
 #define CRYPTO_LEGACY(name)                                            \
   { #name, test_crypto_ ## name , 0, NULL, NULL }
 
@@ -1841,6 +1927,7 @@ struct testcase_t crypto_tests[] = {
   { "ed25519_fuzz_donna", test_crypto_ed25519_fuzz_donna, TT_FORK, NULL,
     NULL },
   { "siphash", test_crypto_siphash, 0, NULL, NULL },
+  { "failure_modes", test_crypto_failure_modes, TT_FORK, NULL, NULL },
   END_OF_TESTCASES
 };
 
