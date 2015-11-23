@@ -64,21 +64,52 @@ test_crypto_dh(void *arg)
   crypto_dh_free(dh2);
 }
 
-/** Run unit tests for our random number generation function and its wrappers.
+/** Run unit tests for the random number generation function passed in arg.
  */
 static void
 test_crypto_rng(void *arg)
 {
-  int i, j, allok;
   char data1[100], data2[100];
-  double d;
+  int rv = 0;
+  crypto_rand_fn_t rand_fn = *(crypto_rand_fn_t *)arg;
 
   /* Try out RNG. */
-  (void)arg;
+
   tt_assert(! crypto_seed_rng());
-  crypto_rand(data1, 100);
-  crypto_rand(data2, 100);
+  rv = rand_fn(data1, 100);
+  tt_assert(rv == 0);
+  rv = rand_fn(data2, 100);
+  tt_assert(rv == 0);
   tt_mem_op(data1,OP_NE, data2,100);
+
+  /* rand_fn successfully does nothing when asked for no bytes */
+
+  /* make a copy of data1 */
+  memcpy(data2, data1, 100);
+  rv = rand_fn(data1, 0);
+  tt_assert(rv == 0);
+  /* check it hasn't changed */
+  tt_mem_op(data1,OP_EQ, data2,100);
+
+  /* it doesn't even look at the pointer */
+  rv = rand_fn(NULL, 0);
+  tt_assert(rv == 0);
+
+ done:
+  ;
+}
+
+/** Run unit tests for our random number generation function's wrappers.
+ */
+static void
+test_crypto_rng_wrappers(void *arg)
+{
+  int i, j, allok;
+  double d;
+  (void)arg;
+
+  tt_assert(! crypto_seed_rng());
+
   allok = 1;
   for (i = 0; i < 100; ++i) {
     uint64_t big;
@@ -113,8 +144,10 @@ test_crypto_rng_range(void *arg)
 {
   int got_smallest = 0, got_largest = 0;
   int i;
-
   (void)arg;
+
+  tt_assert(! crypto_seed_rng());
+
   for (i = 0; i < 1000; ++i) {
     int x = crypto_rand_int_range(5,9);
     tt_int_op(x, OP_GE, 5);
@@ -1933,8 +1966,12 @@ done:
 
 struct testcase_t crypto_tests[] = {
   CRYPTO_LEGACY(formats),
-  CRYPTO_LEGACY(rng),
-  { "rng_range", test_crypto_rng_range, 0, NULL, NULL },
+  { "rng_crypto_rand", test_crypto_rng, TT_FORK, &passthrough_setup,
+    (void*)&crypto_rand },
+  { "rng_crypto_rand_raw", test_crypto_rng, TT_FORK, &passthrough_setup,
+    (void*)&crypto_rand_raw },
+  { "rng_range", test_crypto_rng_wrappers, TT_FORK, NULL, NULL },
+  { "rng_range", test_crypto_rng_range, TT_FORK, NULL, NULL },
   { "aes_AES", test_crypto_aes, TT_FORK, &passthrough_setup, (void*)"aes" },
   { "aes_EVP", test_crypto_aes, TT_FORK, &passthrough_setup, (void*)"evp" },
   CRYPTO_LEGACY(sha),
