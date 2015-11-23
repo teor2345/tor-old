@@ -296,5 +296,12 @@ struct dh_st *crypto_dh_get_dh_(crypto_dh_t *dh);
 
 void crypto_add_spaces_to_fp(char *out, size_t outlen, const char *in);
 
+#ifdef CRYPTO_PRIVATE
+void crypto_rand_hash_digest(char *hash_output, size_t len);
+size_t crypto_rand_hash_copy(char *to, size_t to_len, char *hash_output,
+                             size_t hash_len);
+MOCK_DECL(void,crypto_rand_raw,(char *to, size_t n));
+#endif
+
 #endif
 

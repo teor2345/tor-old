@@ -12,6 +12,8 @@ const char tor_git_revision[] = "";
  * \brief Benchmarks for lower level Tor modules.
  **/
 
+#define CRYPTO_PRIVATE
+
 #include "orconfig.h"
 
 #include "or.h"
@@ -24,6 +26,7 @@ const char tor_git_revision[] = "";
 #include <openssl/obj_mac.h>
 
 #include "config.h"
+#include "crypto.h"
 #include "crypto_curve25519.h"
 #include "onion_ntor.h"
 #include "crypto_ed25519.h"
@@ -576,6 +579,68 @@ bench_ecdh_p224(void)
   bench_ecdh_impl(NID_secp224r1, "P-224");
 }
 
+#define RAND_MAX_BYTES (64)
+typedef void (*rand_fn_t)(char *to, size_t n);
+
+static char rand_a[RAND_MAX_BYTES];
+static char rand_b[RAND_MAX_BYTES];
+
+static void
+bench_rand_impl(rand_fn_t rand_fn, const char *desc, size_t bytes)
+{
+  const int iters = 1<<16;
+  int i;
+  uint64_t start, end;
+
+  tor_assert(bytes <= RAND_MAX_BYTES);
+
+  reset_perftime();
+  start = perftime();
+  for (i = 0; i < iters; ++i) {
+    rand_fn(rand_a, bytes);
+    rand_fn(rand_b, bytes);
+    /* Sanity check, and optimisation blocker: random values must be
+     * different. This check will fail with probability
+     * 1/2^(bytes*8). */
+    if (bytes >= 4) {
+      tor_assert(memcmp(rand_a, rand_b, bytes));
+    }
+  }
+  end = perftime();
+  printf(" %3d byte %s buffers: %f usec each.\n", (int)bytes, desc,
+         NANOCOUNT(start, end, iters)/1e3);
+}
+
+static void
+bench_rand_raw(void)
+{
+  printf("Random number generation (Generate 2 buffers, then memcmp):\n");
+  /* The most common random data sizes are in this range */
+  bench_rand_impl(crypto_rand_raw, "prng", 4);
+  bench_rand_impl(crypto_rand_raw, "prng", 8);
+  bench_rand_impl(crypto_rand_raw, "prng", 16);
+  bench_rand_impl(crypto_rand_raw, "prng", 20);
+  bench_rand_impl(crypto_rand_raw, "prng", 32);
+  /* Ensure that larger buffers don't slow down too much */
+  bench_rand_impl(crypto_rand_raw, "prng", 64);
+}
+
+static void
+bench_rand_hashed(void)
+{
+  printf("Random number generation (Generate 2 buffers, then memcmp):\n");
+  /* The most common random data sizes are in this range */
+  bench_rand_impl(crypto_rand, "hash", 4);
+  bench_rand_impl(crypto_rand, "hash", 8);
+  bench_rand_impl(crypto_rand, "hash", 16);
+  bench_rand_impl(crypto_rand, "hash", 20);
+  bench_rand_impl(crypto_rand, "hash", 32);
+  /* Ensure that larger buffers don't slow down too much */
+  bench_rand_impl(crypto_rand, "hash", 64);
+}
+
+#undef RAND_MAX_BYTES
+
 typedef void (*bench_fn)(void);
 
 typedef struct benchmark_t {
@@ -599,6 +664,8 @@ static struct benchmark_t benchmarks[] = {
   ENT(dh),
   ENT(ecdh_p256),
   ENT(ecdh_p224),
+  ENT(rand_raw),
+  ENT(rand_hashed),
   {NULL,NULL,0}
 };
 
