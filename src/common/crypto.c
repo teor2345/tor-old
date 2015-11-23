@@ -938,6 +938,7 @@ crypto_pk_public_encrypt(crypto_pk_t *env, char *to, size_t tolen,
   tor_assert(to);
   tor_assert(fromlen<INT_MAX);
   tor_assert(tolen >= crypto_pk_keysize(env));
+  tor_assert(tolen<INT_MAX);
 
   r = RSA_public_encrypt((int)fromlen,
                          (unsigned char*)from, (unsigned char*)to,
@@ -970,6 +971,8 @@ crypto_pk_private_decrypt(crypto_pk_t *env, char *to,
   tor_assert(env->key);
   tor_assert(fromlen<INT_MAX);
   tor_assert(tolen >= crypto_pk_keysize(env));
+  tor_assert(tolen<INT_MAX);
+
   if (!env->key->p)
     /* Not a private key */
     return -1;
@@ -1005,6 +1008,8 @@ crypto_pk_public_checksig(const crypto_pk_t *env, char *to,
   tor_assert(to);
   tor_assert(fromlen < INT_MAX);
   tor_assert(tolen >= crypto_pk_keysize(env));
+  tor_assert(tolen < INT_MAX);
+
   r = RSA_public_decrypt((int)fromlen,
                          (unsigned char*)from, (unsigned char*)to,
                          env->key, RSA_PKCS1_PADDING);
@@ -1076,6 +1081,8 @@ crypto_pk_private_sign(const crypto_pk_t *env, char *to, size_t tolen,
   tor_assert(to);
   tor_assert(fromlen < INT_MAX);
   tor_assert(tolen >= crypto_pk_keysize(env));
+  tor_assert(tolen < INT_MAX);
+
   if (!env->key->p)
     /* Not a private key */
     return -1;
@@ -1141,6 +1148,7 @@ crypto_pk_public_hybrid_encrypt(crypto_pk_t *env,
   tor_assert(from);
   tor_assert(to);
   tor_assert(fromlen < SIZE_T_CEILING);
+  tor_assert(tolen < SIZE_T_CEILING);
 
   overhead = crypto_get_rsa_padding_overhead(crypto_get_rsa_padding(padding));
   pkeylen = crypto_pk_keysize(env);
@@ -1199,6 +1207,8 @@ crypto_pk_private_hybrid_decrypt(crypto_pk_t *env,
   char *buf = NULL;
 
   tor_assert(fromlen < SIZE_T_CEILING);
+  tor_assert(tolen < SIZE_T_CEILING);
+
   pkeylen = crypto_pk_keysize(env);
 
   if (fromlen <= pkeylen) {
@@ -1275,6 +1285,8 @@ crypto_pk_asn1_decode(const char *str, size_t len)
   RSA *rsa;
   unsigned char *buf;
   const unsigned char *cp;
+
+  tor_assert(len < INT_MAX);
   cp = buf = tor_malloc(len);
   memcpy(buf,str,len);
   rsa = d2i_RSAPublicKey(NULL, &cp, len);
@@ -1437,6 +1449,7 @@ crypto_pk_t *
 crypto_pk_base64_decode(const char *str, size_t len)
 {
   crypto_pk_t *pk = NULL;
+  tor_assert(len < INT_MAX);
 
   char *der = tor_malloc_zero(len + 1);
   int der_len = base64_decode(der, len, str, len);
@@ -1539,6 +1552,7 @@ crypto_cipher_encrypt_with_iv(const char *key,
   tor_assert(from);
   tor_assert(to);
   tor_assert(fromlen < INT_MAX);
+  tor_assert(tolen < INT_MAX);
 
   if (fromlen < 1)
     return -1;
@@ -1569,6 +1583,7 @@ crypto_cipher_decrypt_with_iv(const char *key,
   tor_assert(from);
   tor_assert(to);
   tor_assert(fromlen < INT_MAX);
+  tor_assert(tolen < INT_MAX);
 
   if (fromlen <= CIPHER_IV_LEN)
     return -1;
@@ -1593,6 +1608,7 @@ crypto_digest(char *digest, const char *m, size_t len)
 {
   tor_assert(m);
   tor_assert(digest);
+  tor_assert(len < INT_MAX);
   return (SHA1((const unsigned char*)m,len,(unsigned char*)digest) == NULL);
 }
 
@@ -1606,6 +1622,7 @@ crypto_digest256(char *digest, const char *m, size_t len,
   tor_assert(m);
   tor_assert(digest);
   tor_assert(algorithm == DIGEST_SHA256);
+  tor_assert(len < INT_MAX);
   return (SHA256((const unsigned char*)m,len,(unsigned char*)digest) == NULL);
 }
 
@@ -1617,6 +1634,8 @@ crypto_digest_all(digests_t *ds_out, const char *m, size_t len)
 {
   int i;
   tor_assert(ds_out);
+  tor_assert(m);
+  tor_assert(len < INT_MAX);
   memset(ds_out, 0, sizeof(*ds_out));
   if (crypto_digest(ds_out->d[DIGEST_SHA1], m, len) < 0)
     return -1;
@@ -1709,6 +1728,7 @@ crypto_digest_add_bytes(crypto_digest_t *digest, const char *data,
 {
   tor_assert(digest);
   tor_assert(data);
+  tor_assert(len < INT_MAX);
   /* Using the SHA*_*() calls directly means we don't support doing
    * SHA in hardware. But so far the delay of getting the question
    * to the hardware, and hearing the answer, is likely higher than
@@ -1739,6 +1759,8 @@ crypto_digest_get_digest(crypto_digest_t *digest,
   crypto_digest_t tmpenv;
   tor_assert(digest);
   tor_assert(out);
+  tor_assert(out_len < INT_MAX);
+
   /* memcpy into a temporary ctx, since SHA*_Final clears the context */
   memcpy(&tmpenv, digest, sizeof(crypto_digest_t));
   switch (digest->algorithm) {
@@ -1791,7 +1813,7 @@ crypto_digest_assign(crypto_digest_t *into,
  * at <b>digest_out</b> to the hash of the concatenation of those strings,
  * plus the optional string <b>append</b>, computed with the algorithm
  * <b>alg</b>.
- * <b>out_len</b> must be \<= DIGEST256_LEN. */
+ * <b>len_out</b> must be \<= DIGEST256_LEN. */
 void
 crypto_digest_smartlist(char *digest_out, size_t len_out,
                         const smartlist_t *lst,
@@ -1814,6 +1836,7 @@ crypto_digest_smartlist_prefix(char *digest_out, size_t len_out,
                         const char *append,
                         digest_algorithm_t alg)
 {
+  tor_assert(len_out < INT_MAX);
   crypto_digest_t *d;
   if (alg == DIGEST_SHA1)
     d = crypto_digest_new();
@@ -2026,6 +2049,8 @@ crypto_dh_get_public(crypto_dh_t *dh, char *pubkey, size_t pubkey_len)
 {
   int bytes;
   tor_assert(dh);
+  tor_assert(pubkey_len < INT_MAX);
+
   if (!dh->dh->pub_key) {
     if (crypto_dh_generate_public(dh)<0)
       return -1;
@@ -2165,6 +2190,7 @@ crypto_expand_key_material_TAP(const uint8_t *key_in, size_t key_in_len,
 
   /* If we try to get more than this amount of key data, we'll repeat blocks.*/
   tor_assert(key_out_len <= DIGEST_LEN*256);
+  tor_assert(key_in_len <= INT_MAX);
 
   memcpy(tmp, key_in, key_in_len);
   for (cp = key_out, i=0; cp < key_out+key_out_len;
@@ -2211,6 +2237,10 @@ crypto_expand_key_material_rfc5869_sha256(
   /* If we try to get more than this amount of key data, we'll repeat blocks.*/
   tor_assert(key_out_len <= DIGEST256_LEN * 256);
   tor_assert(info_in_len <= 128);
+  /* Sanity checks */
+  tor_assert(salt_in_len < INT_MAX);
+  tor_assert(key_in_len < INT_MAX);
+
   memset(tmp, 0, sizeof(tmp));
   outp = key_out;
   i = 1;
@@ -2287,6 +2317,8 @@ crypto_strongest_rand(uint8_t *out, size_t out_len)
   int fd, i;
   size_t n;
 #endif
+
+  tor_assert(out_len < INT_MAX);
 
 #ifdef _WIN32
   if (!provider_set) {
