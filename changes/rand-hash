@@ -1,0 +1,5 @@
+  o Minor features (security, random number generation):
+    - Hash all PRNG output before returning random bytes.
+      This prevents attacks similar to the Dual EC attack at
+      https://projectbullrun.org/dual-ec/
+      Patch by "teor".

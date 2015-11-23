@@ -2365,13 +2365,144 @@ crypto_rand, (char *to, size_t n))
   return crypto_rand_unmocked(to, n);
 }
 
-/** Write <b>n</b> bytes of strong random data to <b>to</b>. Return 0 on
- * success, assert on failure.  Most callers will want crypto_rand instead.
+#define CRYPTO_RAND_HASH_ALGO  (DIGEST_SHA256)
+#define CRYPTO_RAND_HASH_BYTES (256/8)
+
+/** Add CRYPTO_RAND_HASH_BYTES raw random bytes to the hash, then generate len
+ * hashed bytes in hash_output.
+ * len must be exactly the same size as hash_output, so that the entire buffer
+ * is overwritten by the new hash. This makes sure each byte is only output
+ * once.
+ */
+void
+crypto_rand_hash_digest(char *hash_output, size_t len)
+{
+  static crypto_digest_t *hash_obj = NULL;
+  char hash_input[CRYPTO_RAND_HASH_BYTES];
+  int rv = -1;
+
+  tor_assert(hash_output);
+  tor_assert(len == CRYPTO_RAND_HASH_BYTES);
+
+  if (PREDICT_UNLIKELY(hash_obj == NULL)) {
+    hash_obj = crypto_digest256_new(CRYPTO_RAND_HASH_ALGO);
+    tor_assert(hash_obj);
+  }
+
+  rv = crypto_rand_raw(hash_input, CRYPTO_RAND_HASH_BYTES);
+  tor_assert(rv == 0);
+  crypto_digest_add_bytes(hash_obj, hash_input, CRYPTO_RAND_HASH_BYTES);
+  crypto_digest_get_digest(hash_obj, hash_output, len);
+
+  /* We never free the hash object, because it's static
+   * crypto_digest_free(hash); */
+}
+
+/** Copy MIN(to_len, hash_len) bytes from hash_output to 'to', returning the
+ * number of bytes copied.
+ */
+size_t
+crypto_rand_hash_copy(char *to, size_t to_len, const char *hash_output,
+                        size_t hash_len)
+{
+  tor_assert(to);
+  tor_assert(to_len >= 1 && to_len < SIZE_T_CEILING);
+  tor_assert(hash_output);
+  tor_assert(hash_len >= 1 && hash_len <= CRYPTO_RAND_HASH_BYTES);
+
+  size_t output_bytes = MIN(to_len, hash_len);
+
+  /* We must make progress each time this function is called */
+  tor_assert(output_bytes >= 1 && output_bytes <= CRYPTO_RAND_HASH_BYTES);
+  memcpy(to, hash_output, output_bytes);
+  return output_bytes;
+}
+
+/** Write <b>n</b> bytes of strong random data to <b>to</b>, after hashing the
+ * raw PRNG output to hide internal state. Return 0 on success, assert on
+ * failure.  Most callers will want crypto_rand instead, as it supports
+ * mocking.
+ *
+ * Hashing the raw PRNG output helps defend against attacks similar to the
+ * Dual EC attack described in https://projectbullrun.org/dual-ec/
  */
 int
 crypto_rand_unmocked(char *to, size_t n)
 {
+  /* Design principles for hashing RNG output:
+   *  - Always hash at least as many bytes as the hash output
+   *  - Never return a hash output byte more than once
+   */
+  static char hash_output[CRYPTO_RAND_HASH_BYTES];
+  /* Initialise to a value that incidates we have no bytes available */
+  static size_t sent_output_bytes = CRYPTO_RAND_HASH_BYTES;
+  size_t to_pos = 0;
+  size_t output_bytes = 0;
+
+  /* Imitate OpenSSL's RAND_bytes, successfully return no random bytes */
+  if (n == 0) {
+    return 0;
+  }
+
+  tor_assert(to);
+  /* this assertion ensures that to_pos doesn't wrap */
+  tor_assert(n < SIZE_T_CEILING - CRYPTO_RAND_HASH_BYTES);
+
+  /* XX/teor - should we ever throw away hash output? (might be more secure)
+   *         - we could initialise the hash, and not reveal the output.
+   *         - we could occasionally add bytes, and not reveal the output. */
+
+  /* ensure we never return uninitialised memory
+   * (since we overwrite the enitre buffer, this should be unnecessary) */
+  memset(to, 0, n);
+
+  /* If we have any bytes in hash_output from the last run, copy them */
+  if (sent_output_bytes < CRYPTO_RAND_HASH_BYTES) {
+    output_bytes = crypto_rand_hash_copy(
+                                  to + to_pos, n - to_pos,
+                                  hash_output + sent_output_bytes,
+                                  CRYPTO_RAND_HASH_BYTES - sent_output_bytes);
+    sent_output_bytes += output_bytes;
+    to_pos += output_bytes;
+    tor_assert(sent_output_bytes <= CRYPTO_RAND_HASH_BYTES);
+    tor_assert(to_pos <= n);
+  }
+
+  /* Repeatedly fill hash_output, and copy bytes into "to" */
+  while (to_pos < n) {
+    crypto_rand_hash_digest(hash_output, CRYPTO_RAND_HASH_BYTES);
+    sent_output_bytes = 0;
+
+    output_bytes = crypto_rand_hash_copy(
+                                  to + to_pos, n - to_pos,
+                                  hash_output + sent_output_bytes,
+                                  CRYPTO_RAND_HASH_BYTES - sent_output_bytes);
+    sent_output_bytes += output_bytes;
+    to_pos += output_bytes;
+    tor_assert(sent_output_bytes <= CRYPTO_RAND_HASH_BYTES);
+    tor_assert(to_pos <= n);
+  }
+
+  return 0;
+}
+
+#undef CRYPTO_RAND_HASH_ALGO
+#undef CRYPTO_RAND_HASH_BYTES
+
+/** Write <b>n</b> bytes of strong random data to <b>to</b>, directly from
+ * the PRNG output. Return 0 on success, assert on failure.  Callers should
+ * use crypto_rand (or  rather than using this function directly
+ */
+MOCK_IMPL(int,
+crypto_rand_raw,(char *to, size_t n))
+{
   int r;
+
+  /* Imitate OpenSSL's RAND_bytes, successfully return no random bytes */
+  if (n == 0) {
+    return 0;
+  }
+
   tor_assert(n < INT_MAX);
   tor_assert(to);
 
