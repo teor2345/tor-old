@@ -3,3 +3,7 @@
       This prevents attacks similar to the Dual EC attack at
       https://projectbullrun.org/dual-ec/
       Patch by "teor".
+    - Throw away the first bytes returned by the PRNG. This
+      defends against "startup problem" vulnerabilites as
+      described in http://www.cypherpunks.to/~peter/06_random.pdf
+      Patch by "teor".

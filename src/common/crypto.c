@@ -2440,8 +2440,8 @@ crypto_rand_unmocked(char *to, size_t n)
    *  - Never return a hash output byte more than once
    */
   static char hash_output[CRYPTO_RAND_HASH_BYTES];
-  /* Initialise to a value that incidates we have no bytes available */
-  static size_t sent_output_bytes = CRYPTO_RAND_HASH_BYTES;
+  /* Set to a sentinel value so that we throw away the first block */
+  static size_t sent_output_bytes = SIZE_MAX;
   size_t to_pos = 0;
   size_t output_bytes = 0;
 
@@ -2454,9 +2454,19 @@ crypto_rand_unmocked(char *to, size_t n)
   /* this assertion ensures that to_pos doesn't wrap */
   tor_assert(n < SIZE_T_CEILING - CRYPTO_RAND_HASH_BYTES);
 
-  /* XX/teor - should we ever throw away hash output? (might be more secure)
-   *         - we could initialise the hash, and not reveal the output.
-   *         - we could occasionally add bytes, and not reveal the output. */
+  /* Throw away initial random output to defend against startup problems.
+   * Although it's an old reference, and the issue has been fixed, we don't
+   * want to be vulnerable to issues like the following:
+   * "In the case when the generator is first initialised and the pool
+   *  contains all zero bytes the first 20 bytes of output is simply an SHA-1
+   *  hash of the first 20 bytes of user-supplied data."
+   * http://www.cypherpunks.to/~peter/06_random.pdf */
+  if (sent_output_bytes == SIZE_MAX) {
+    crypto_rand_hash_digest(hash_output, CRYPTO_RAND_HASH_BYTES);
+    /* Keep the second hash, it's H( block1 | block2 ), which should be safe */
+    crypto_rand_hash_digest(hash_output, CRYPTO_RAND_HASH_BYTES);
+    sent_output_bytes = 0;
+  }
 
   /* ensure we never return uninitialised memory
    * (since we overwrite the enitre buffer, this should be unnecessary) */
