@@ -3537,8 +3537,8 @@ options_validate(or_options_t *old_options, or_options_t *options,
   /* If FallbackDir is set, we don't UseDefaultFallbackDirs */
   if (options->UseDefaultFallbackDirs && options->FallbackDir) {
     log_info(LD_CONFIG, "You have set UseDefaultFallbackDirs 1 and "
-             "FallbackDir(s). Changing UseDefaultFallbackDirs to 0.");
-    options->UseDefaultFallbackDirs = 0;
+             "FallbackDir(s). Ignoring UseDefaultFallbackDirs, and "
+             "using the FallbackDir(s) you have set.");
   }
 
   if (validate_dir_servers(options, old_options) < 0)
