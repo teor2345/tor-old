@@ -1279,7 +1279,7 @@ static void
 policies_copy_addr_to_smartlist(smartlist_t *addr_list, const tor_addr_t *addr)
 {
   if (addr && !tor_addr_is_null(addr)) {
-    tor_addr_t *addr_copy = malloc(sizeof(tor_addr_t));
+    tor_addr_t *addr_copy = tor_malloc(sizeof(tor_addr_t));
     tor_addr_copy(addr_copy, addr);
     smartlist_add(addr_list, addr_copy);
   }
@@ -1297,7 +1297,7 @@ policies_copy_ipv4h_to_smartlist(smartlist_t *addr_list, uint32_t ipv4h_addr)
   if (ipv4h_addr) {
     tor_addr_t ipv4_tor_addr;
     tor_addr_from_ipv4h(&ipv4_tor_addr, ipv4h_addr);
-    policies_copy_addr_to_smartlist(addr_list, (void *)&ipv4_tor_addr);
+    policies_copy_addr_to_smartlist(addr_list, &ipv4_tor_addr);
   }
 }
 
