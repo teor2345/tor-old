@@ -3494,6 +3494,146 @@ test_dir_packages(void *arg)
   tor_free(res);
 }
 
+static void
+test_dir_download_status_schedule(void *arg)
+{
+  (void)arg;
+  download_status_t dls_failure = { 0, 0, 0, DL_SCHED_GENERIC,
+                                             DL_WANT_AUTHORITY,
+                                             DL_SCHED_INCREMENT_FAILURE };
+  download_status_t dls_attempt = { 0, 0, 0, DL_SCHED_CONSENSUS,
+                                             DL_WANT_FALLBACK,
+                                             DL_SCHED_INCREMENT_ATTEMPT};
+  download_status_t dls_bridge  = { 0, 0, 0, DL_SCHED_BRIDGE,
+                                             DL_WANT_AUTHORITY,
+                                             DL_SCHED_INCREMENT_FAILURE};
+  int increment = -1;
+  int expected_increment = -1;
+  time_t current_time = time(NULL);
+  int delay1 = -1;
+  int delay2 = -1;
+  smartlist_t *schedule = smartlist_new();
+
+  /* Make a dummy schedule */
+  smartlist_add(schedule, (void *)&delay1);
+  smartlist_add(schedule, (void *)&delay2);
+
+  /* check a range of values */
+  delay1 = 1000;
+  increment = download_status_schedule_helper(&dls_failure,
+                                              schedule,
+                                              TIME_MIN);
+  expected_increment = delay1;
+  tt_assert(increment == expected_increment);
+  tt_assert(dls_failure.next_attempt_at == TIME_MIN + expected_increment);
+
+#if TIME_T_IS_SIGNED
+  delay1 = INT_MAX;
+  increment =  download_status_schedule_helper(&dls_failure,
+                                               schedule,
+                                               -1);
+  expected_increment = delay1;
+  tt_assert(increment == expected_increment);
+  tt_assert(dls_failure.next_attempt_at == TIME_MAX);
+#endif
+
+  delay1 = 0;
+  increment = download_status_schedule_helper(&dls_attempt,
+                                              schedule,
+                                              0);
+  expected_increment = delay1;
+  tt_assert(increment == expected_increment);
+  tt_assert(dls_attempt.next_attempt_at == 0 + expected_increment);
+
+  delay1 = 1000;
+  increment = download_status_schedule_helper(&dls_attempt,
+                                              schedule,
+                                              1);
+  expected_increment = delay1;
+  tt_assert(increment == expected_increment);
+  tt_assert(dls_attempt.next_attempt_at == 1 + expected_increment);
+
+  delay1 = INT_MAX;
+  increment = download_status_schedule_helper(&dls_bridge,
+                                              schedule,
+                                              current_time);
+  expected_increment = delay1;
+  tt_assert(increment == expected_increment);
+  tt_assert(dls_bridge.next_attempt_at == TIME_MAX);
+
+  delay1 = 1;
+  increment = download_status_schedule_helper(&dls_bridge,
+                                              schedule,
+                                              TIME_MAX);
+  expected_increment = delay1;
+  tt_assert(increment == expected_increment);
+  tt_assert(dls_bridge.next_attempt_at == TIME_MAX);
+
+  /* see what happens when we reach the end */
+  dls_attempt.n_download_attempts++;
+  dls_bridge.n_download_failures++;
+
+  delay2 = 100;
+  increment = download_status_schedule_helper(&dls_attempt,
+                                              schedule,
+                                              current_time);
+  expected_increment = delay2;
+  tt_assert(increment == expected_increment);
+  tt_assert(dls_attempt.next_attempt_at == current_time + delay2);
+
+  delay2 = 1;
+  increment = download_status_schedule_helper(&dls_bridge,
+                                              schedule,
+                                              current_time);
+  expected_increment = delay2;
+  tt_assert(increment == expected_increment);
+  tt_assert(dls_bridge.next_attempt_at == current_time + delay2);
+
+  /* see what happens when we try to go off the end */
+  dls_attempt.n_download_attempts++;
+  dls_bridge.n_download_failures++;
+
+  delay2 = 5;
+  increment = download_status_schedule_helper(&dls_attempt,
+                                              schedule,
+                                              current_time);
+  expected_increment = delay2;
+  tt_assert(increment == expected_increment);
+  tt_assert(dls_attempt.next_attempt_at == current_time + delay2);
+
+  delay2 = 17;
+  increment = download_status_schedule_helper(&dls_bridge,
+                                              schedule,
+                                              current_time);
+  expected_increment = delay2;
+  tt_assert(increment == expected_increment);
+  tt_assert(dls_bridge.next_attempt_at == current_time + delay2);
+
+  /* see what happens when we reach IMPOSSIBLE_TO_DOWNLOAD */
+  dls_attempt.n_download_attempts = IMPOSSIBLE_TO_DOWNLOAD;
+  dls_bridge.n_download_failures = IMPOSSIBLE_TO_DOWNLOAD;
+
+  delay2 = 35;
+  increment = download_status_schedule_helper(&dls_attempt,
+                                              schedule,
+                                              current_time);
+  expected_increment = INT_MAX;
+  tt_assert(increment == expected_increment);
+  tt_assert(dls_attempt.next_attempt_at == TIME_MAX);
+
+  delay2 = 99;
+  increment = download_status_schedule_helper(&dls_bridge,
+                                              schedule,
+                                              current_time);
+  expected_increment = INT_MAX;
+  tt_assert(increment == expected_increment);
+  tt_assert(dls_bridge.next_attempt_at == TIME_MAX);
+
+ done:
+  /* the pointers in schedule are allocated on the stack */
+  smartlist_free(schedule);
+}
+
 #define DIR_LEGACY(name)                                                   \
   { #name, test_dir_ ## name , TT_FORK, NULL, NULL }
 
@@ -3525,6 +3665,7 @@ struct testcase_t dir_tests[] = {
   DIR(purpose_needs_anonymity, 0),
   DIR(fetch_type, 0),
   DIR(packages, 0),
+  DIR(download_status_schedule, TT_FORK),
   END_OF_TESTCASES
 };
 
