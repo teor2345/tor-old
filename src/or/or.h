@@ -1981,21 +1981,21 @@ typedef struct download_status_t {
   uint8_t n_download_failures; /**< Number of failures trying to download the
                                 * most recent object since the last success. */
   uint8_t n_download_attempts; /**< Number of (potentially concurrent) attempts
-                                * to download the most recent object,
-                                * since the last success.
+                                * to download the most recent object, since
+                                * the last success.
                                 * Only used for concurrent download schedules.
                                 */
   download_schedule_bitfield_t schedule : 8; /**< what kind of download
-                                              * schedule are we using for a
-                                              * given object? */
+                                        * schedule are we using for a given
+                                        * object? */
   download_want_authority_bitfield_t want_authority : 1; /**< is this
                                         * download schedule for authority
                                         * downloads or fallback downloads? */
-  download_schedule_increment_bitfield_t increment_on_attempt : 1; /**< does
-                                          * this schedule increment on each
-                                          * attempt, or on each failure?
-                                          * This is significant for concurrent
-                                          * attempts. */
+  download_schedule_increment_bitfield_t increment_on : 1; /**< does this
+                                        * schedule increment on each attempt,
+                                        * or on each failure?
+                                        * This is significant for concurrent
+                                        * connection attempts. */
 } download_status_t;
 
 /** If n_download_failures is this high, the download can never happen. */

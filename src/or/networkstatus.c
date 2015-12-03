@@ -878,7 +878,7 @@ update_consensus_bootstrap_launch_downloads(
                                          ? DL_WANT_AUTHORITY
                                          : DL_WANT_FALLBACK));
     /* schedule the next attempt */
-    download_status_increment_attempt(schedule, resource, 0, now);
+    download_status_increment_attempt(schedule, resource, now);
   }
 }
 

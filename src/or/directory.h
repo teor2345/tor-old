@@ -95,8 +95,7 @@ time_t download_status_increment_failure(download_status_t *dls,
                                          int status_code, const char *item,
                                          int server, time_t now);
 time_t download_status_increment_attempt(download_status_t *dls,
-                                         const char *item, int server,
-                                         time_t now);
+                                         const char *item,  time_t now);
 /** Increment the failure count of the download_status_t <b>dls</b>, with
  * the optional status code <b>sc</b>. */
 #define download_status_failed(dls, sc)                                 \
@@ -141,6 +140,9 @@ STATIC int directory_handle_command_get(dir_connection_t *conn,
                                         const char *req_body,
                                         size_t req_body_len);
 int connection_dir_would_close_consensus_conn_helper(void);
+STATIC int download_status_schedule_helper(download_status_t *dls,
+                                           const smartlist_t *schedule,
+                                           time_t now);
 #endif
 
 #endif

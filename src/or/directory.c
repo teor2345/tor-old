@@ -3639,52 +3639,54 @@ connection_dir_finished_connecting(dir_connection_t *conn)
 }
 
 /** Decide which download schedule we want to use based on descriptor type
- * in <b>dls</b> and whether we are acting as directory <b>server</b> and
- * whether we <b>want_authority</b> download or a fallback download.
+ * in <b>dls</b> and <b>options</b>.
  * Then return a list of int pointers defining download delays in seconds.
  * Helper function for download_status_increment_failure(),
  * download_status_reset(), and download_status_increment_attempt(). */
 static const smartlist_t *
-find_dl_schedule_and_len(download_status_t *dls,
-                         int server)
+find_dl_schedule(download_status_t *dls, const or_options_t *options)
 {
-  const or_options_t *o = get_options();
+  /* XX/teor Replace with dir_server_mode from #12538 */
+  const int dir_server = options->DirPort_set;
+  const int multi_d = networkstatus_consensus_can_use_multiple_directories(
+                                                                    options);
   const int we_are_bootstrapping = networkstatus_consensus_is_boostrapping(
-                                                                  time(NULL));
-  const int multi_c = networkstatus_consensus_can_use_multiple_directories(o);
-  const int use_fallbacks = networkstatus_consensus_can_use_extra_fallbacks(o);
-
+                                                                 time(NULL));
+  const int use_fallbacks = networkstatus_consensus_can_use_extra_fallbacks(
+                                                                    options);
   switch (dls->schedule) {
     case DL_SCHED_GENERIC:
-      if (server) {
-        return o->TestingServerDownloadSchedule;
+      if (dir_server) {
+        return options->TestingServerDownloadSchedule;
       } else {
-        return o->TestingClientDownloadSchedule;
+        return options->TestingClientDownloadSchedule;
       }
     case DL_SCHED_CONSENSUS:
-      if (!multi_c) {
-        return o->TestingServerConsensusDownloadSchedule;
+      if (!multi_d) {
+        return options->TestingServerConsensusDownloadSchedule;
       } else {
         if (we_are_bootstrapping) {
           if (!use_fallbacks) {
             /* A bootstrapping client without extra fallback directories */
             return
-               o->TestingClientBootstrapConsensusAuthorityOnlyDownloadSchedule;
+         options->TestingClientBootstrapConsensusAuthorityOnlyDownloadSchedule;
           } else if (dls->want_authority) {
             /* A bootstrapping client with extra fallback directories, but
              * connecting to an authority */
-            return o->TestingClientBootstrapConsensusAuthorityDownloadSchedule;
+            return
+             options->TestingClientBootstrapConsensusAuthorityDownloadSchedule;
           } else {
             /* A bootstrapping client connecting to extra fallback directories
              */
-            return o->TestingClientBootstrapConsensusFallbackDownloadSchedule;
+            return
+              options->TestingClientBootstrapConsensusFallbackDownloadSchedule;
           }
         } else {
-          return o->TestingClientConsensusDownloadSchedule;
+          return options->TestingClientConsensusDownloadSchedule;
         }
       }
     case DL_SCHED_BRIDGE:
-      return o->TestingBridgeDownloadSchedule;
+      return options->TestingBridgeDownloadSchedule;
     default:
       tor_assert(0);
   }
@@ -3693,16 +3695,22 @@ find_dl_schedule_and_len(download_status_t *dls,
   return NULL;
 }
 
-/* Increment dls according to its schedule and dls_n_download_increments.
+/* Find the current increment of dls based on schedule.
+ * Set dls->next_attempt_at based on now, and return increment.
  * Helper for download_status_increment_failure and
  * download_status_increment_attempt. */
-static int
-download_status_increment_helper(download_status_t *dls, int server,
-                                 uint8_t dls_n_download_increments,
-                                 time_t now)
+STATIC int
+download_status_schedule_helper(download_status_t *dls,
+                                const smartlist_t *schedule,
+                                time_t now)
 {
-  const smartlist_t *schedule = find_dl_schedule_and_len(dls, server);
-  int increment;
+  int increment = INT_MAX;
+  uint8_t dls_n_download_increments = (dls->increment_on
+                                       == DL_SCHED_INCREMENT_ATTEMPT
+                                       ? dls->n_download_attempts
+                                       : dls->n_download_failures);
+  tor_assert(dls);
+  tor_assert(schedule);
 
   if (dls_n_download_increments < smartlist_len(schedule))
     increment = *(int *)smartlist_get(schedule, dls_n_download_increments);
@@ -3711,10 +3719,17 @@ download_status_increment_helper(download_status_t *dls, int server,
   else
     increment = *(int *)smartlist_get(schedule, smartlist_len(schedule) - 1);
 
-  if (increment < INT_MAX)
+  /* A negative increment makes no sense. Knowing that increment is
+   * non-negative allows us to safely do the wrapping check below. */
+  tor_assert(increment >= 0);
+
+  /* Avoid now+increment overflowing INT_MAX, by comparing with a subtraction
+   * that won't overflow (since increment is non-negative). */
+  if (increment < INT_MAX && now <= INT_MAX - increment) {
     dls->next_attempt_at = now+increment;
-  else
+  } else {
     dls->next_attempt_at = TIME_MAX;
+  }
 
   return increment;
 }
@@ -3754,7 +3769,7 @@ download_status_log_helper(const char *item, int was_schedule_incremented,
  * <b>status_code</b>.  Increment the failure count (if the code indicates a
  * real failure) and set <b>dls</b>-\>next_attempt_at to an appropriate time
  * in the future and return it.
- * If <b>dls->increment_on_attempt</b>, don't increment, and return a time
+ * If <b>dls->increment_on</b>, don't increment, and return a time
  * in the far future for the next attempt (to avoid an immediate retry on
  * failure), and count the failure. */
 time_t
@@ -3764,7 +3779,7 @@ download_status_increment_failure(download_status_t *dls, int status_code,
   int increment = -1;
   tor_assert(dls);
 
-  /* Always count the failure */
+  /* only count the failure if it's permanent, or we're a server */
   if (status_code != 503 || server) {
     if (dls->n_download_failures < IMPOSSIBLE_TO_DOWNLOAD-1)
       ++dls->n_download_failures;
@@ -3772,18 +3787,16 @@ download_status_increment_failure(download_status_t *dls, int status_code,
 
   /* only return a failure retry time if this schedule increments on failures
    */
-  if (!dls->increment_on_attempt) {
-    increment = download_status_increment_helper(dls,
-                                                 server,
-                                                 dls->n_download_failures,
-                                                 now);
+  if (!dls->increment_on) {
+    const smartlist_t *schedule = find_dl_schedule(dls, get_options());
+    increment = download_status_schedule_helper(dls, schedule, now);
   }
 
-  download_status_log_helper(item, !dls->increment_on_attempt, "failed",
+  download_status_log_helper(item, !dls->increment_on, "failed",
                              "concurrently", dls->n_download_failures,
                              increment, dls->next_attempt_at, now);
 
-  if (dls->increment_on_attempt) {
+  if (dls->increment_on) {
     /* stop this schedule retrying on failure, it will launch concurrent
      * connections instead */
     return TIME_MAX;
@@ -3795,32 +3808,30 @@ download_status_increment_failure(download_status_t *dls, int status_code,
 /** Called when an attempt to download <b>dls</b> is being initiated.
  * Increment the attempt count and set <b>dls</b>-\>next_attempt_at to an
  * appropriate time in the future and return it.
- * If <b>!dls->increment_on_attempt</b>, don't increment, and return a time
+ * If <b>!dls->increment_on</b>, don't increment, and return a time
  * in the far future for the next attempt (to avoid concurrent attempts). */
 time_t
 download_status_increment_attempt(download_status_t *dls, const char *item,
-                                  int server, time_t now)
+                                  time_t now)
 {
   int increment = -1;
   tor_assert(dls);
 
-  /* always count the attempt */
-  ++dls->n_download_attempts;
+  if (dls->n_download_attempts < IMPOSSIBLE_TO_DOWNLOAD-1)
+    ++dls->n_download_attempts;
 
   /* only return a concurrent attempt time if this schedule increments on
    * attempts */
-  if (dls->increment_on_attempt) {
-    increment = download_status_increment_helper(dls,
-                                                 server,
-                                                 dls->n_download_attempts,
-                                                 now);
+  if (dls->increment_on) {
+    const smartlist_t *schedule = find_dl_schedule(dls, get_options());
+    increment = download_status_schedule_helper(dls, schedule, now);
   }
 
-  download_status_log_helper(item, dls->increment_on_attempt, "attempted",
+  download_status_log_helper(item, dls->increment_on, "attempted",
                              "on failure", dls->n_download_attempts,
                              increment, dls->next_attempt_at, now);
 
-  if (!dls->increment_on_attempt) {
+  if (!dls->increment_on) {
     /* stop this schedule launching concurrent connections, it will retry on
      * failure instead */
     return TIME_MAX;
@@ -3843,13 +3854,12 @@ download_status_reset(download_status_t *dls)
   if (dls->n_download_failures == IMPOSSIBLE_TO_DOWNLOAD)
     return; /* Don't reset this. */
 
-  const smartlist_t *schedule = find_dl_schedule_and_len(
-                          dls, get_options()->DirPort_set);
+  const smartlist_t *schedule = find_dl_schedule(dls, get_options());
 
   dls->n_download_failures = 0;
   dls->n_download_attempts = 0;
   dls->next_attempt_at = time(NULL) + *(int *)smartlist_get(schedule, 0);
-  /* Don't reset dls->want_authority or dls->increment_on_attempt */
+  /* Don't reset dls->want_authority or dls->increment_on */
 }
 
 /** Return the number of failures on <b>dls</b> since the last success (if
