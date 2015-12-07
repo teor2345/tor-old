@@ -4101,6 +4101,36 @@ typedef struct {
    * on testing networks. */
   smartlist_t *TestingClientConsensusDownloadSchedule;
 
+  /** Schedule for when clients should download consensuses from authorities
+   * if they are bootstrapping (that is, they don't have a usable, reasonably
+   * live consensus).  Only used by clients fetching from a list of fallback
+   * directory mirrors.
+   *
+   * This schedule is incremented by (potentially concurrent) connection
+   * attempts, unlike other schedules, which are incremented by connection
+   * failures.  Only altered on testing networks. */
+  smartlist_t *TestingClientBootstrapConsensusAuthorityDownloadSchedule;
+
+  /** Schedule for when clients should download consensuses from fallback
+   * directory mirrors if they are bootstrapping (that is, they don't have a
+   * usable, reasonably live consensus). Only used by clients fetching from a
+   * list of fallback directory mirrors.
+   *
+   * This schedule is incremented by (potentially concurrent) connection
+   * attempts, unlike other schedules, which are incremented by connection
+   * failures.  Only altered on testing networks. */
+  smartlist_t *TestingClientBootstrapConsensusFallbackDownloadSchedule;
+
+  /** Schedule for when clients should download consensuses from authorities
+   * if they are bootstrapping (that is, they don't have a usable, reasonably
+   * live consensus).  Only used by clients which don't have or won't fetch
+   * from a list of fallback directory mirrors.
+   *
+   * This schedule is incremented by (potentially concurrent) connection
+   * attempts, unlike other schedules, which are incremented by connection
+   * failures.  Only altered on testing networks. */
+  smartlist_t *TestingClientBootstrapConsensusAuthorityOnlyDownloadSchedule;
+
   /** Schedule for when clients should download bridge descriptors.  Only
    * altered on testing networks. */
   smartlist_t *TestingBridgeDownloadSchedule;
@@ -4117,6 +4147,21 @@ typedef struct {
   /** How many times will we try to fetch a consensus before we give
    * up?  Only altered on testing networks. */
   int TestingConsensusMaxDownloadTries;
+
+  /** How many times will a client try to fetch a consensus while
+   * bootstrapping using a list of fallback directories, before it gives up?
+   * Only altered on testing networks. */
+  int TestingClientBootstrapConsensusMaxDownloadTries;
+
+  /** How many times will a client try to fetch a consensus while
+   * bootstrapping using only a list of authorities, before it gives up?
+   * Only altered on testing networks. */
+  int TestingClientBootstrapConsensusAuthorityOnlyMaxDownloadTries;
+
+  /** How many simultaneous in-progress connections will we make when trying
+   * to fetch a consensus before we wait for one to complete, timeout, or
+   * error out?  Only altered on testing networks. */
+  int TestingClientBootstrapConsensusMaxInProgressTries;
 
   /** How many times will we try to download a router's descriptor before
    * giving up?  Only altered on testing networks. */

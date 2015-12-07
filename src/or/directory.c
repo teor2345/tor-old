@@ -3443,26 +3443,54 @@ connection_dir_finished_connecting(dir_connection_t *conn)
 }
 
 /** Decide which download schedule we want to use based on descriptor type
- * in <b>dls</b> and whether we are acting as directory <b>server</b>, and
- * then return a list of int pointers defining download delays in seconds.
- * Helper function for download_status_increment_failure() and
- * download_status_reset(). */
+ * in <b>dls</b> and <b>options</b>.
+ * Then return a list of int pointers defining download delays in seconds.
+ * Helper function for download_status_increment_failure(),
+ * download_status_reset(), and download_status_increment_attempt(). */
 static const smartlist_t *
-find_dl_schedule(download_status_t *dls, int server)
+find_dl_schedule(download_status_t *dls, const or_options_t *options)
 {
+  /* XX/teor Replace with dir_server_mode from #12538 */
+  const int dir_server = options->DirPort_set;
+  const int multi_d = networkstatus_consensus_can_use_multiple_directories(
+                                                                    options);
+  const int we_are_bootstrapping = networkstatus_consensus_is_boostrapping(
+                                                                 time(NULL));
+  const int use_fallbacks = networkstatus_consensus_can_use_extra_fallbacks(
+                                                                    options);
   switch (dls->schedule) {
     case DL_SCHED_GENERIC:
-      if (server)
-        return get_options()->TestingServerDownloadSchedule;
-      else
-        return get_options()->TestingClientDownloadSchedule;
+      if (dir_server) {
+        return options->TestingServerDownloadSchedule;
+      } else {
+        return options->TestingClientDownloadSchedule;
+      }
     case DL_SCHED_CONSENSUS:
-      if (server)
-        return get_options()->TestingServerConsensusDownloadSchedule;
-      else
-        return get_options()->TestingClientConsensusDownloadSchedule;
+      if (!multi_d) {
+        return options->TestingServerConsensusDownloadSchedule;
+      } else {
+        if (we_are_bootstrapping) {
+          if (!use_fallbacks) {
+            /* A bootstrapping client without extra fallback directories */
+            return
+         options->TestingClientBootstrapConsensusAuthorityOnlyDownloadSchedule;
+          } else if (dls->want_authority) {
+            /* A bootstrapping client with extra fallback directories, but
+             * connecting to an authority */
+            return
+             options->TestingClientBootstrapConsensusAuthorityDownloadSchedule;
+          } else {
+            /* A bootstrapping client connecting to extra fallback directories
+             */
+            return
+              options->TestingClientBootstrapConsensusFallbackDownloadSchedule;
+          }
+        } else {
+          return options->TestingClientConsensusDownloadSchedule;
+        }
+      }
     case DL_SCHED_BRIDGE:
-      return get_options()->TestingBridgeDownloadSchedule;
+      return options->TestingBridgeDownloadSchedule;
     default:
       tor_assert(0);
   }
