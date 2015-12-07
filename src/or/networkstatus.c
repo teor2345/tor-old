@@ -85,8 +85,10 @@ static time_t time_to_download_next_consensus[N_CONSENSUS_FLAVORS];
 /** Download status for the current consensus networkstatus. */
 static download_status_t consensus_dl_status[N_CONSENSUS_FLAVORS] =
   {
-    { 0, 0, DL_SCHED_CONSENSUS },
-    { 0, 0, DL_SCHED_CONSENSUS },
+    { 0, 0, 0, DL_SCHED_CONSENSUS, DL_WANT_FALLBACK,
+                                   DL_SCHED_INCREMENT_FAILURE },
+    { 0, 0, 0, DL_SCHED_CONSENSUS, DL_WANT_FALLBACK,
+                                   DL_SCHED_INCREMENT_FAILURE },
   };
 
 /** True iff we have logged a warning about this OR's version being older than
