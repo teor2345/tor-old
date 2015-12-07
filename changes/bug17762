@@ -1,0 +1,6 @@
+  o Major bugfixes (exit policies)
+    - Avoid using fmt_addr for internal exit polocy generation.
+      If fmt_addr returned "???", the entire exit policy would
+      be discarded.
+      Fixes bug 17762; bugfix on tor-0.2.7.3-rc.
+      Reported by "tmpname0901", patch by "teor".
