@@ -1655,19 +1655,24 @@ connection_dir_client_reached_eof(dir_connection_t *conn)
      * inaccurate if we spend a lot of time downloading.)
      */
     delta = conn->base_.timestamp_lastwritten - date_header;
+    int trusted = router_digest_is_trusted_dir(conn->identity_digest);
+    int fallback = (router_get_fallback_dirserver_by_digest(
+                                              conn->identity_digest) != NULL);
+
     if (labs(delta)>ALLOW_DIRECTORY_TIME_SKEW) {
       char dbuf[64];
-      int trusted = router_digest_is_trusted_dir(conn->identity_digest);
       format_time_interval(dbuf, sizeof(dbuf), delta);
-      log_fn(trusted ? LOG_WARN : LOG_INFO,
+      log_fn(trusted ? LOG_WARN : (fallback ? LOG_NOTICE : LOG_INFO),
              LD_HTTP,
-             "Received directory with skewed time (server '%s:%d'): "
-             "It seems that our clock is %s by %s, or that theirs is %s. "
+             "Received directory with skewed time (%s server '%s:%d'): "
+             "It seems that our clock is %s by %s, or that theirs is %s%s. "
              "Tor requires an accurate clock to work: please check your time, "
              "timezone, and date settings.",
+             trusted ? "authority" : (fallback ? "fallback" : "mirror"),
              conn->base_.address, conn->base_.port,
              delta>0 ? "ahead" : "behind", dbuf,
-             delta>0 ? "behind" : "ahead");
+             delta>0 ? "behind" : "ahead",
+             !trusted ? ", or they are sending us the wrong time" : "");
       skewed = 1; /* don't check the recommended-versions line */
       if (trusted)
         control_event_general_status(LOG_WARN,

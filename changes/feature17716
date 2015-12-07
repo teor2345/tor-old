@@ -1,0 +1,4 @@
+  o Minor enhancements (clock skew):
+    - Add the source of the time to directory clock skew messages, and
+      explain that the source could be wrong or lying.
+      Closes ticket 17716. Patch by "teor".
