@@ -56,6 +56,19 @@
 #include <sys/syscall.h>
 #endif
 
+#ifdef HAVE_COMMONCRYPTO_COMMONRANDOM_H
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_AVAILABILITY_H
+#include <Availability.h>
+#endif
+#ifdef HAVE_COMMONCRYPTO_COMMONCRYPTOERROR_H
+#include <CommonCrypto/CommonCryptoError.h>
+#endif
+#include <CommonCrypto/CommonRandom.h>
+#endif
+
 #include "torlog.h"
 #include "aes.h"
 #include "util.h"
@@ -2426,6 +2439,35 @@ crypto_strongest_rand_syscall(uint8_t *out, size_t out_len)
    * the only gotcha is that requests are limited to 256 bytes.
    */
   return getentropy(out, out_len);
+#elif defined(HAVE_COMMONCRYPTO_COMMONRANDOM_H)
+  /* Getting random bytes out of a syscall on OS X or iOS is full of hidden
+   * dangers. We have to be careful to only call APIs that correctly report
+   * failure.
+   *
+   * (Apple has also ported CommonCrypto to Linux. Users who want to build
+   * tor to use CommonCrypto on Linux may need to #undef SYS_getrandom.)
+   *
+   * CCRandomGenerateBytes() is an Apple API that was introduced in OS X 10.10
+   * and iOS 8.  It uses a NIST SP 800-90 (March 2007) CSPRNG implementation,
+   * which regularly reseeds itself from /dev/random.
+   *
+   * CCRandomCopyBytes() is an Apple API that was introduced in OS X 10.7
+   * and iOS 5. Some CCRandomCopyBytes() implementations always return 0, even
+   * if they fail. So using it is risky when we don't know what OS version
+   * we'll run on.
+   *
+   * SecRandomCopyBytes() is an alternate Apple API that was introduced in
+   * iOS 2 and OS X 10.7. It calls CCRandomCopyBytes(), and therefore inherits
+   * the same risks.
+   */
+
+  int rv = -1;
+  /* CCRandomGenerateBytes is only documented in the CommonRandom.h header. */
+  rv = CCRandomGenerateBytes(out, out_len);
+
+  /* CCRandomGenerateBytes is documented to return kCCSuccess on success.
+   * Specific failure return values are not documented. */
+  return (rv == kCCSuccess) ? 0 : -1;
 #else
   (void) out;
 #endif

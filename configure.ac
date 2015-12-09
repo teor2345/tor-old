@@ -966,6 +966,20 @@ AC_CHECK_HEADERS(
 
 AC_CHECK_HEADERS(sys/param.h)
 
+dnl Darwin / Linux CCRandomGenerateBytes() headers
+AC_CHECK_HEADERS(Availability.h)
+AC_CHECK_HEADERS(CommonCrypto/CommonCryptoError.h)
+AC_CHECK_HEADERS(CommonCrypto/CommonRandom.h, [], [],
+[#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_AVAILABILITY_H
+#include <Availability.h>
+#endif
+#ifdef HAVE_COMMONCRYPTO_COMMONCRYPTOERROR_H
+#include <CommonCrypto/CommonCryptoError.h>
+#endif])
+
 AC_CHECK_HEADERS(net/if.h, net_if_found=1, net_if_found=0,
 [#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
