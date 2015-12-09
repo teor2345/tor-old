@@ -135,6 +135,10 @@ smartlist_t *get_options_from_transport_options_line(const char *line,
                                                      const char *transport);
 smartlist_t *get_options_for_server_transport(const char *transport);
 
+#ifdef HAVE_COMMONCRYPTO_COMMONRANDOM_H
+int get_run_as_daemon(void);
+#endif
+
 #ifdef CONFIG_PRIVATE
 #ifdef TOR_UNIT_TESTS
 extern struct config_format_t options_format;

@@ -56,6 +56,38 @@
 #include <sys/syscall.h>
 #endif
 
+#ifdef HAVE_COMMONCRYPTO_COMMONRANDOM_H
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+/* Make sure we weak link CCRandomGenerateBytes by specifying OS versions less
+ * than OS X 10.10 and iOS 8 */
+#ifndef MAC_OS_X_VERSION_MIN_REQUIRED
+/* Choose the minimum version Tor Browser supports */
+#define MAC_OS_X_VERSION_MIN_REQUIRED __MAC_10_6
+#endif
+#ifndef IPHONE_OS_VERSION_MIN_REQUIRED
+/* Choose the version just before under iOS 8 */
+#define IPHONE_OS_VERSION_MIN_REQUIRED __IPHONE_7_1
+#endif
+#ifdef HAVE_AVAILABILITY_H
+#include <Availability.h>
+#endif
+/* Check if the function is available on the maximum supported OS versions */
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_10_10 \
+    || __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_8_0
+#ifndef HAVE_CCRANDOMGENERATEBYTES
+#define HAVE_CCRANDOMGENERATEBYTES 1
+#endif
+#if HAVE_CCRANDOMGENERATEBYTES
+#ifdef HAVE_COMMONCRYPTO_COMMONCRYPTOERROR_H
+#include <CommonCrypto/CommonCryptoError.h>
+#endif
+#include <CommonCrypto/CommonRandom.h>
+#endif
+#endif
+#endif
+
 #include "torlog.h"
 #include "aes.h"
 #include "util.h"
@@ -2426,6 +2458,75 @@ crypto_strongest_rand_syscall(uint8_t *out, size_t out_len)
    * the only gotcha is that requests are limited to 256 bytes.
    */
   return getentropy(out, out_len);
+#elif defined(HAVE_CCRANDOMGENERATEBYTES)
+  /* Getting random bytes out of a syscall on OS X or iOS is full of hidden
+   * dangers. We have to be careful to only call APIs that correctly report
+   * failure. And we have to call them in a fork-safe manner.
+   *
+   * CCRandomGenerateBytes() is an Apple API that was introduced in OS X 10.10
+   * and iOS 8.  It uses a NIST SP 800-90 (March 2007) CSPRNG implementation,
+   * which regularly reseeds itself from /dev/random.
+   *
+   * CCRandomCopyBytes() is an Apple API that was introduced in OS X 10.7
+   * and iOS 5. Some CCRandomCopyBytes() implementations always return 0, even
+   * if they fail. So using it is risky when we don't know what OS version
+   * we'll run on.
+   *
+   * SecRandomCopyBytes() is an alternate Apple API that was introduced in
+   * iOS 2 and OS X 10.7. It calls CCRandomCopyBytes(), and therefore inherits
+   * the same risks.
+   */
+
+  /* Check if the weak-linked function is actually available.
+   * To get this to work on OS X 10.5 or Xcode 4.5, see:
+   * http://glandium.org/blog/?p=2764
+   * (Fortunately, Tor Browser supports 10.6+, and is cross-compiled.)
+   */
+  if (&CCRandomGenerateBytes != NULL) {
+
+    /* CCRandomGenerateBytes() uses Grand Central Dispatch, which is not fork
+     * safe on OS X, so if you get a crash here
+     * "on child side of fork pre-exec" in _dispatch_queue_wakeup_with_qos_slow
+     * or similar, it means you've called CCRandomGenerateBytes() before the
+     * fork(); and after the fork() in the child, before calling exec() or
+     * similar. To resolve this issue, Apple recommends that you exec()
+     * yourself. (See the OS X fork() manpage, and Apple's GCD libdispatch
+     * documentation for more details.)
+     *
+     * Tor only uses fork() without exec() in start_daemon() and the unit
+     * tests:
+     * - RunAsDaemon is an irreversible option (and is only used in some
+     *   circumstances on OS X).
+     * - Tor unit tests should fork *before* modifying global state.
+     *   Unfortunately, the crash occurs in the well-behaved unit test, so
+     *   you'll have to find the earlier unit test that called
+     *   CCRandomGenerateBytes() without forking.
+     */
+    if (&get_run_as_daemon && get_run_as_daemon()) {
+      /* We might have called CCRandomGenerateBytes() before forking, so
+       * we can't risk calling it again. */
+      return -1;
+    }
+#if 1
+#if TOR_UNIT_TESTS
+    /* We can't call log_warn(LD_CRYPTO, ...) here because test-memwipe
+     * doesn't have all the symbols it imports. */
+    fprintf(stderr, "CCRandomGenerateBytes() called in Tor Unit Test. Did "
+             "this test fork?");
+#endif
+#endif
+
+    /* If you get a crash here in a unit test, an earlier unit test has
+     * initialised global state without forking. See the comment above.
+     */
+    int rv = CCRandomGenerateBytes(out, out_len);
+
+    /* CCRandomGenerateBytes is documented to return kCCSuccess on success.
+     * Specific failure return values are not documented. */
+    return (rv == kCCSuccess) ? 0 : -1;
+  } else {
+    return -1;
+  }
 #else
   (void) out;
 #endif

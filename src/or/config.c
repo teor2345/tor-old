@@ -7366,3 +7366,15 @@ init_cookie_authentication(const char *fname, const char *header,
   return retval;
 }
 
+#ifdef HAVE_COMMONCRYPTO_COMMONRANDOM_H
+/* crypto_strongest_rand_syscall() needs to know if get_options()->RunAsDaemon
+ * is set before calling CCRandomGenerateBytes() on Darwin-based platforms.
+ * Crypto tools don't have get_options(), so they provide their own version of
+ * get_run_as_daemon() that always returns 0.
+ */
+int
+get_run_as_daemon(void)
+{
+  return get_options()->RunAsDaemon;
+}
+#endif

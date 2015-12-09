@@ -1,0 +1,4 @@
+  o Minor features (security, cryptography):
+    - Use CCRandomGenerateBytes() to generate strong entropy, when it
+      is available on Darwin-based platforms (OS X & iOS).
+      Closes ticket 17789. Patch by "teor".
