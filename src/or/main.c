@@ -1051,7 +1051,7 @@ directory_info_has_arrived(time_t now, int from_cache)
     update_all_descriptor_downloads(now);
     return;
   } else {
-    if (directory_should_fetch_from_authorities(options)) {
+    if (directory_fetches_from_authorities(options)) {
       update_all_descriptor_downloads(now);
     }
 
@@ -1889,7 +1889,7 @@ fetch_networkstatus_callback(time_t now, const or_options_t *options)
    * documents? */
   const int we_are_bootstrapping = networkstatus_consensus_is_boostrapping(
                                                                         now);
-  const int prefer_mirrors = !directory_should_fetch_from_authorities(
+  const int prefer_mirrors = !directory_fetches_from_authorities(
                                                               get_options());
   int networkstatus_dl_check_interval = 60;
   /* check more often when testing, or when bootstrapping from mirrors

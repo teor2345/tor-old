@@ -1291,7 +1291,7 @@ networkstatus_consensus_can_use_multiple_directories(
                                                   const or_options_t *options)
 {
   /* If we are a client, bridge, bridge client, or hidden service */
-  return (!directory_should_fetch_from_authorities(options));
+  return (!directory_fetches_from_authorities(options));
 }
 
 /** Check if we can use fallback directory mirrors for a consensus download.
@@ -1303,7 +1303,7 @@ networkstatus_consensus_can_use_extra_fallbacks(const or_options_t *options)
    * The list length comparisons are a quick way to check if we have any
    * non-authority fallback directories. If we ever have any authorities that
    * aren't fallback directories, we will need to change this code. */
-  return (!directory_should_fetch_from_authorities(options)
+  return (!directory_fetches_from_authorities(options)
           && (smartlist_len(router_get_fallback_dir_servers())
               > smartlist_len(router_get_trusted_dir_servers())));
 }
