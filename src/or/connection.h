@@ -206,6 +206,14 @@ smartlist_t *connection_dir_list_by_purpose_resource_and_state(
                                                   int purpose,
                                                   const char *resource,
                                                   int state);
+
+#define CONN_LEN_AND_FREE_TEMPLATE(sl) \
+  STMT_BEGIN                           \
+    int len = smartlist_len(sl);       \
+    smartlist_free(sl);                \
+    return len;                        \
+  STMT_END
+
 /** Return a count of directory connections that are fetching the item
  * described by <b>purpose</b>/<b>resource</b>. */
 static INLINE int
@@ -216,9 +224,7 @@ connection_dir_count_by_purpose_and_resource(
   smartlist_t *conns = connection_dir_list_by_purpose_and_resource(
                                                                    purpose,
                                                                    resource);
-  int count = smartlist_len(conns);
-  free(conns);
-  return count;
+  CONN_LEN_AND_FREE_TEMPLATE(conns);
 }
 
 /** Return a count of directory connections that are fetching the item
@@ -234,10 +240,10 @@ connection_dir_count_by_purpose_resource_and_state(
                                                       purpose,
                                                       resource,
                                                       state);
-  int count = smartlist_len(conns);
-  free(conns);
-  return count;
+  CONN_LEN_AND_FREE_TEMPLATE(conns);
 }
+
+#undef CONN_LEN_AND_FREE_TEMPLATE
 
 int any_other_active_or_conns(const or_connection_t *this_conn);
 
