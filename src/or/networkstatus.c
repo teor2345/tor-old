@@ -85,9 +85,9 @@ static time_t time_to_download_next_consensus[N_CONSENSUS_FLAVORS];
 /** Download status for the current consensus networkstatus. */
 static download_status_t consensus_dl_status[N_CONSENSUS_FLAVORS] =
   {
-    { 0, 0, 0, DL_SCHED_CONSENSUS, DL_WANT_FALLBACK,
+    { 0, 0, 0, DL_SCHED_CONSENSUS, DL_WANT_ANY_DIRSERVER,
                                    DL_SCHED_INCREMENT_FAILURE },
-    { 0, 0, 0, DL_SCHED_CONSENSUS, DL_WANT_FALLBACK,
+    { 0, 0, 0, DL_SCHED_CONSENSUS, DL_WANT_ANY_DIRSERVER,
                                    DL_SCHED_INCREMENT_FAILURE },
   };
 
@@ -106,7 +106,8 @@ static download_status_t
   {
     { 0, 0, 0, DL_SCHED_CONSENSUS, DL_WANT_AUTHORITY,
                                    DL_SCHED_INCREMENT_ATTEMPT },
-    { 0, 0, 0, DL_SCHED_CONSENSUS, DL_WANT_FALLBACK,
+    /* During bootstrap, DL_WANT_ANY_DIRSERVER means "use fallbacks". */
+    { 0, 0, 0, DL_SCHED_CONSENSUS, DL_WANT_ANY_DIRSERVER,
                                    DL_SCHED_INCREMENT_ATTEMPT },
   };
 
@@ -991,9 +992,10 @@ update_consensus_bootstrap_multiple_downloads(time_t now,
       &consensus_bootstrap_dl_status[CONSENSUS_BOOTSTRAP_SOURCE_FALLBACK];
 
     if (!check_consensus_waiting_for_certs(usable_flavor, now, dls_f)) {
+      /* During bootstrap, DL_WANT_ANY_DIRSERVER means "use fallbacks". */
       update_consensus_bootstrap_attempt_downloads(now, options,
                                                    we_are_bootstrapping, dls_f,
-                                                   DL_WANT_FALLBACK);
+                                                   DL_WANT_ANY_DIRSERVER);
     }
   }
 

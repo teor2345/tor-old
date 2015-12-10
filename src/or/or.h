@@ -1955,10 +1955,13 @@ typedef enum {
 } download_schedule_t;
 #define download_schedule_bitfield_t ENUM_BF(download_schedule_t)
 
-/** Enumeration: do we want to try an authority or a fallback directory
- * mirror for our download? */
+/** Enumeration: do we want to try an authority or use any available directory
+ * mirror?
+ * During bootstrap, this means a fallback (or an authority, if there
+ * are no fallbacks).
+ * When we have a valid consensus, this means any directory server. */
 typedef enum {
-  DL_WANT_FALLBACK = 0,
+  DL_WANT_ANY_DIRSERVER = 0,
   DL_WANT_AUTHORITY = 1,
 } download_want_authority_t;
 #define download_want_authority_bitfield_t \
