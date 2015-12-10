@@ -3502,7 +3502,7 @@ test_dir_download_status_schedule(void *arg)
                                              DL_WANT_AUTHORITY,
                                              DL_SCHED_INCREMENT_FAILURE };
   download_status_t dls_attempt = { 0, 0, 0, DL_SCHED_CONSENSUS,
-                                             DL_WANT_FALLBACK,
+                                             DL_WANT_ANY_DIRSERVER,
                                              DL_SCHED_INCREMENT_ATTEMPT};
   download_status_t dls_bridge  = { 0, 0, 0, DL_SCHED_BRIDGE,
                                              DL_WANT_AUTHORITY,
@@ -3642,7 +3642,7 @@ test_dir_download_status_increment(void *arg)
     DL_WANT_AUTHORITY,
     DL_SCHED_INCREMENT_FAILURE };
   download_status_t dls_attempt = { 0, 0, 0, DL_SCHED_BRIDGE,
-    DL_WANT_FALLBACK,
+    DL_WANT_ANY_DIRSERVER,
     DL_SCHED_INCREMENT_ATTEMPT};
   int delay0 = -1;
   int delay1 = -1;
