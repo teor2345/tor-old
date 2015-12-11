@@ -29,6 +29,11 @@ import dateutil.parser
 import logging
 logging.basicConfig(level=logging.INFO)
 
+## Top-Level Configuration
+
+# Output all candidate fallbacks, or only output selected fallbacks?
+OUTPUT_CANDIDATES = True # False
+
 ## OnionOO Settings
 
 ONIONOO = 'https://onionoo.torproject.org/'
@@ -54,7 +59,7 @@ LOCAL_FILES_ONLY = False
 
 # What happens to entries in neither list?
 # When True, they are included, when False, they are excluded
-INCLUDE_UNLISTED_ENTRIES = False
+INCLUDE_UNLISTED_ENTRIES = True if OUTPUT_CANDIDATES else False
 
 # If an entry is in both lists, what happens?
 # When True, it is excluded, when False, it is included
@@ -83,7 +88,7 @@ PERMITTED_BADEXIT = .00
 
 # The target for these parameters is 20% of the guards in the network
 # This is around 200 as of October 2015
-FALLBACK_PROPORTION_OF_GUARDS = 0.2
+FALLBACK_PROPORTION_OF_GUARDS = None if OUTPUT_CANDIDATES else 0.2
 
 # Limit the number of fallbacks (eliminating lowest by weight)
 MAX_FALLBACK_COUNT = 500
@@ -115,7 +120,7 @@ MAX_WEIGHT_FRACTION = TARGET_MAX_WEIGHT_FRACTION * REWEIGHTING_FUDGE_FACTOR
 # (Final weights may be slightly higher than this, due to low weight relays
 # being excluded.)
 # A relay weighted at 1 in 1000 fallbacks will see about 0.1% of clients.
-MIN_WEIGHT_FRACTION = 1/1000.0
+MIN_WEIGHT_FRACTION = 0.0 if OUTPUT_CANDIDATES else 1/1000.0
 
 ## Other Configuration Parameters
 
@@ -1059,13 +1064,17 @@ class CandidateList(dict):
     s += '\n'
     # Integers don't need escaping in C comments
     fallback_count = len(self.fallbacks)
-    s += 'Final Count:  %d (Eligible %d, Usable %d, Target %d (%d * %f), '%(
+    if FALLBACK_PROPORTION_OF_GUARDS is None:
+      fallback_proportion = ''
+    else:
+      fallback_proportion = ' (%d * %f)'%(guard_count,
+                                          FALLBACK_PROPORTION_OF_GUARDS)
+    s += 'Final Count:  %d (Eligible %d, Usable %d, Target %d%s, '%(
             min(max_count, fallback_count),
             eligible_count,
             fallback_count,
             target_count,
-            guard_count,
-            FALLBACK_PROPORTION_OF_GUARDS)
+            fallback_proportion)
     s += 'Clamped to %d)'%(
             MAX_FALLBACK_COUNT)
     s += '\n'
@@ -1137,7 +1146,10 @@ def list_fallbacks():
   candidates.add_relays()
 
   guard_count = candidates.count_guards()
-  target_count = int(guard_count * FALLBACK_PROPORTION_OF_GUARDS)
+  if FALLBACK_PROPORTION_OF_GUARDS is None:
+    target_count = MAX_FALLBACK_COUNT
+  else:
+    target_count = int(guard_count * FALLBACK_PROPORTION_OF_GUARDS)
   # the maximum number of fallbacks is the least of:
   # - the target fallback count (FALLBACK_PROPORTION_OF_GUARDS * guard count)
   # - the maximum fallback count (MAX_FALLBACK_COUNT)
