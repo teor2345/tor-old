@@ -357,6 +357,7 @@ GENERAL OPTIONS
     When we're unable to connect to any directory cache for directory info
     (usually because we don't know about any yet) we try a FallbackDir.
     By default, the directory authorities are also FallbackDirs.
+    (See the **DirAuthority** entry for an explanation of each flag.)
 
 [[DirAuthority]] **DirAuthority** [__nickname__] [**flags**] __address__:__port__ __fingerprint__::
     Use a nonstandard authoritative directory server at the provided address
@@ -375,6 +376,10 @@ GENERAL OPTIONS
     if an "ipv6=__address__:__orport__" flag is present, then the directory
     authority is listening for IPv6 connections on the indicated IPv6 address
     and OR Port. +
+ +
+    Tor will contact the authority at __address__:__port__ (the DirPort) to
+    download directory documents. If an IPv6 address is supplied, Tor will
+    also download directory documents at the IPv6 address on the DirPort. +
  +
     If no **DirAuthority** line is given, Tor will use the default directory
     authorities. NOTE: this option is intended for setting up a private Tor
