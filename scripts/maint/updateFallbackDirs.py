@@ -32,7 +32,7 @@ logging.basicConfig(level=logging.INFO)
 ## Top-Level Configuration
 
 # Output all candidate fallbacks, or only output selected fallbacks?
-OUTPUT_CANDIDATES = True # False
+OUTPUT_CANDIDATES = False
 
 ## OnionOO Settings
 
