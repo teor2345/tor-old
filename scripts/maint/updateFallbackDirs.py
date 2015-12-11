@@ -1055,7 +1055,7 @@ class CandidateList(dict):
     # Integers don't need escaping in C comments
     fallback_count = len(self.fallbacks)
     s += 'Final Count:  %d (Eligible %d, Usable %d, Target %d (%d * %f), '%(
-            max_count,
+            min(max_count, fallback_count),
             eligible_count,
             fallback_count,
             target_count,
