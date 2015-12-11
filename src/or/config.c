@@ -896,7 +896,7 @@ static const char *default_authorities[] = {
  * but only add them insofar as they share bits with <b>type</b>.
  * Each authority's bits are restricted to the bits shared with <b>type</b>.
  * If <b>type</b> is ALL_DIRINFO or NO_DIRINFO (zero), add all authorities. */
-static void
+STATIC void
 add_default_trusted_dir_authorities(dirinfo_type_t type)
 {
   int i;
@@ -5585,7 +5585,8 @@ parse_dir_authority_line(const char *line, dirinfo_type_t required_type,
         log_warn(LD_CONFIG, "Redundant ipv6 addr/port on DirAuthority line");
       } else {
         if (tor_addr_port_parse(LOG_WARN, flag+strlen("ipv6="),
-                                &ipv6_addrport.addr, &ipv6_addrport.port) < 0
+                                &ipv6_addrport.addr, &ipv6_addrport.port,
+                                -1) < 0
             || tor_addr_family(&ipv6_addrport.addr) != AF_INET6) {
           log_warn(LD_CONFIG, "Bad ipv6 addr/port %s on DirAuthority line",
                    escaped(flag));
@@ -5697,7 +5698,8 @@ parse_dir_fallback_line(const char *line,
         log_warn(LD_CONFIG, "Redundant ipv6 addr/port on FallbackDir line");
       } else {
         if (tor_addr_port_parse(LOG_WARN, cp+strlen("ipv6="),
-                                &ipv6_addrport.addr, &ipv6_addrport.port) < 0
+                                &ipv6_addrport.addr, &ipv6_addrport.port,
+                                -1) < 0
             || tor_addr_family(&ipv6_addrport.addr) != AF_INET6) {
           log_warn(LD_CONFIG, "Bad ipv6 addr/port %s on FallbackDir line",
                    escaped(cp));
