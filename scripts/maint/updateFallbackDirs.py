@@ -8,7 +8,7 @@
 # Script by weasel, April 2015
 # Portions by gsathya & karsten, 2013
 # https://trac.torproject.org/projects/tor/attachment/ticket/8374/dir_list.2.py
-# Modifications by teor, May-October 2015
+# Modifications by teor, 2015
 
 import StringIO
 import string
@@ -41,14 +41,14 @@ LOCAL_FILES_ONLY = False
 ## Whitelist / Blacklist Filter Settings
 
 # The whitelist contains entries that are included if all attributes match
-# (IPv4, dirport, orport, id, and optionally IPv6)
+# (IPv4, dirport, orport, id, and optionally IPv6 and IPv6 orport)
 # The blacklist contains (partial) entries that are excluded if any
 # sufficiently specific group of attributes matches:
 # IPv4 & DirPort
 # IPv4 & ORPort
 # ID
 # IPv6 & DirPort
-# IPv6 & ORPort
+# IPv6 & IPv6 ORPort
 # If neither port is included in the blacklist, the entire IP address is
 # blacklisted.
 
@@ -497,17 +497,20 @@ class Candidate(object):
     # _stable_sort_or_addresses() ensures we choose the same IPv6 address
     # every time, even if onionoo changes the order of the secondaries.
     self.ipv6addr = None
+    self.ipv6orport = None
     # Choose the first IPv6 address that uses the same port as the ORPort
     for i in self._data['or_addresses']:
       (ipaddr, port) = i.rsplit(':', 1)
       if (port == self.orport) and Candidate.is_valid_ipv6_address(ipaddr):
         self.ipv6addr = ipaddr
+        self.ipv6orport = port
         return
     # Choose the first IPv6 address in the list
     for i in self._data['or_addresses']:
       (ipaddr, port) = i.rsplit(':', 1)
       if Candidate.is_valid_ipv6_address(ipaddr):
         self.ipv6addr = ipaddr
+        self.ipv6orport = port
         return
 
   @staticmethod
@@ -675,7 +678,7 @@ class Candidate(object):
           dirport
           orport
           id
-          ipv6 (if present)
+          ipv6 address and port (if present)
         If the fallback has an ipv6 key, the whitelist line must also have
         it, and vice versa, otherwise they don't match. """
     for entry in relaylist:
@@ -687,9 +690,10 @@ class Candidate(object):
         continue
       if  entry['id'] != self._fpr:
         continue
-      if entry.has_key('ipv6') and self.ipv6addr is not None:
+      if (entry.has_key('ipv6')
+          and self.ipv6addr is not None and self.ipv6orport is not None):
         # if both entry and fallback have an ipv6 address, compare them
-        if entry['ipv6'] != self.ipv6addr:
+        if entry['ipv6'] != self.ipv6addr + ':' + self.ipv6orport:
           continue
       # if the fallback has an IPv6 address but the whitelist entry
       # doesn't, or vice versa, the whitelist entry doesn't match
@@ -707,7 +711,7 @@ class Candidate(object):
           ipv4 & orport
           id
           ipv6 & dirport
-          ipv6 & orport
+          ipv6 & ipv6 orport
         If the fallback and the blacklist line both have an ipv6 key,
         their values will be compared, otherwise, they will be ignored.
         If there is no dirport and no orport, the entry matches all relays on
@@ -728,10 +732,11 @@ class Candidate(object):
             return True
         if key == 'id' and value == self._fpr:
           return True
-        if key == 'ipv6' and self.ipv6addr is not None:
+        if (key == 'ipv6'
+            and self.ipv6addr is not None and self.ipv6orport is not None):
         # if both entry and fallback have an ipv6 address, compare them,
         # otherwise, disregard ipv6 addresses
-          if value == self.ipv6addr:
+          if value == self.ipv6addr + ':' + self.ipv6orport:
             # if the dirport is present, check it too
             if entry.has_key('dirport'):
               if int(entry['dirport']) == self.dirport:
@@ -772,8 +777,8 @@ class Candidate(object):
     # [original weight / original total (original percentage)]
     # [contact]
     # */
-    # "address:port orport=port id=fingerprint"
-    # "[ipv6=addr]"
+    # "address:dirport orport=port id=fingerprint"
+    # "[ipv6=addr:orport]"
     # "weight=num",
     # Multiline C comment
     s = '/*'
@@ -810,8 +815,8 @@ class Candidate(object):
             cleanse_c_string(self._fpr))
     s += '\n'
     if self.ipv6addr is not None:
-      s += '" ipv6=%s"'%(
-            cleanse_c_string(self.ipv6addr))
+      s += '" ipv6=%s:%s"'%(
+            cleanse_c_string(self.ipv6addr), cleanse_c_string(self.ipv6orport))
       s += '\n'
     s += '" weight=%d",'%(weight)
     return s
@@ -893,7 +898,7 @@ class CandidateList(dict):
         followed by a series of key=value entries:
           orport=<port>
           id=<fingerprint>
-          ipv6=<IPv6 address>
+          ipv6=<IPv6 address>:<IPv6 orport>
         each line's key/value pairs are placed in a dictonary,
         (of string -> string key/value pairs),
         and these dictionaries are placed in an array.
@@ -935,7 +940,7 @@ class CandidateList(dict):
           if dirl == 2:
             relay_entry['dirport'] = ipv4_maybe_dirport_split[1]
         elif kvl == 2:
-           relay_entry[key_value_split[0]] = key_value_split[1]
+          relay_entry[key_value_split[0]] = key_value_split[1]
       relaylist.append(relay_entry)
     return relaylist
 
