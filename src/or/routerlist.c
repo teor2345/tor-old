@@ -1608,12 +1608,10 @@ router_pick_directory_server_impl(dirinfo_type_t type, int flags,
     /* Assume IPv6 DirPort is the same as IPv4 DirPort */
     const uint16_t pref_dir_port = status->dir_port;
 
-    if (pref_or_port &&
-        (!fascistfirewall ||
-         fascist_firewall_allows_address_or(pref_or_addr, pref_or_port)))
+    if (!fascistfirewall ||
+         fascist_firewall_allows_address_or(pref_or_addr, pref_or_port))
       smartlist_add(is_overloaded ? overloaded_tunnel : tunnel, (void*)node);
-    else if (!fascistfirewall ||
-         fascist_firewall_allows_address_dir(pref_dir_addr, pref_dir_port))
+    else if (fascist_firewall_allows_address_dir(pref_dir_addr, pref_dir_port))
       smartlist_add(is_overloaded ? overloaded_direct : direct, (void*)node);
     else if (has_ipv6_addr)
       ++n_not_preferred;
@@ -1787,12 +1785,11 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
       /* Assume IPv6 DirPort is the same as IPv4 DirPort */
       const uint16_t pref_dir_port = d->dir_port;
 
-      if (pref_or_port &&
-          (!fascistfirewall ||
-           fascist_firewall_allows_address_or(pref_or_addr, pref_or_port)))
+      if (!fascistfirewall ||
+           fascist_firewall_allows_address_or(pref_or_addr, pref_or_port))
         smartlist_add(is_overloaded ? overloaded_tunnel : tunnel, (void*)d);
-      else if (!fascistfirewall ||
-           fascist_firewall_allows_address_dir(pref_dir_addr, pref_dir_port))
+      else if (fascist_firewall_allows_address_dir(pref_dir_addr,
+                                                   pref_dir_port))
         smartlist_add(is_overloaded ? overloaded_direct : direct, (void*)d);
       else if (has_ipv6_addr)
         ++n_not_preferred;

@@ -318,10 +318,15 @@ addr_policy_permits_address(uint32_t addr, uint16_t port,
 }
 
 /** Return true iff we think our firewall will let us make an OR connection to
- * addr:port. */
+ * addr:port.
+ * Return 0 if addr is NULL or tor_addr_is_null(), or if port is 0. */
 int
 fascist_firewall_allows_address_or(const tor_addr_t *addr, uint16_t port)
 {
+  if (!addr || tor_addr_is_null(addr) || !port) {
+    return 0;
+  }
+
   return addr_policy_permits_tor_addr(addr, port,
                                      reachable_or_addr_policy);
 }
@@ -354,10 +359,15 @@ fascist_firewall_allows_node(const node_t *node)
 }
 
 /** Return true iff we think our firewall will let us make a directory
- * connection to addr:port. */
+ * connection to addr:port.
+ * Return 0 if addr is NULL or tor_addr_is_null(), or if port is 0. */
 int
 fascist_firewall_allows_address_dir(const tor_addr_t *addr, uint16_t port)
 {
+  if (!addr || tor_addr_is_null(addr) || !port) {
+    return 0;
+  }
+
   return addr_policy_permits_tor_addr(addr, port,
                                       reachable_dir_addr_policy);
 }
