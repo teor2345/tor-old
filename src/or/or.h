@@ -4005,6 +4005,9 @@ typedef struct {
   /** If true, prefer an IPv6 OR port over an IPv4 one for entry node
    * connections. */
   int ClientPreferIPv6ORPort;
+  /** If true, prefer an IPv6 directory port over an IPv4 one for direct
+   * connections. */
+  int ClientPreferIPv6DirPort;
 
   /** The length of time that we think a consensus should be fresh. */
   int V3AuthVotingInterval;
