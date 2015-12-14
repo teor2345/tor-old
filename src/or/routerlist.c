@@ -1462,6 +1462,38 @@ router_prefer_ipv6_dirports(const or_options_t *options)
   return 0;
 }
 
+/* Check if we already have a directory fetch from addr and dir_port, for
+ * serverdesc (including extrainfo) or microdesc documents. If so, return 1,
+ * if not, return 0.
+ * Also returns 0 if addr is NULL, tor_addr_is_null(addr), or dir_port is 0.
+ */
+STATIC int
+router_is_already_dir_fetching(const tor_addr_t *addr, uint16_t dir_port,
+                               int serverdesc, int microdesc)
+{
+  if (!addr || tor_addr_is_null(addr) || !dir_port) {
+    return 0;
+  }
+
+  /* XX/teor - we're not checking tunnel connections here, see #17848
+   */
+  if (serverdesc && (
+     connection_get_by_type_addr_port_purpose(
+       CONN_TYPE_DIR, addr, dir_port, DIR_PURPOSE_FETCH_SERVERDESC)
+  || connection_get_by_type_addr_port_purpose(
+       CONN_TYPE_DIR, addr, dir_port, DIR_PURPOSE_FETCH_EXTRAINFO))) {
+    return 1;
+  }
+
+  if (microdesc && (
+     connection_get_by_type_addr_port_purpose(
+       CONN_TYPE_DIR, addr, dir_port, DIR_PURPOSE_FETCH_MICRODESC))) {
+    return 1;
+  }
+
+  return 0;
+}
+
 /** How long do we avoid using a directory server after it's given us a 503? */
 #define DIR_503_TIMEOUT (60*60)
 
@@ -1547,33 +1579,12 @@ router_pick_directory_server_impl(dirinfo_type_t type, int flags,
     /* IPv6 address is already at status->ipv6_addr */
 
     /* Assume IPv6 DirPort is the same as IPv4 DirPort */
-    if (no_serverdesc_fetching && (
-       connection_get_by_type_addr_port_purpose(
-         CONN_TYPE_DIR, &addr, status->dir_port, DIR_PURPOSE_FETCH_SERVERDESC)
-    || connection_get_by_type_addr_port_purpose(
-         CONN_TYPE_DIR, &addr, status->dir_port, DIR_PURPOSE_FETCH_EXTRAINFO)
-    || (has_ipv6_addr && (
-         connection_get_by_type_addr_port_purpose(
-           CONN_TYPE_DIR, &status->ipv6_addr, status->dir_port,
-           DIR_PURPOSE_FETCH_SERVERDESC)
-      || connection_get_by_type_addr_port_purpose(
-           CONN_TYPE_DIR, &status->ipv6_addr, status->dir_port,
-           DIR_PURPOSE_FETCH_EXTRAINFO))))) {
-      /* XX/teor - we're not checking tunnel connections here, see #17848
-       */
-      ++n_busy;
-      continue;
-    }
-
-    if (no_microdesc_fetching && (
-       connection_get_by_type_addr_port_purpose(
-         CONN_TYPE_DIR, &addr, status->dir_port, DIR_PURPOSE_FETCH_MICRODESC)
-    || (has_ipv6_addr &&
-         connection_get_by_type_addr_port_purpose(
-           CONN_TYPE_DIR, &status->ipv6_addr, status->dir_port,
-           DIR_PURPOSE_FETCH_MICRODESC)))) {
-      /* XX/teor - we're not checking tunnel connections here, see #17848
-       */
+    if (router_is_already_dir_fetching(&addr, status->dir_port,
+                                       no_serverdesc_fetching,
+                                       no_microdesc_fetching)
+     || router_is_already_dir_fetching(&status->ipv6_addr, status->dir_port,
+                                       no_serverdesc_fetching,
+                                       no_microdesc_fetching)) {
       ++n_busy;
       continue;
     }
@@ -1753,39 +1764,15 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
       /* IPv6 address is already at d->ipv6_addr */
 
       /* Assume IPv6 DirPort is the same as IPv4 DirPort */
-      if (no_serverdesc_fetching) {
-        if (connection_get_by_type_addr_port_purpose(
-            CONN_TYPE_DIR, &addr, d->dir_port, DIR_PURPOSE_FETCH_SERVERDESC)
-         || connection_get_by_type_addr_port_purpose(
-             CONN_TYPE_DIR, &addr, d->dir_port, DIR_PURPOSE_FETCH_EXTRAINFO)
-         || (has_ipv6_addr && (
-              connection_get_by_type_addr_port_purpose(
-                CONN_TYPE_DIR, &d->ipv6_addr, d->dir_port,
-                DIR_PURPOSE_FETCH_SERVERDESC)
-           || connection_get_by_type_addr_port_purpose(
-                CONN_TYPE_DIR, &d->ipv6_addr, d->dir_port,
-                DIR_PURPOSE_FETCH_EXTRAINFO)))) {
-          /* XX/teor - we're not checking tunnel connections here, see #17848
-           */
-          //log_debug(LD_DIR, "We have an existing connection to fetch "
-          //           "descriptor from %s; delaying",d->description);
-          ++n_busy;
-          continue;
-        }
-      }
-      if (no_microdesc_fetching) {
-        if (connection_get_by_type_addr_port_purpose(
-             CONN_TYPE_DIR, &addr, d->dir_port, DIR_PURPOSE_FETCH_MICRODESC)
-         || (has_ipv6_addr &&
-             connection_get_by_type_addr_port_purpose(
-               CONN_TYPE_DIR, &d->ipv6_addr, d->dir_port,
-               DIR_PURPOSE_FETCH_MICRODESC))) {
-          /* XX/teor - we're not checking tunnel connections here, see #17848
-           */
-          ++n_busy;
-          continue;
-        }
-      }
+      if (router_is_already_dir_fetching(&addr, d->dir_port,
+                                         no_serverdesc_fetching,
+                                         no_microdesc_fetching)
+       || router_is_already_dir_fetching(&d->ipv6_addr, d->dir_port,
+                                         no_serverdesc_fetching,
+                                         no_microdesc_fetching)) {
+            ++n_busy;
+            continue;
+       }
 
       /* Add the router if its preferred or alternate (if any) address and
        * port are reachable */
