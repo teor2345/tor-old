@@ -194,6 +194,7 @@ static config_var_t option_vars_[] = {
   V(ClientRejectInternalAddresses, BOOL,   "1"),
   V(ClientTransportPlugin,       LINELIST, NULL),
   V(ClientUseIPv6,               BOOL,     "0"),
+  V(ClientUseIPv4,               BOOL,     "1"),
   V(ConsensusParams,             STRING,   NULL),
   V(ConnLimit,                   UINT,     "1000"),
   V(ConnDirectionStatistics,     BOOL,     "0"),
@@ -3042,11 +3043,21 @@ options_validate(or_options_t *old_options, or_options_t *options,
 
   if ((options->ReachableAddresses ||
        options->ReachableORAddresses ||
-       options->ReachableDirAddresses) &&
+       options->ReachableDirAddresses ||
+       options->ClientUseIPv4 == 0) &&
       server_mode(options))
     REJECT("Servers must be able to freely connect to the rest "
            "of the Internet, so they must not set Reachable*Addresses "
-           "or FascistFirewall.");
+           "or FascistFirewall or FirewallPorts or ClientUseIPv4 0.");
+
+  if (options->ClientUseIPv4 == 0 && options->ClientUseIPv6 == 0)
+    REJECT("Tor cannot connect to the Internet if ClientUseIPv4 is 0 and "
+           "ClientUseIPv6 is 0. Please set at least one of these options "
+           "to 1.");
+
+  if (options->ClientUseIPv6 == 0 && options->ClientPreferIPv6ORPort == 1)
+    log_warn(LD_CONFIG, "ClientPreferIPv6ORPort 1 is ignored unless "
+             "ClientUseIPv6 is also 1.");
 
   if (options->UseBridges &&
       server_mode(options))
