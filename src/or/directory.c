@@ -961,6 +961,12 @@ directory_initiate_command_rend(const tor_addr_t *_addr,
     return;
   }
 
+  /* ensure we don't make excess connections when we're already downloading
+   * a consensus during bootstrap */
+  if (connection_dir_avoid_extra_connection_for_purpose(dir_purpose)) {
+    return;
+  }
+
   conn = dir_connection_new(tor_addr_family(&addr));
 
   /* set up conn so it's got all the data we need to remember */
@@ -3475,15 +3481,45 @@ connection_dir_would_close_consensus_conn_helper(void)
 
   /* If we have just stopped bootstrapping (that is, just parsed a consensus),
    * we might still have some excess connections hanging around. So we still
-   * have to check, even if we've stopped bootstrapping. */
-
+   * have to check if we want to close any, even if we've stopped
+   * bootstrapping. */
   return 1;
 }
 
-/* check if we have excess consensus download connection attempts, and close
+/* Check if we would close excess consensus connections. If we would, any
+ * new consensus connection would become excess immediately, so return 1.
+ * Otherwise, return 0. */
+int
+connection_dir_avoid_extra_connection_for_purpose(unsigned int purpose)
+{
+  const or_options_t *options = get_options();
+
+  /* We're not interested in connections that aren't fetching a consensus. */
+  if (purpose != DIR_PURPOSE_FETCH_CONSENSUS) {
+    return 0;
+  }
+
+  /* we're only interested in avoiding excess connections if we could
+   * have created any in the first place */
+  if (!networkstatus_consensus_can_use_multiple_directories(options)) {
+    return 0;
+  }
+
+  /* If there are connections downloading a consensus, and we are still
+   * bootstrapping (that is, we have no usable consensus), we can be sure that
+   * any further connections would be excess. */
+  if (networkstatus_consensus_is_downloading_usable_flavor()
+      && networkstatus_consensus_is_boostrapping(time(NULL))) {
+    return 1;
+  }
+
+  return 0;
+}
+
+/* Check if we have excess consensus download connection attempts, and close
  * conn:
  * - if we don't have a consensus, and we're downloading a consensus, and conn
- *   is not a connection downloading a consensus, close it;
+ *   is not downloading a consensus yet, close it;
  * - if we do have a consensus, conn is excess, close it. */
 int
 connection_dir_close_consensus_conn_if_extra(dir_connection_t *conn)
@@ -3524,7 +3560,7 @@ connection_dir_close_consensus_conn_if_extra(dir_connection_t *conn)
   return 0;
 }
 
-/* check if we have excess consensus download connection attempts, and close
+/* Check if we have excess consensus download connection attempts, and close
  * them:
  * - if we don't have a consensus, and we're downloading a consensus, keep an
  *   earlier connection, or a connection to a fallback directory, and close
