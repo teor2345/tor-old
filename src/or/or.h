@@ -4061,11 +4061,17 @@ typedef struct {
    * over randomly chosen exits. */
   int ClientRejectInternalAddresses;
 
+  /** If true, clients may connect over IPv4. If false, they will avoid
+   * connecting over IPv4. XXX we don't really enforce this -- clients _may_
+   * set up outgoing IPv4 connections even when this option is false
+   * (see #9068). */
+  int ClientUseIPv4;
   /** If true, clients may connect over IPv6. XXX we don't really
-      enforce this -- clients _may_ set up outgoing IPv6 connections
-      even when this option is not set. */
+   * enforce this -- clients _may_ set up outgoing IPv6 connections
+   * even when this option is not set (see #9068). */
   int ClientUseIPv6;
-  /** If true, prefer an IPv6 OR port over an IPv4 one. */
+  /** If true, prefer an IPv6 OR port over an IPv4 one for entry node
+   * connections. */
   int ClientPreferIPv6ORPort;
 
   /** The length of time that we think a consensus should be fresh. */

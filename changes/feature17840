@@ -1,0 +1,4 @@
+  o Minor feature (IPv6):
+    - Add ClientUseIPv4, which is set to 1 by default. If set to 0, tor
+      avoids using IPv4 for client OR and directory connections.
+      Closes ticket 17840; patch by "teor".
