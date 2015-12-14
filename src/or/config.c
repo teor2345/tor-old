@@ -191,6 +191,7 @@ static config_var_t option_vars_[] = {
   V(ClientDNSRejectInternalAddresses, BOOL,"1"),
   V(ClientOnly,                  BOOL,     "0"),
   V(ClientPreferIPv6ORPort,      BOOL,     "0"),
+  V(ClientPreferIPv6DirPort,     BOOL,     "0"),
   V(ClientRejectInternalAddresses, BOOL,   "1"),
   V(ClientTransportPlugin,       LINELIST, NULL),
   V(ClientUseIPv6,               BOOL,     "0"),
@@ -3057,6 +3058,10 @@ options_validate(or_options_t *old_options, or_options_t *options,
 
   if (options->ClientUseIPv6 == 0 && options->ClientPreferIPv6ORPort == 1)
     log_warn(LD_CONFIG, "ClientPreferIPv6ORPort 1 is ignored unless "
+             "ClientUseIPv6 is also 1.");
+
+  if (options->ClientUseIPv6 == 0 && options->ClientPreferIPv6DirPort == 1)
+    log_warn(LD_CONFIG, "ClientPreferIPv6DirPort 1 is ignored unless "
              "ClientUseIPv6 is also 1.");
 
   if (options->UseBridges &&
