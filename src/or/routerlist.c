@@ -1462,8 +1462,72 @@ router_pick_dirserver_generic(smartlist_t *sourcelist,
   return router_pick_trusteddirserver_impl(sourcelist, type, flags, NULL);
 }
 
+/** Do we prefer to connect to IPv6 DirPorts?
+ */
+int
+router_prefer_ipv6_dirports(const or_options_t *options)
+{
+  int client = !server_mode(options);
+
+  /* Servers don't have IPv4/IPv6 preferences */
+  if (!client) {
+    return 0;
+  }
+
+  /* We prefer IPv6 DirPorts if the option is set, or we avoid IPv4 */
+  if ((options->ClientUseIPv6 && options->ClientPreferIPv6DirPort)
+      || !options->ClientUseIPv4) {
+    return 1;
+  }
+
+  return 0;
+}
+
 /** How long do we avoid using a directory server after it's given us a 503? */
 #define DIR_503_TIMEOUT (60*60)
+
+/* Common retry code for router_pick_directory_server_impl and
+ * router_pick_trusteddirserver_impl. Retry with the non-preferred IP version.
+ * Must be called before RETRY_WITHOUT_EXCLUDE().
+ *
+ * If we got no result, and we are applying IP preferences, and we are a
+ * client that could use an alternate IP version, try again with the
+ * opposite preferences. */
+#define RETRY_ALTERNATE_IP_VERSION(retry_label)                               \
+  STMT_BEGIN                                                                  \
+    if (result == NULL && try_ip_pref && options->ClientUseIPv4               \
+        && options->ClientUseIPv6 && !server_mode(options) && n_not_preferred \
+        && !n_busy) {                                                         \
+      n_excluded = 0;                                                         \
+      n_busy = 0;                                                             \
+      try_ip_pref = 0;                                                        \
+      n_not_preferred = 0;                                                    \
+      pref_ipv6_or = !pref_ipv6_or;                                           \
+      pref_ipv6_dir = !pref_ipv6_dir;                                         \
+      goto retry_label;                                                       \
+    }                                                                         \
+  STMT_END                                                                    \
+
+/* Common retry code for router_pick_directory_server_impl and
+ * router_pick_trusteddirserver_impl. Retry without excluding nodes, but with
+ * the preferred IP version. Must be called after RETRY_ALTERNATE_IP_VERSION().
+ *
+ * If we got no result, and we are excluding nodes, and StrictNodes is
+ * not set, try again without excluding nodes. */
+#define RETRY_WITHOUT_EXCLUDE(retry_label)                                    \
+  STMT_BEGIN                                                                  \
+    if (result == NULL && try_excluding && !options->StrictNodes              \
+        && n_excluded && !n_busy) {                                           \
+      try_excluding = 0;                                                      \
+      n_excluded = 0;                                                         \
+      n_busy = 0;                                                             \
+      try_ip_pref = 1;                                                        \
+      n_not_preferred = 0;                                                    \
+      pref_ipv6_or = nodelist_prefer_ipv6_orports(options);                   \
+      pref_ipv6_dir = router_prefer_ipv6_dirports(options);                   \
+      goto retry_label;                                                       \
+    }                                                                         \
+  STMT_END
 
 /** Pick a random running valid directory server/mirror from our
  * routerlist.  Arguments are as for router_pick_directory_server(), except:
@@ -1489,11 +1553,14 @@ router_pick_directory_server_impl(dirinfo_type_t type, int flags,
   const int no_microdesc_fetching = (flags & PDS_NO_EXISTING_MICRODESC_FETCH);
   const int for_guard = (flags & PDS_FOR_GUARD);
   int try_excluding = 1, n_excluded = 0, n_busy = 0;
+  int pref_ipv6_or = nodelist_prefer_ipv6_orports(options);
+  int pref_ipv6_dir = router_prefer_ipv6_dirports(options);
+  int try_ip_pref = 1, n_not_preferred = 0;
 
   if (!consensus)
     return NULL;
 
- retry_without_exclude:
+ retry_search:
 
   direct = smartlist_new();
   tunnel = smartlist_new();
@@ -1506,11 +1573,14 @@ router_pick_directory_server_impl(dirinfo_type_t type, int flags,
   SMARTLIST_FOREACH_BEGIN(nodelist_get_list(), const node_t *, node) {
     int is_trusted, is_trusted_extrainfo;
     int is_overloaded;
-    tor_addr_t addr;
+    tor_addr_t addr;  /* IPv4 address */
     const routerstatus_t *status = node->rs;
     const country_t country = node->country;
+
     if (!status)
       continue;
+
+    const int has_ipv6_addr = !tor_addr_is_null(&status->ipv6_addr);
 
     if (!node->is_running || !status->dir_port || !node->is_valid)
       continue;
@@ -1537,36 +1607,69 @@ router_pick_directory_server_impl(dirinfo_type_t type, int flags,
       continue;
     }
 
-    /* XXXX IP6 proposal 118 */
     tor_addr_from_ipv4h(&addr, status->addr);
+    /* IPv6 address is already at status->ipv6_addr */
 
+    /* Assume IPv6 DirPort is the same as IPv4 DirPort */
     if (no_serverdesc_fetching && (
        connection_get_by_type_addr_port_purpose(
          CONN_TYPE_DIR, &addr, status->dir_port, DIR_PURPOSE_FETCH_SERVERDESC)
     || connection_get_by_type_addr_port_purpose(
          CONN_TYPE_DIR, &addr, status->dir_port, DIR_PURPOSE_FETCH_EXTRAINFO)
-    )) {
+    || (has_ipv6_addr && (
+         connection_get_by_type_addr_port_purpose(
+           CONN_TYPE_DIR, &status->ipv6_addr, status->dir_port,
+           DIR_PURPOSE_FETCH_SERVERDESC)
+      || connection_get_by_type_addr_port_purpose(
+           CONN_TYPE_DIR, &status->ipv6_addr, status->dir_port,
+           DIR_PURPOSE_FETCH_EXTRAINFO))))) {
+      /* XX/teor - we're not checking tunnel connections here, see #17848
+       */
       ++n_busy;
       continue;
     }
 
-    if (no_microdesc_fetching && connection_get_by_type_addr_port_purpose(
-      CONN_TYPE_DIR, &addr, status->dir_port, DIR_PURPOSE_FETCH_MICRODESC)
-    ) {
+    if (no_microdesc_fetching && (
+       connection_get_by_type_addr_port_purpose(
+         CONN_TYPE_DIR, &addr, status->dir_port, DIR_PURPOSE_FETCH_MICRODESC)
+    || (has_ipv6_addr &&
+         connection_get_by_type_addr_port_purpose(
+           CONN_TYPE_DIR, &status->ipv6_addr, status->dir_port,
+           DIR_PURPOSE_FETCH_MICRODESC)))) {
+      /* XX/teor - we're not checking tunnel connections here, see #17848
+       */
       ++n_busy;
       continue;
     }
 
     is_overloaded = status->last_dir_503_at + DIR_503_TIMEOUT > now;
 
-    if ((!fascistfirewall ||
-         fascist_firewall_allows_address_or(&addr, status->or_port)))
-      smartlist_add(is_trusted ? trusted_tunnel :
-                    is_overloaded ? overloaded_tunnel : tunnel, (void*)node);
+    /* We use an IPv6 address if we have one and we prefer it */
+#define GET_PREF(ipv4, ipv6, has_ipv6, prefer_ipv6) \
+  ((has_ipv6) && (prefer_ipv6) ? (ipv6) : (ipv4))
+
+    /* Add the router if its preferred or alternate (if any) address and
+     * port are reachable */
+
+    const tor_addr_t *pref_or_addr = GET_PREF(&addr, &status->ipv6_addr,
+                                              has_ipv6_addr, pref_ipv6_or);
+    const uint16_t pref_or_port = GET_PREF(status->or_port,
+                                           status->ipv6_orport,
+                                           has_ipv6_addr, pref_ipv6_or);
+    const tor_addr_t *pref_dir_addr = GET_PREF(&addr, &status->ipv6_addr,
+                                               has_ipv6_addr, pref_ipv6_dir);
+    /* Assume IPv6 DirPort is the same as IPv4 DirPort */
+    const uint16_t pref_dir_port = status->dir_port;
+
+    if (pref_or_port &&
+        (!fascistfirewall ||
+         fascist_firewall_allows_address_or(pref_or_addr, pref_or_port)))
+      smartlist_add(is_overloaded ? overloaded_tunnel : tunnel, (void*)node);
     else if (!fascistfirewall ||
-             fascist_firewall_allows_address_dir(&addr, status->dir_port))
-      smartlist_add(is_trusted ? trusted_direct :
-                    is_overloaded ? overloaded_direct : direct, (void*)node);
+         fascist_firewall_allows_address_dir(pref_dir_addr, pref_dir_port))
+      smartlist_add(is_overloaded ? overloaded_direct : direct, (void*)node);
+    else if (has_ipv6_addr)
+      ++n_not_preferred;
   } SMARTLIST_FOREACH_END(node);
 
   if (smartlist_len(tunnel)) {
@@ -1595,15 +1698,9 @@ router_pick_directory_server_impl(dirinfo_type_t type, int flags,
   smartlist_free(overloaded_direct);
   smartlist_free(overloaded_tunnel);
 
-  if (result == NULL && try_excluding && !options->StrictNodes && n_excluded
-      && !n_busy) {
-    /* If we got no result, and we are excluding nodes, and StrictNodes is
-     * not set, try again without excluding nodes. */
-    try_excluding = 0;
-    n_excluded = 0;
-    n_busy = 0;
-    goto retry_without_exclude;
-  }
+  RETRY_ALTERNATE_IP_VERSION(retry_search);
+
+  RETRY_WITHOUT_EXCLUDE(retry_search);
 
   if (n_busy_out)
     *n_busy_out = n_busy;
@@ -1658,11 +1755,14 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
   smartlist_t *pick_from;
   int n_busy = 0;
   int try_excluding = 1, n_excluded = 0;
+  int pref_ipv6_or = nodelist_prefer_ipv6_orports(options);
+  int pref_ipv6_dir = router_prefer_ipv6_dirports(options);
+  int try_ip_pref = 1, n_not_preferred = 0;
 
   if (!sourcelist)
     return NULL;
 
- retry_without_exclude:
+ retry_search:
 
   direct = smartlist_new();
   tunnel = smartlist_new();
@@ -1673,7 +1773,9 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
     {
       int is_overloaded =
           d->fake_status.last_dir_503_at + DIR_503_TIMEOUT > now;
-      tor_addr_t addr;
+      tor_addr_t addr; /* IPv4 address */
+      const int has_ipv6_addr = !tor_addr_is_null(&d->ipv6_addr);
+
       if (!d->is_running) continue;
       if ((type & d->type) == 0)
         continue;
@@ -1689,14 +1791,24 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
         continue;
       }
 
-      /* XXXX IP6 proposal 118 */
       tor_addr_from_ipv4h(&addr, d->addr);
+      /* IPv6 address is already at d->ipv6_addr */
 
+      /* Assume IPv6 DirPort is the same as IPv4 DirPort */
       if (no_serverdesc_fetching) {
         if (connection_get_by_type_addr_port_purpose(
             CONN_TYPE_DIR, &addr, d->dir_port, DIR_PURPOSE_FETCH_SERVERDESC)
          || connection_get_by_type_addr_port_purpose(
-             CONN_TYPE_DIR, &addr, d->dir_port, DIR_PURPOSE_FETCH_EXTRAINFO)) {
+             CONN_TYPE_DIR, &addr, d->dir_port, DIR_PURPOSE_FETCH_EXTRAINFO)
+         || (has_ipv6_addr && (
+              connection_get_by_type_addr_port_purpose(
+                CONN_TYPE_DIR, &d->ipv6_addr, d->dir_port,
+                DIR_PURPOSE_FETCH_SERVERDESC)
+           || connection_get_by_type_addr_port_purpose(
+                CONN_TYPE_DIR, &d->ipv6_addr, d->dir_port,
+                DIR_PURPOSE_FETCH_EXTRAINFO)))) {
+          /* XX/teor - we're not checking tunnel connections here, see #17848
+           */
           //log_debug(LD_DIR, "We have an existing connection to fetch "
           //           "descriptor from %s; delaying",d->description);
           ++n_busy;
@@ -1705,19 +1817,40 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
       }
       if (no_microdesc_fetching) {
         if (connection_get_by_type_addr_port_purpose(
-             CONN_TYPE_DIR, &addr, d->dir_port, DIR_PURPOSE_FETCH_MICRODESC)) {
+             CONN_TYPE_DIR, &addr, d->dir_port, DIR_PURPOSE_FETCH_MICRODESC)
+         || (has_ipv6_addr &&
+             connection_get_by_type_addr_port_purpose(
+               CONN_TYPE_DIR, &d->ipv6_addr, d->dir_port,
+               DIR_PURPOSE_FETCH_MICRODESC))) {
+          /* XX/teor - we're not checking tunnel connections here, see #17848
+           */
           ++n_busy;
           continue;
         }
       }
 
-      if (d->or_port &&
+      /* Add the router if its preferred or alternate (if any) address and
+       * port are reachable */
+
+      const tor_addr_t *pref_or_addr = GET_PREF(&addr, &d->ipv6_addr,
+                                                has_ipv6_addr, pref_ipv6_or);
+      const uint16_t pref_or_port = GET_PREF(d->or_port,
+                                             d->ipv6_orport,
+                                             has_ipv6_addr, pref_ipv6_or);
+      const tor_addr_t *pref_dir_addr = GET_PREF(&addr, &d->ipv6_addr,
+                                                 has_ipv6_addr, pref_ipv6_dir);
+      /* Assume IPv6 DirPort is the same as IPv4 DirPort */
+      const uint16_t pref_dir_port = d->dir_port;
+
+      if (pref_or_port &&
           (!fascistfirewall ||
-           fascist_firewall_allows_address_or(&addr, d->or_port)))
+           fascist_firewall_allows_address_or(pref_or_addr, pref_or_port)))
         smartlist_add(is_overloaded ? overloaded_tunnel : tunnel, (void*)d);
       else if (!fascistfirewall ||
-               fascist_firewall_allows_address_dir(&addr, d->dir_port))
+           fascist_firewall_allows_address_dir(pref_dir_addr, pref_dir_port))
         smartlist_add(is_overloaded ? overloaded_direct : direct, (void*)d);
+      else if (has_ipv6_addr)
+        ++n_not_preferred;
     }
   SMARTLIST_FOREACH_END(d);
 
@@ -1738,27 +1871,21 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
     if (selection)
       result = &selection->fake_status;
   }
-
   smartlist_free(direct);
   smartlist_free(tunnel);
   smartlist_free(overloaded_direct);
   smartlist_free(overloaded_tunnel);
 
-  if (result == NULL && try_excluding && !options->StrictNodes && n_excluded
-      && !n_busy) {
-    /* If we got no result, and we are excluding nodes, and StrictNodes is
-     * not set, try again without excluding nodes. */
-    try_excluding = 0;
-    n_excluded = 0;
-    n_busy = 0;
-    goto retry_without_exclude;
-  }
+  RETRY_ALTERNATE_IP_VERSION(retry_search);
+
+  RETRY_WITHOUT_EXCLUDE(retry_search);
 
   if (n_busy_out)
     *n_busy_out = n_busy;
-
   return result;
 }
+
+#undef GET_PREF
 
 /** Mark as running every dir_server_t in <b>server_list</b>. */
 static void
