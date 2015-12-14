@@ -1632,13 +1632,14 @@ router_pick_directory_server_impl(dirinfo_type_t type, int flags,
     const tor_addr_port_t *pref_dir_ap = tor_addr_port_choose(&ipv6_dir_ap,
                                                               &ipv4_dir_ap,
                                                               pref_ipv6_dir);
-
     if (!fascistfirewall ||
-         fascist_firewall_allows_address_or(&pref_or_ap->addr,
-                                            pref_or_ap->port))
+        fascist_firewall_allows_address_for(&pref_or_ap->addr,
+                                            pref_or_ap->port,
+                                            FIREWALL_OR_CONNECTION))
       smartlist_add(is_overloaded ? overloaded_tunnel : tunnel, (void*)node);
-    else if (fascist_firewall_allows_address_dir(&pref_dir_ap->addr,
-                                                 pref_dir_ap->port))
+    else if (fascist_firewall_allows_address_for(&pref_dir_ap->addr,
+                                                 pref_dir_ap->port,
+                                                 FIREWALL_DIR_CONNECTION))
       smartlist_add(is_overloaded ? overloaded_direct : direct, (void*)node);
     else if (!tor_addr_is_null(&status->ipv6_addr))
       ++n_not_preferred;
@@ -1822,13 +1823,14 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
       const tor_addr_port_t *pref_dir_ap = tor_addr_port_choose(&ipv6_dir_ap,
                                                                 &ipv4_dir_ap,
                                                                 pref_ipv6_dir);
-
       if (!fascistfirewall ||
-          fascist_firewall_allows_address_or(&pref_or_ap->addr,
-                                             pref_or_ap->port))
+          fascist_firewall_allows_address_for(&pref_or_ap->addr,
+                                              pref_or_ap->port,
+                                              FIREWALL_OR_CONNECTION))
         smartlist_add(is_overloaded ? overloaded_tunnel : tunnel, (void*)d);
-      else if (fascist_firewall_allows_address_dir(&pref_dir_ap->addr,
-                                                   pref_dir_ap->port))
+      else if (fascist_firewall_allows_address_for(&pref_dir_ap->addr,
+                                                  pref_dir_ap->port,
+                                                  FIREWALL_DIR_CONNECTION))
         smartlist_add(is_overloaded ? overloaded_direct : direct, (void*)d);
       else if (!tor_addr_is_null(&d->ipv6_addr))
         ++n_not_preferred;
