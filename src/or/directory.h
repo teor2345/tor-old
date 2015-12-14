@@ -142,9 +142,9 @@ STATIC int directory_handle_command_get(dir_connection_t *conn,
                                         const char *req_body,
                                         size_t req_body_len);
 int connection_dir_would_close_consensus_conn_helper(void);
-STATIC int download_status_schedule_helper(download_status_t *dls,
-                                           const smartlist_t *schedule,
-                                           time_t now);
+STATIC int download_status_schedule_get_delay(download_status_t *dls,
+                                              const smartlist_t *schedule,
+                                              time_t now);
 #endif
 
 #endif

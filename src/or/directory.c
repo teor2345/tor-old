@@ -3677,43 +3677,44 @@ find_dl_schedule(download_status_t *dls, const or_options_t *options)
   return NULL;
 }
 
-/* Find the current increment of dls based on schedule.
- * Set dls->next_attempt_at based on now, and return increment.
+/* Find the current delay for dls based on schedule.
+ * Set dls->next_attempt_at based on now, and return the delay.
  * Helper for download_status_increment_failure and
  * download_status_increment_attempt. */
 STATIC int
-download_status_schedule_helper(download_status_t *dls,
-                                const smartlist_t *schedule,
-                                time_t now)
+download_status_schedule_get_delay(download_status_t *dls,
+                                   const smartlist_t *schedule,
+                                   time_t now)
 {
-  int increment = INT_MAX;
-  uint8_t dls_n_download_increments = (dls->increment_on
-                                       == DL_SCHED_INCREMENT_ATTEMPT
-                                       ? dls->n_download_attempts
-                                       : dls->n_download_failures);
   tor_assert(dls);
   tor_assert(schedule);
 
-  if (dls_n_download_increments < smartlist_len(schedule))
-    increment = *(int *)smartlist_get(schedule, dls_n_download_increments);
-  else if (dls_n_download_increments == IMPOSSIBLE_TO_DOWNLOAD)
-    increment = INT_MAX;
+  int delay = INT_MAX;
+  uint8_t dls_schedule_position = (dls->increment_on
+                                   == DL_SCHED_INCREMENT_ATTEMPT
+                                   ? dls->n_download_attempts
+                                   : dls->n_download_failures);
+
+  if (dls_schedule_position < smartlist_len(schedule))
+    delay = *(int *)smartlist_get(schedule, dls_schedule_position);
+  else if (dls_schedule_position == IMPOSSIBLE_TO_DOWNLOAD)
+    delay = INT_MAX;
   else
-    increment = *(int *)smartlist_get(schedule, smartlist_len(schedule) - 1);
+    delay = *(int *)smartlist_get(schedule, smartlist_len(schedule) - 1);
 
-  /* A negative increment makes no sense. Knowing that increment is
+  /* A negative delay makes no sense. Knowing that delay is
    * non-negative allows us to safely do the wrapping check below. */
-  tor_assert(increment >= 0);
+  tor_assert(delay >= 0);
 
-  /* Avoid now+increment overflowing INT_MAX, by comparing with a subtraction
-   * that won't overflow (since increment is non-negative). */
-  if (increment < INT_MAX && now <= INT_MAX - increment) {
-    dls->next_attempt_at = now+increment;
+  /* Avoid now+delay overflowing INT_MAX, by comparing with a subtraction
+   * that won't overflow (since delay is non-negative). */
+  if (delay < INT_MAX && now <= INT_MAX - delay) {
+    dls->next_attempt_at = now+delay;
   } else {
     dls->next_attempt_at = TIME_MAX;
   }
 
-  return increment;
+  return delay;
 }
 
 /* Log a debug message about item, which increments on increment_action, has
@@ -3747,7 +3748,8 @@ download_status_log_helper(const char *item, int was_schedule_incremented,
   }
 }
 
-/** Called when an attempt to download <b>dls</b> has failed with HTTP status
+/** Determine when a failed download attempt should be retried.
+ * Called when an attempt to download <b>dls</b> has failed with HTTP status
  * <b>status_code</b>.  Increment the failure count (if the code indicates a
  * real failure, or if we're a server) and set <b>dls</b>-\>next_attempt_at to
  * an appropriate time in the future and return it.
@@ -3767,11 +3769,18 @@ download_status_increment_failure(download_status_t *dls, int status_code,
       ++dls->n_download_failures;
   }
 
-  /* only return a failure retry time if this schedule increments on failures
-   */
   if (dls->increment_on == DL_SCHED_INCREMENT_FAILURE) {
+    /* We don't find out that a failure-based schedule has attempted a
+     * connection until that connection fails.
+     * We'll never find out about successful connections, but this doesn't
+     * matter, because schedules are reset after a successful download.
+     */
+      ++dls->n_download_attempts;
+
+    /* only return a failure retry time if this schedule increments on failures
+     */
     const smartlist_t *schedule = find_dl_schedule(dls, get_options());
-    increment = download_status_schedule_helper(dls, schedule, now);
+    increment = download_status_schedule_get_delay(dls, schedule, now);
   }
 
   download_status_log_helper(item, !dls->increment_on, "failed",
@@ -3787,7 +3796,9 @@ download_status_increment_failure(download_status_t *dls, int status_code,
   }
 }
 
-/** Called when an attempt to download <b>dls</b> is being initiated.
+/** Determine when the next download attempt should be made when using an
+ * attempt-based (potentially concurrent) download schedule.
+ * Called when an attempt to download <b>dls</b> is being initiated.
  * Increment the attempt count and set <b>dls</b>-\>next_attempt_at to an
  * appropriate time in the future and return it.
  * If <b>dls->increment_on</b> is DL_SCHED_INCREMENT_FAILURE, don't increment
@@ -3797,14 +3808,14 @@ time_t
 download_status_increment_attempt(download_status_t *dls, const char *item,
                                   time_t now)
 {
-  int increment = -1;
+  int delay = -1;
   tor_assert(dls);
 
   if (dls->increment_on == DL_SCHED_INCREMENT_FAILURE) {
     /* this schedule should retry on failure, and not launch any concurrent
      attempts */
-    log_info(LD_BUG, "Tried to increment the attempts on a failure-based "
-             "schedule.");
+    log_info(LD_BUG, "Tried to launch an attempt-based connection on a "
+             "failure-based schedule.");
     return TIME_MAX;
   }
 
@@ -3812,11 +3823,11 @@ download_status_increment_attempt(download_status_t *dls, const char *item,
     ++dls->n_download_attempts;
 
   const smartlist_t *schedule = find_dl_schedule(dls, get_options());
-  increment = download_status_schedule_helper(dls, schedule, now);
+  delay = download_status_schedule_get_delay(dls, schedule, now);
 
   download_status_log_helper(item, dls->increment_on, "attempted",
                              "on failure", dls->n_download_attempts,
-                             increment, dls->next_attempt_at, now);
+                             delay, dls->next_attempt_at, now);
 
   return dls->next_attempt_at;
 }
