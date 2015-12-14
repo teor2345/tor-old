@@ -317,59 +317,99 @@ addr_policy_permits_address(uint32_t addr, uint16_t port,
   return addr_policy_permits_tor_addr(&a, port, policy);
 }
 
-/** Return true iff we think our firewall will let us make an OR connection to
- * addr:port.
- * Return 0 if addr is NULL or tor_addr_is_null(), or if port is 0. */
-int
-fascist_firewall_allows_address_or(const tor_addr_t *addr, uint16_t port)
+/** Return true iff we think our firewall will let us make a connection to
+ * addr:port, taking ClientUseIPv4 and ClientUseIPv6 into account.
+ *
+ * Return false if addr is NULL or tor_addr_is_null(), or if port is 0.
+ * If */
+static int
+fascist_firewall_allows_address(const tor_addr_t *addr, uint16_t port,
+                                smartlist_t *firewall_policy)
 {
+  const or_options_t *options = get_options();
+
   if (!addr || tor_addr_is_null(addr) || !port) {
     return 0;
   }
 
+  if (!options->ClientUseIPv4 && tor_addr_family(addr) == AF_INET)
+    return 0;
+
+  if (!options->ClientUseIPv6 && tor_addr_family(addr) == AF_INET6)
+    return 0;
+
   return addr_policy_permits_tor_addr(addr, port,
-                                     reachable_or_addr_policy);
+                                      firewall_policy);
 }
 
 /** Return true iff we think our firewall will let us make an OR connection to
- * <b>ri</b>. */
+ * addr:port. */
+int
+fascist_firewall_allows_address_or(const tor_addr_t *addr, uint16_t port)
+{
+  return fascist_firewall_allows_address(addr, port,
+                                         reachable_or_addr_policy);
+}
+
+/* Does the client firewall allow an OR connection to
+ * ipv4h_or_addr (interpreted in host order) on ipv4_or_port? */
+static int
+fascist_firewall_allows_ipv4h_address_or(uint32_t ipv4h_or_addr,
+                                         uint16_t ipv4_or_port)
+{
+  tor_addr_t ipv4_or_addr;
+  tor_addr_from_ipv4h(&ipv4_or_addr, ipv4h_or_addr);
+  return fascist_firewall_allows_address_or(&ipv4_or_addr, ipv4_or_port);
+}
+
+/** Return true iff we think our firewall will let us make an OR connection to
+ * <b>ri</b> on either its IPv4 or IPv6 address. */
 int
 fascist_firewall_allows_or(const routerinfo_t *ri)
 {
-  /* XXXX proposal 118 */
-  tor_addr_t addr;
-  tor_addr_from_ipv4h(&addr, ri->addr);
-  return fascist_firewall_allows_address_or(&addr, ri->or_port);
+  if (fascist_firewall_allows_ipv4h_address_or(ri->addr, ri->or_port)) {
+    return 1;
+  }
+
+  if (fascist_firewall_allows_address_or(&ri->ipv6_addr,
+                                         ri->ipv6_orport)) {
+    return 1;
+  }
+
+  return 0;
 }
 
 /** Return true iff we think our firewall will let us make an OR connection to
- * <b>node</b>. */
+ * <b>node</b> on either its IPv4 or IPv6 address. */
 int
 fascist_firewall_allows_node(const node_t *node)
 {
   if (node->ri) {
     return fascist_firewall_allows_or(node->ri);
   } else if (node->rs) {
-    tor_addr_t addr;
-    tor_addr_from_ipv4h(&addr, node->rs->addr);
-    return fascist_firewall_allows_address_or(&addr, node->rs->or_port);
+    if (fascist_firewall_allows_ipv4h_address_or(node->rs->addr,
+                                                 node->rs->or_port)) {
+      return 1;
+    }
+
+    if (fascist_firewall_allows_address_or(&node->rs->ipv6_addr,
+                                           node->rs->ipv6_orport)) {
+      return 1;
+    }
+
+    return 0;
   } else {
     return 1;
   }
 }
 
 /** Return true iff we think our firewall will let us make a directory
- * connection to addr:port.
- * Return 0 if addr is NULL or tor_addr_is_null(), or if port is 0. */
+ * connection to addr:port. */
 int
 fascist_firewall_allows_address_dir(const tor_addr_t *addr, uint16_t port)
 {
-  if (!addr || tor_addr_is_null(addr) || !port) {
-    return 0;
-  }
-
-  return addr_policy_permits_tor_addr(addr, port,
-                                      reachable_dir_addr_policy);
+  return fascist_firewall_allows_address(addr, port,
+                                         reachable_dir_addr_policy);
 }
 
 /** Return 1 if <b>addr</b> is permitted to connect to our dir port,
