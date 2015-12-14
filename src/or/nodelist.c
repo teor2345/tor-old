@@ -214,6 +214,27 @@ nodelist_add_microdesc(microdesc_t *md)
   return node;
 }
 
+/** Do we prefer to connect to IPv6 ORPorts?
+ */
+int
+nodelist_prefer_ipv6_orports(const or_options_t *options)
+{
+  int client = !server_mode(options);
+
+  /* Servers don't have IPv4/IPv6 preferences */
+  if (!client) {
+    return 0;
+  }
+
+  /* We prefer IPv6 ORPorts if the option is set, or we avoid IPv4 */
+  if ((options->ClientUseIPv6 && options->ClientPreferIPv6ORPort == 1)
+      || options->ClientUseIPv4 == 0) {
+    return 1;
+  }
+
+  return 0;
+}
+
 /** Tell the nodelist that the current usable consensus is <b>ns</b>.
  * This makes the nodelist change all of the routerstatus entries for
  * the nodes, drop nodes that no longer have enough info to get used,
@@ -224,7 +245,6 @@ nodelist_set_consensus(networkstatus_t *ns)
 {
   const or_options_t *options = get_options();
   int authdir = authdir_mode_v3(options);
-  int client = !server_mode(options);
 
   init_nodelist();
   if (ns->flavor == FLAV_MICRODESC)
@@ -261,7 +281,7 @@ nodelist_set_consensus(networkstatus_t *ns)
       node->is_bad_exit = rs->is_bad_exit;
       node->is_hs_dir = rs->is_hs_dir;
       node->ipv6_preferred = 0;
-      if (client && options->ClientPreferIPv6ORPort == 1 &&
+      if (nodelist_prefer_ipv6_orports(options) &&
           (tor_addr_is_null(&rs->ipv6_addr) == 0 ||
            (node->md && tor_addr_is_null(&node->md->ipv6_addr) == 0)))
         node->ipv6_preferred = 1;
@@ -889,14 +909,20 @@ node_get_declared_family(const node_t *node)
  *  We prefer the IPv6 address if the router has an IPv6 address and
  *  i) the node_t says that it prefers IPv6
  *  or
- *  ii) the router has no IPv4 address. */
+ *  ii) the router has no IPv4 address.
+ *  or
+ *  iii) our preference is for IPv6 addresses.
+ *  (This extra step is needed in case our preferences have changed since
+ *  node->ipv6_preferred was set at the time the consensus was loaded.)
+ */
 int
 node_ipv6_preferred(const node_t *node)
 {
   tor_addr_port_t ipv4_addr;
   node_assert_ok(node);
 
-  if (node->ipv6_preferred || node_get_prim_orport(node, &ipv4_addr)) {
+  if (node->ipv6_preferred || node_get_prim_orport(node, &ipv4_addr)
+      || nodelist_prefer_ipv6_orports(get_options())) {
     if (node->ri)
       return !tor_addr_is_null(&node->ri->ipv6_addr);
     if (node->md)
@@ -941,18 +967,29 @@ node_get_pref_orport(const node_t *node, tor_addr_port_t *ap_out)
   const or_options_t *options = get_options();
   tor_assert(ap_out);
 
-  /* Cheap implementation of config option ClientUseIPv6 -- simply
-     don't prefer IPv6 when ClientUseIPv6 is not set and we're not a
-     client running with bridges. See #4455 for more on this subject.
+  /* Cheap implementation of config options ClientUseIPv4 & ClientUseIPv6 --
+     if we're a client running with bridges, use whichever they want.
+     Otherwise, use IPv6 if we can and it's preferred, or if IPv4 is disabled.
+     See #4455 and #17840 for more on this subject.
 
      Note that this filter is too strict since we're hindering not
      only clients! Erring on the safe side shouldn't be a problem
      though. XXX move this check to where outgoing connections are
      made? -LN */
-  if ((options->ClientUseIPv6 || options->UseBridges) &&
-      node_ipv6_preferred(node)) {
+  if (options->UseBridges) {
+    /* Just believe whatever the node says it wants */
+    if (node_ipv6_preferred(node)) {
+      node_get_pref_ipv6_orport(node, ap_out);
+    } else {
+      /* the primary ORPort is always on IPv4 */
+      node_get_prim_orport(node, ap_out);
+    }
+  } else if (options->ClientUseIPv6 &&
+             (node_ipv6_preferred(node) || !options->ClientUseIPv4)) {
+    /* Use IPv6 if we can and we prefer it for the node, or if we must. */
     node_get_pref_ipv6_orport(node, ap_out);
   } else {
+    /* the primary ORPort is always on IPv4 */
     node_get_prim_orport(node, ap_out);
   }
 }
