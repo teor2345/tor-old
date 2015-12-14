@@ -3824,6 +3824,7 @@ download_status_increment_failure(download_status_t *dls, int status_code,
      * We'll never find out about successful connections, but this doesn't
      * matter, because schedules are reset after a successful download.
      */
+    if (dls->n_download_attempts < IMPOSSIBLE_TO_DOWNLOAD-1)
       ++dls->n_download_attempts;
 
     /* only return a failure retry time if this schedule increments on failures
