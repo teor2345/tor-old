@@ -3703,7 +3703,7 @@ test_dir_download_status_increment(void *arg)
                                               current_time);
   tt_assert(next_at == current_time + delay1);
   tt_assert(download_status_get_n_failures(&dls_failure) == 1);
-  tt_assert(download_status_get_n_attempts(&dls_failure) == 0);
+  tt_assert(download_status_get_n_attempts(&dls_failure) == 1);
   tt_assert(mock_get_options_calls >= 1);
 
   /* check that an incremented schedule becomes ready at the right time */
@@ -3722,13 +3722,14 @@ test_dir_download_status_increment(void *arg)
                                      current_time + delay1 + 10,
                                      0) == 0);
 
-  /* Check that failure increments don't happen on 503 for clients */
+  /* Check that failure increments don't happen on 503 for clients, but that
+   * attempt increments do. */
   mock_get_options_calls = 0;
   next_at = download_status_increment_failure(&dls_failure, 503, "test", 0,
                                               current_time);
   tt_assert(next_at == current_time + delay1);
   tt_assert(download_status_get_n_failures(&dls_failure) == 1);
-  tt_assert(download_status_get_n_attempts(&dls_failure) == 0);
+  tt_assert(download_status_get_n_attempts(&dls_failure) == 2);
   tt_assert(mock_get_options_calls >= 1);
 
   /* Check that failure increments do happen on 503 for servers */
@@ -3737,7 +3738,7 @@ test_dir_download_status_increment(void *arg)
                                               current_time);
   tt_assert(next_at == current_time + delay2);
   tt_assert(download_status_get_n_failures(&dls_failure) == 2);
-  tt_assert(download_status_get_n_attempts(&dls_failure) == 0);
+  tt_assert(download_status_get_n_attempts(&dls_failure) == 3);
   tt_assert(mock_get_options_calls >= 1);
 
   /* Check what happens when we run off the end of the schedule */
@@ -3746,7 +3747,7 @@ test_dir_download_status_increment(void *arg)
                                               current_time);
   tt_assert(next_at == current_time + delay2);
   tt_assert(download_status_get_n_failures(&dls_failure) == 3);
-  tt_assert(download_status_get_n_attempts(&dls_failure) == 0);
+  tt_assert(download_status_get_n_attempts(&dls_failure) == 4);
   tt_assert(mock_get_options_calls >= 1);
 
   /* Check what happens when we hit the failure limit */
