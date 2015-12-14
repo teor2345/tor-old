@@ -22,13 +22,30 @@
 #define EXIT_POLICY_REJECT_PRIVATE (1 << 1)
 #define EXIT_POLICY_ADD_DEFAULT    (1 << 2)
 
+typedef enum firewall_connection_t {
+  FIREWALL_OR_CONNECTION      = 0,
+  FIREWALL_DIR_CONNECTION     = 1
+} firewall_connection_t;
+
 typedef int exit_policy_parser_cfg_t;
 
-int firewall_is_fascist_or(void);
-int fascist_firewall_allows_address_or(const tor_addr_t *addr, uint16_t port);
-int fascist_firewall_allows_or(const routerinfo_t *ri);
-int fascist_firewall_allows_node(const node_t *node);
-int fascist_firewall_allows_address_dir(const tor_addr_t *addr, uint16_t port);
+int firewall_is_fascist_for(firewall_connection_t fw_connection);
+int fascist_firewall_allows_address_for(const tor_addr_t *addr,
+                                        uint16_t port,
+                                        firewall_connection_t fw_connection);
+int fascist_firewall_allows_ipv4h_address_for(uint32_t ipv4h_or_addr,
+                                          uint16_t ipv4_or_port,
+                                          firewall_connection_t fw_connection);
+int fascist_firewall_allows_ri(const routerinfo_t *ri,
+                               firewall_connection_t fw_connection);
+int fascist_firewall_allows_rs(const routerstatus_t *rs,
+                               firewall_connection_t fw_connection);
+int fascist_firewall_allows_md(const microdesc_t *md,
+                               firewall_connection_t fw_connection);
+int fascist_firewall_allows_node(const node_t *node,
+                                 firewall_connection_t fw_connection);
+int fascist_firewall_allows_dir_server(const dir_server_t *ds,
+                                       firewall_connection_t fw_connection);
 int dir_policy_permits_address(const tor_addr_t *addr);
 int socks_policy_permits_address(const tor_addr_t *addr);
 int authdir_policy_permits_address(uint32_t addr, uint16_t port);
@@ -94,6 +111,9 @@ addr_policy_result_t compare_tor_addr_to_short_policy(
 
 #ifdef POLICIES_PRIVATE
 STATIC void append_exit_policy_string(smartlist_t **policy, const char *more);
+STATIC int fascist_firewall_allows_address(const tor_addr_t *addr,
+                                           uint16_t port,
+                                           smartlist_t *firewall_policy);
 #endif
 
 #endif
