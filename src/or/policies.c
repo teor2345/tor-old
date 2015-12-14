@@ -318,7 +318,8 @@ addr_policy_permits_address(uint32_t addr, uint16_t port,
 }
 
 /** Return true iff we think our firewall will let us make a connection to
- * addr:port, taking ClientUseIPv4 and ClientUseIPv6 into account.
+ * addr:port, taking ClientUseIPv4 and ClientUseIPv6 into account, but only
+ * if UseBridges is not set.
  *
  * Return false if addr is NULL or tor_addr_is_null(), or if port is 0.
  * If */
@@ -332,11 +333,13 @@ fascist_firewall_allows_address(const tor_addr_t *addr, uint16_t port,
     return 0;
   }
 
-  if (!options->ClientUseIPv4 && tor_addr_family(addr) == AF_INET)
-    return 0;
+  if (!options->UseBridges) {
+    if (!options->ClientUseIPv4 && tor_addr_family(addr) == AF_INET)
+      return 0;
 
-  if (!options->ClientUseIPv6 && tor_addr_family(addr) == AF_INET6)
-    return 0;
+    if (!options->ClientUseIPv6 && tor_addr_family(addr) == AF_INET6)
+      return 0;
+  }
 
   return addr_policy_permits_tor_addr(addr, port,
                                       firewall_policy);
