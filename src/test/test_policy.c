@@ -1127,6 +1127,140 @@ test_policies_getinfo_helper_policies(void *arg)
 #undef TEST_IPV4_ADDR
 #undef TEST_IPV6_ADDR
 
+#define TEST_IPV4_ADDR_STR "1.2.3.4"
+#define TEST_IPV6_ADDR_STR "[1002::4567]"
+#define REJECT_IPv4_FINAL_STR "reject 0.0.0.0/0:*"
+#define REJECT_IPv6_FINAL_STR "reject [::]/0:*"
+
+#define OTHER_IPV4_ADDR_STR "6.7.8.9"
+#define OTHER_IPV6_ADDR_STR "[afff::]"
+
+/** Run unit tests for fascist_firewall_allows_address */
+static void
+test_policies_fascist_firewall_allows_address(void *arg)
+{
+  (void)arg;
+  tor_addr_t ipv4_addr, ipv6_addr, r_ipv4_addr, r_ipv6_addr;
+  tor_addr_t n_ipv4_addr, n_ipv6_addr;
+  const uint16_t port = 1234;
+  smartlist_t *policy = NULL;
+  smartlist_t *e_policy = NULL;
+  addr_policy_t *item = NULL;
+  int malformed_list = 0;
+
+  /* Setup the options and the items in the policies */
+  memset(&mock_options, 0, sizeof(or_options_t));
+  MOCK(get_options, mock_get_options);
+
+  policy = smartlist_new();
+  item = router_parse_addr_policy_item_from_string("accept "
+                                                   TEST_IPV4_ADDR_STR ":*",
+                                                   ADDR_POLICY_ACCEPT,
+                                                   &malformed_list);
+  tt_assert(item);
+  tt_assert(!malformed_list);
+  smartlist_add(policy, item);
+  item = router_parse_addr_policy_item_from_string(TEST_IPV6_ADDR_STR,
+                                                   ADDR_POLICY_ACCEPT,
+                                                   &malformed_list);
+  tt_assert(item);
+  tt_assert(!malformed_list);
+  smartlist_add(policy, item);
+  /* Normally, policy_expand_unspec would do this for us */
+  item = router_parse_addr_policy_item_from_string(REJECT_IPv4_FINAL_STR,
+                                                   ADDR_POLICY_ACCEPT,
+                                                   &malformed_list);
+  tt_assert(item);
+  tt_assert(!malformed_list);
+  smartlist_add(policy, item);
+  item = router_parse_addr_policy_item_from_string(REJECT_IPv6_FINAL_STR,
+                                                   ADDR_POLICY_ACCEPT,
+                                                   &malformed_list);
+  tt_assert(item);
+  tt_assert(!malformed_list);
+  smartlist_add(policy, item);
+  item = NULL;
+
+  e_policy = smartlist_new();
+
+  /*
+  char *polstr = policy_dump_to_string(policy, 1, 1);
+  printf("%s\n", polstr);
+  tor_free(polstr);
+   */
+
+  /* Parse the addresses */
+  tor_addr_parse(&ipv4_addr, TEST_IPV4_ADDR_STR);
+  tor_addr_parse(&ipv6_addr, TEST_IPV6_ADDR_STR);
+  tor_addr_parse(&r_ipv4_addr, OTHER_IPV4_ADDR_STR);
+  tor_addr_parse(&r_ipv6_addr, OTHER_IPV6_ADDR_STR);
+  tor_addr_make_null(&n_ipv4_addr, AF_INET);
+  tor_addr_make_null(&n_ipv6_addr, AF_INET6);
+
+  /* Test the function's address matching with IPv4 and IPv6 on */
+  mock_options.ClientUseIPv4 = 1;
+  mock_options.ClientUseIPv6 = 1;
+  mock_options.UseBridges = 0;
+
+  tt_assert(fascist_firewall_allows_address(&ipv4_addr, port, policy) == 1);
+  tt_assert(fascist_firewall_allows_address(&ipv6_addr, port, policy) == 1);
+  tt_assert(fascist_firewall_allows_address(&r_ipv4_addr, port, policy) == 0);
+  tt_assert(fascist_firewall_allows_address(&r_ipv6_addr, port, policy) == 0);
+
+  /* Test the function's address matching with UseBridges on */
+  mock_options.ClientUseIPv4 = 0;
+  mock_options.ClientUseIPv6 = 0;
+  mock_options.UseBridges = 1;
+
+  tt_assert(fascist_firewall_allows_address(&ipv4_addr, port, policy) == 1);
+  tt_assert(fascist_firewall_allows_address(&ipv6_addr, port, policy) == 1);
+  tt_assert(fascist_firewall_allows_address(&r_ipv4_addr, port, policy) == 0);
+  tt_assert(fascist_firewall_allows_address(&r_ipv6_addr, port, policy) == 0);
+
+  /* Test the function's address matching with everything off */
+  mock_options.ClientUseIPv4 = 0;
+  mock_options.ClientUseIPv6 = 0;
+  mock_options.UseBridges = 0;
+
+  tt_assert(fascist_firewall_allows_address(&ipv4_addr, port, policy) == 0);
+  tt_assert(fascist_firewall_allows_address(&ipv6_addr, port, policy) == 0);
+  tt_assert(fascist_firewall_allows_address(&r_ipv4_addr, port, policy) == 0);
+  tt_assert(fascist_firewall_allows_address(&r_ipv6_addr, port, policy) == 0);
+
+  /* Test the function's address matching for unusual inputs */
+  mock_options.ClientUseIPv4 = 1;
+  mock_options.ClientUseIPv6 = 1;
+  mock_options.UseBridges = 1;
+
+  /* NULL and tor_addr_is_null addresses are rejected */
+  tt_assert(fascist_firewall_allows_address(NULL, port, policy) == 0);
+  tt_assert(fascist_firewall_allows_address(&n_ipv4_addr, port, policy) == 0);
+  tt_assert(fascist_firewall_allows_address(&n_ipv6_addr, port, policy) == 0);
+
+  /* zero ports are rejected */
+  tt_assert(fascist_firewall_allows_address(&ipv4_addr, 0, policy) == 0);
+  tt_assert(fascist_firewall_allows_address(&ipv6_addr, 0, policy) == 0);
+
+  /* NULL and empty policies accept everything */
+  tt_assert(fascist_firewall_allows_address(&ipv4_addr, port, NULL) == 1);
+  tt_assert(fascist_firewall_allows_address(&ipv6_addr, port, NULL) == 1);
+  tt_assert(fascist_firewall_allows_address(&ipv4_addr, port, e_policy) == 1);
+  tt_assert(fascist_firewall_allows_address(&ipv6_addr, port, e_policy) == 1);
+
+ done:
+  addr_policy_free(item);
+  addr_policy_list_free(policy);
+  addr_policy_list_free(e_policy);
+  UNMOCK(get_options);
+}
+
+#undef TEST_IPV4_ADDR_STR
+#undef TEST_IPV6_ADDR_STR
+#undef REJECT_IPv4_FINAL_STR
+#undef REJECT_IPv6_FINAL_STR
+#undef OTHER_IPV4_ADDR_STR
+#undef OTHER_IPV6_ADDR_STR
+
 struct testcase_t policy_tests[] = {
   { "router_dump_exit_policy_to_string", test_dump_exit_policy_to_string, 0,
     NULL, NULL },
@@ -1137,6 +1271,8 @@ struct testcase_t policy_tests[] = {
   { "reject_interface_address", test_policies_reject_interface_address, 0,
     NULL, NULL },
   { "reject_port_address", test_policies_reject_port_address, 0, NULL, NULL },
+  { "fascist_firewall_allows_address",
+    test_policies_fascist_firewall_allows_address, 0, NULL, NULL },
   END_OF_TESTCASES
 };
 

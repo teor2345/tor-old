@@ -27,6 +27,9 @@ typedef int exit_policy_parser_cfg_t;
 int firewall_is_fascist_or(void);
 int fascist_firewall_allows_address_or(const tor_addr_t *addr, uint16_t port);
 int fascist_firewall_allows_or(const routerinfo_t *ri);
+#define fascist_firewall_allows_ri(ri) fascist_firewall_allows_or(ri)
+int fascist_firewall_allows_rs(const routerstatus_t *rs);
+int fascist_firewall_allows_md(const microdesc_t *md);
 int fascist_firewall_allows_node(const node_t *node);
 int fascist_firewall_allows_address_dir(const tor_addr_t *addr, uint16_t port);
 int dir_policy_permits_address(const tor_addr_t *addr);
@@ -94,6 +97,9 @@ addr_policy_result_t compare_tor_addr_to_short_policy(
 
 #ifdef POLICIES_PRIVATE
 STATIC void append_exit_policy_string(smartlist_t **policy, const char *more);
+STATIC int fascist_firewall_allows_address(const tor_addr_t *addr,
+                                           uint16_t port,
+                                           smartlist_t *firewall_policy);
 #endif
 
 #endif
