@@ -91,7 +91,7 @@ static download_status_t consensus_dl_status[N_CONSENSUS_FLAVORS] =
                                    DL_SCHED_INCREMENT_FAILURE },
   };
 
-#define N_CONSENSUS_BOOTSTRAP_SOURCES 2
+#define N_CONSENSUS_BOOTSTRAP_SCHEDULES 2
 #define CONSENSUS_BOOTSTRAP_SOURCE_AUTHORITY 0
 #define CONSENSUS_BOOTSTRAP_SOURCE_FALLBACK  1
 
@@ -102,7 +102,7 @@ static download_status_t consensus_dl_status[N_CONSENSUS_FLAVORS] =
  * schedules. There should only be one of these, as all the others will have
  * been cancelled. (This doesn't seem to be a significant issue.) */
 static download_status_t
-                 consensus_bootstrap_dl_status[N_CONSENSUS_BOOTSTRAP_SOURCES] =
+              consensus_bootstrap_dl_status[N_CONSENSUS_BOOTSTRAP_SCHEDULES] =
   {
     { 0, 0, 0, DL_SCHED_CONSENSUS, DL_WANT_AUTHORITY,
                                    DL_SCHED_INCREMENT_ATTEMPT },
@@ -149,7 +149,7 @@ networkstatus_reset_download_failures(void)
   for (i=0; i < N_CONSENSUS_FLAVORS; ++i)
     download_status_reset(&consensus_dl_status[i]);
 
-  for (i=0; i < N_CONSENSUS_BOOTSTRAP_SOURCES; ++i)
+  for (i=0; i < N_CONSENSUS_BOOTSTRAP_SCHEDULES; ++i)
     download_status_reset(&consensus_bootstrap_dl_status[i]);
 }
 
