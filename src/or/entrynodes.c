@@ -268,7 +268,7 @@ entry_is_live(const entry_guard_t *e, entry_is_live_flags_t flags,
     *msg = "not fast/stable";
     return NULL;
   }
-  if (!fascist_firewall_allows_node(node)) {
+  if (!fascist_firewall_allows_node(node, FIREWALL_OR_CONNECTION)) {
     *msg = "unreachable by config";
     return NULL;
   }
@@ -918,7 +918,7 @@ entry_guards_set_from_config(const or_options_t *options)
     } else if (routerset_contains_node(options->ExcludeNodes, node)) {
       SMARTLIST_DEL_CURRENT(entry_nodes, node);
       continue;
-    } else if (!fascist_firewall_allows_node(node)) {
+    } else if (!fascist_firewall_allows_node(node, FIREWALL_OR_CONNECTION)) {
       SMARTLIST_DEL_CURRENT(entry_nodes, node);
       continue;
     } else if (! node->is_possible_guard) {
@@ -2178,7 +2178,8 @@ fetch_bridge_descriptors(const or_options_t *options, time_t now)
                 !options->UpdateBridgesFromAuthority, !num_bridge_auths);
 
       if (ask_bridge_directly &&
-          !fascist_firewall_allows_address_or(&bridge->addr, bridge->port)) {
+          !fascist_firewall_allows_address_for(&bridge->addr, bridge->port,
+                                               FIREWALL_OR_CONNECTION)) {
         log_notice(LD_DIR, "Bridge at '%s' isn't reachable by our "
                    "firewall policy. %s.",
                    fmt_addrport(&bridge->addr, bridge->port),

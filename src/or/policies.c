@@ -270,16 +270,36 @@ parse_reachable_addresses(void)
                "Error parsing ReachableDirAddresses entry; ignoring.");
     ret = -1;
   }
+
+  /* XX/teor - we ignore ReachableAddresses for bridges */
+  if (!options->UseBridges) {
+    if (policy_is_reject_star(reachable_or_addr_policy, AF_UNSPEC)
+        || policy_is_reject_star(reachable_dir_addr_policy, AF_UNSPEC)) {
+      log_warn(LD_CONFIG, "Tor cannot connect to the Internet if "
+               "ReachableAddresses, ReachableORAddresses, or "
+               "ReachableDirAddresses reject all addresses. Please accept "
+               "some addresses in these options.");
+    }
+  }
+
   return ret;
 }
 
 /** Return true iff the firewall options might block any address:port
- * combination.
- */
+ * combination. Uses ReachableORAddresses or ReachableDirAddresses based on
+ * <b>fw_connection</b>. */
 int
-firewall_is_fascist_or(void)
+firewall_is_fascist_for(firewall_connection_t fw_connection)
 {
-  return reachable_or_addr_policy != NULL;
+  if (fw_connection == FIREWALL_OR_CONNECTION) {
+    return reachable_or_addr_policy != NULL;
+  } else if (fw_connection == FIREWALL_DIR_CONNECTION) {
+    return reachable_dir_addr_policy != NULL;
+  } else {
+    log_warn(LD_BUG, "Bad firewall_connection_t value %d.",
+             fw_connection);
+    return 1;
+  }
 }
 
 /** Return true iff <b>policy</b> (possibly NULL) will allow a
@@ -317,59 +337,182 @@ addr_policy_permits_address(uint32_t addr, uint16_t port,
   return addr_policy_permits_tor_addr(&a, port, policy);
 }
 
-/** Return true iff we think our firewall will let us make an OR connection to
- * addr:port.
- * Return 0 if addr is NULL or tor_addr_is_null(), or if port is 0. */
-int
-fascist_firewall_allows_address_or(const tor_addr_t *addr, uint16_t port)
+/** Return true iff we think our firewall will let us make a connection to
+ * addr:port, taking ClientUseIPv4 and ClientUseIPv6 into account, but only
+ * if UseBridges is not set.
+ *
+ * Return false if addr is NULL or tor_addr_is_null(), or if port is 0.
+ * If */
+STATIC int
+fascist_firewall_allows_address(const tor_addr_t *addr, uint16_t port,
+                                smartlist_t *firewall_policy)
 {
+  const or_options_t *options = get_options();
+
   if (!addr || tor_addr_is_null(addr) || !port) {
     return 0;
   }
 
+  if (!options->UseBridges) {
+    if (!options->ClientUseIPv4 && tor_addr_family(addr) == AF_INET)
+      return 0;
+
+    if (!options->ClientUseIPv6 && tor_addr_family(addr) == AF_INET6)
+      return 0;
+  }
+
   return addr_policy_permits_tor_addr(addr, port,
-                                     reachable_or_addr_policy);
+                                      firewall_policy);
 }
 
-/** Return true iff we think our firewall will let us make an OR connection to
- * <b>ri</b>. */
+/** Return true iff we think our firewall will let us make a connection to
+ * addr:port. Uses ReachableORAddresses or ReachableDirAddresses based on
+ * <b>fw_connection</b>. */
 int
-fascist_firewall_allows_or(const routerinfo_t *ri)
+fascist_firewall_allows_address_for(const tor_addr_t *addr, uint16_t port,
+                                    firewall_connection_t fw_connection)
 {
-  /* XXXX proposal 118 */
-  tor_addr_t addr;
-  tor_addr_from_ipv4h(&addr, ri->addr);
-  return fascist_firewall_allows_address_or(&addr, ri->or_port);
-}
-
-/** Return true iff we think our firewall will let us make an OR connection to
- * <b>node</b>. */
-int
-fascist_firewall_allows_node(const node_t *node)
-{
-  if (node->ri) {
-    return fascist_firewall_allows_or(node->ri);
-  } else if (node->rs) {
-    tor_addr_t addr;
-    tor_addr_from_ipv4h(&addr, node->rs->addr);
-    return fascist_firewall_allows_address_or(&addr, node->rs->or_port);
+  if (fw_connection == FIREWALL_OR_CONNECTION) {
+    return fascist_firewall_allows_address(addr, port,
+                                           reachable_or_addr_policy);
+  } else if (fw_connection == FIREWALL_DIR_CONNECTION) {
+    return fascist_firewall_allows_address(addr, port,
+                                           reachable_dir_addr_policy);
   } else {
+    log_warn(LD_BUG, "Bad firewall_connection_t value %d.",
+             fw_connection);
+    return 0;
+  }
+}
+
+/* Return true iff we think our firewall will let us make a connection to
+ * ipv4h_or_addr:ipv4_or_port. ipv4h_or_addr is interpreted in host order.
+ * Uses ReachableORAddresses or ReachableDirAddresses based on
+ * <b>fw_connection</b>. */
+int
+fascist_firewall_allows_ipv4h_address_for(uint32_t ipv4h_or_addr,
+                                          uint16_t ipv4_or_port,
+                                          firewall_connection_t fw_connection)
+{
+  tor_addr_t ipv4_or_addr;
+  tor_addr_from_ipv4h(&ipv4_or_addr, ipv4h_or_addr);
+  return fascist_firewall_allows_address_for(&ipv4_or_addr, ipv4_or_port,
+                                             fw_connection);
+}
+
+/** Return true iff we think our firewall will let us make a connection to
+ * <b>ri</b> on either its IPv4 or IPv6 address. Uses ReachableORAddresses or
+ * ReachableDirAddresses based on <b>fw_connection</b>. */
+int
+fascist_firewall_allows_ri(const routerinfo_t *ri,
+                           firewall_connection_t fw_connection)
+{
+  if (!ri) {
+    return 0;
+  }
+
+  if (fascist_firewall_allows_ipv4h_address_for(ri->addr, ri->or_port,
+                                                fw_connection)) {
+    return 1;
+  }
+
+  if (fascist_firewall_allows_address_for(&ri->ipv6_addr,
+                                          ri->ipv6_orport,
+                                          fw_connection)) {
+    return 1;
+  }
+
+  return 0;
+}
+
+/** Return true iff we think our firewall will let us make a connection to
+ * <b>rs</b> on either its IPv4 or IPv6 address. Uses ReachableORAddresses or
+ * ReachableDirAddresses based on <b>fw_connection</b>. */
+int
+fascist_firewall_allows_rs(const routerstatus_t *rs,
+                           firewall_connection_t fw_connection)
+{
+  if (!rs) {
+    return 0;
+  }
+
+  if (fascist_firewall_allows_ipv4h_address_for(rs->addr,
+                                                rs->or_port,
+                                                fw_connection)) {
+    return 1;
+  }
+
+  if (fascist_firewall_allows_address_for(&rs->ipv6_addr,
+                                          rs->ipv6_orport,
+                                          fw_connection)) {
+    return 1;
+  }
+
+  return 0;
+}
+
+/** Return true iff we think our firewall will let us make a connection to
+ * <b>md</b> on its IPv6 address. (The IPv4 address is in the routerstatus and
+ * the routerinfo.) Uses ReachableORAddresses or ReachableDirAddresses based on
+ * <b>fw_connection</b>. */
+int
+fascist_firewall_allows_md(const microdesc_t *md,
+                           firewall_connection_t fw_connection)
+{
+  if (!md) {
+    return 0;
+  }
+
+  if (fascist_firewall_allows_address_for(&md->ipv6_addr,
+                                          md->ipv6_orport,
+                                          fw_connection)) {
+    return 1;
+  }
+
+  return 0;
+}
+
+/** Return true iff we think our firewall will let us make a connection to
+ * <b>node</b> on either its IPv4 or IPv6 address. Uses ReachableORAddresses or
+ * ReachableDirAddresses based on <b>fw_connection</b>. */
+int
+fascist_firewall_allows_node(const node_t *node,
+                             firewall_connection_t fw_connection)
+{
+  if (!node) {
+    return 0;
+  }
+
+  if (node->ri) {
+    return fascist_firewall_allows_ri(node->ri, fw_connection);
+  } else if (node->rs) {
+    return fascist_firewall_allows_rs(node->rs, fw_connection);
+  } else if (node->md) {
+    /* XX/teor - Can a node ever have only an md without a rs?
+     *           Can the md be more recent than the ri/rs? */
+    return fascist_firewall_allows_md(node->md, fw_connection);
+  } else {
+    /* XX/teor - do we really want to return 1 by default here?
+     *           do we ever reach this code? */
     return 1;
   }
 }
 
-/** Return true iff we think our firewall will let us make a directory
- * connection to addr:port.
- * Return 0 if addr is NULL or tor_addr_is_null(), or if port is 0. */
+/** Return true iff we think our firewall will let us make a connection to
+ * <b>ds</b> on either its IPv4 or IPv6 address. Uses ReachableORAddresses or
+ * ReachableDirAddresses based on <b>fw_connection</b>. */
 int
-fascist_firewall_allows_address_dir(const tor_addr_t *addr, uint16_t port)
+fascist_firewall_allows_dir_server(const dir_server_t *ds,
+                                   firewall_connection_t fw_connection)
 {
-  if (!addr || tor_addr_is_null(addr) || !port) {
+  if (!ds) {
     return 0;
   }
 
-  return addr_policy_permits_tor_addr(addr, port,
-                                      reachable_dir_addr_policy);
+  /* A dir_server_t always has a fake_status. As long as it has the same
+   * addresses/ports in both fake_status and dir_server_t, this works fine.
+   * (See #17867.) */
+  return fascist_firewall_allows_rs(&ds->fake_status, fw_connection);
 }
 
 /** Return 1 if <b>addr</b> is permitted to connect to our dir port,
