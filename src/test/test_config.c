@@ -1591,7 +1591,6 @@ test_config_parsing_fallback_dir_server(void *arg)
 #undef TEST_DIR_FALLBACK_LINE
 #undef TEST_DIR_FALLBACK_IPV6_FLAG
 
-
 static void
 test_config_adding_default_trusted_dir_servers(void *arg)
 {
