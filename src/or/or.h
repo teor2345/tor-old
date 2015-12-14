@@ -1946,8 +1946,8 @@ typedef enum {
 } saved_location_t;
 #define saved_location_bitfield_t ENUM_BF(saved_location_t)
 
-/** Enumeration: what kind of download schedule are we using for a given
- * object? */
+/** Enumeration: what directory object is being downloaded?
+ * This determines which schedule is selected to perform the download. */
 typedef enum {
   DL_SCHED_GENERIC = 0,
   DL_SCHED_CONSENSUS = 1,
@@ -1955,11 +1955,11 @@ typedef enum {
 } download_schedule_t;
 #define download_schedule_bitfield_t ENUM_BF(download_schedule_t)
 
-/** Enumeration: do we want to try an authority or use any available directory
- * mirror?
- * During bootstrap, this means a fallback (or an authority, if there
+/** Enumeration: is the download schedule for downloading from an authority,
+ * or from any available directory mirror?
+ * During bootstrap, "any" means a fallback (or an authority, if there
  * are no fallbacks).
- * When we have a valid consensus, this means any directory server. */
+ * When we have a valid consensus, "any" means any directory server. */
 typedef enum {
   DL_WANT_ANY_DIRSERVER = 0,
   DL_WANT_AUTHORITY = 1,
@@ -1967,8 +1967,9 @@ typedef enum {
 #define download_want_authority_bitfield_t \
                                         ENUM_BF(download_want_authority_t)
 
-/** Enumeration: do we want to increment the schedule on (potentially
- * concurrent) attempt or on failure? */
+/** Enumeration: do we want to increment the schedule position each time a
+ * connection is attempted (these attempts can be concurrent), or do we want
+ * to increment the schedule position after a connection fails? */
 typedef enum {
   DL_SCHED_INCREMENT_FAILURE = 0,
   DL_SCHED_INCREMENT_ATTEMPT = 1,
@@ -1977,28 +1978,51 @@ typedef enum {
                                         ENUM_BF(download_schedule_increment_t)
 
 /** Information about our plans for retrying downloads for a downloadable
- * object. */
+ * directory object.
+ * Each type of downloadable directory object has a corresponding retry
+ * <b>schedule</b>, which can be different depending on whether the object is
+ * being downloaded from an authority or a mirror (<b>want_authority</b>).
+ * <b>next_attempt_at</b> contains the next time we will attempt to download
+ * the object.
+ * For schedules that <b>increment_on</b> failure, <b>n_download_failures</b>
+ * is used to determine the position in the schedule. (Each schedule is a
+ * smartlist of integer delays, parsed from a CSV option.) Every time a
+ * connection attempt fails, <b>n_download_failures</b> is incremented,
+ * the new delay value is looked up from the schedule, and
+ * <b>next_attempt_at</b> is set delay seconds from the time the previous
+ * connection failed. Therefore, at most one failure-based connection can be
+ * in progress for each download_status_t.
+ * For schedules that <b>increment_on</b> attempt, <b>n_download_attempts</b>
+ * is used to determine the position in the schedule. Every time a
+ * connection attempt is made, <b>n_download_attempts</b> is incremented,
+ * the new delay value is looked up from the schedule, and
+ * <b>next_attempt_at</b> is set delay seconds from the time the previous
+ * connection was attempted. Therefore, multiple concurrent attempted-based
+ * connections can be in progress for each download_status_t.
+ * After an object is successfully downloaded, any other concurrent connections
+ * are terminated. A new schedule which starts at position 0 is used for
+ * subsequent downloads of the same object.
+ */
 typedef struct download_status_t {
   time_t next_attempt_at; /**< When should we try downloading this object
                            * again? */
-  uint8_t n_download_failures; /**< Number of failures trying to download the
-                                * most recent object since the last success. */
+  uint8_t n_download_failures; /**< Number of failed downloads of the most
+                                * recent object, since the last success. */
   uint8_t n_download_attempts; /**< Number of (potentially concurrent) attempts
                                 * to download the most recent object, since
-                                * the last success.
-                                * Only used for concurrent download schedules.
-                                */
-  download_schedule_bitfield_t schedule : 8; /**< what kind of download
-                                        * schedule are we using for a given
-                                        * object? */
-  download_want_authority_bitfield_t want_authority : 1; /**< is this
-                                        * download schedule for authority
-                                        * downloads or fallback downloads? */
+                                * the last success. */
+  download_schedule_bitfield_t schedule : 8; /**< What kind of object is being
+                                              * downloaded? This determines the
+                                              * schedule used for the download.
+                                              */
+  download_want_authority_bitfield_t want_authority : 1; /**< Is the download
+                                              * happening from an authority
+                                              * or a mirror? This determines
+                                              * the schedule used for the
+                                              * download. */
   download_schedule_increment_bitfield_t increment_on : 1; /**< does this
                                         * schedule increment on each attempt,
-                                        * or on each failure?
-                                        * This is significant for concurrent
-                                        * connection attempts. */
+                                        * or after each failure? */
 } download_status_t;
 
 /** If n_download_failures is this high, the download can never happen. */
