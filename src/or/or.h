@@ -4061,12 +4061,18 @@ typedef struct {
    * over randomly chosen exits. */
   int ClientRejectInternalAddresses;
 
-  /** If true, clients may connect over IPv6. XXX we don't really
-      enforce this -- clients _may_ set up outgoing IPv6 connections
-      even when this option is not set. */
+  /** If true, clients may connect over IPv4. If false, they will avoid
+   * connecting over IPv4. We enforce this for OR and Dir connections. */
+  int ClientUseIPv4;
+  /** If true, clients may connect over IPv6. If false, they will avoid
+   * connecting over IPv4. We enforce this for OR and Dir connections. */
   int ClientUseIPv6;
-  /** If true, prefer an IPv6 OR port over an IPv4 one. */
+  /** If true, prefer an IPv6 OR port over an IPv4 one for entry node
+   * connections. */
   int ClientPreferIPv6ORPort;
+  /** If true, prefer an IPv6 directory port over an IPv4 one for direct
+   * directory connections. */
+  int ClientPreferIPv6DirPort;
 
   /** The length of time that we think a consensus should be fresh. */
   int V3AuthVotingInterval;
@@ -5125,6 +5131,8 @@ typedef struct dir_server_t {
   char *description;
   char *nickname;
   char *address; /**< Hostname. */
+  /* XX/teor - why do we duplicate the address and port fields here and in
+   *           fake_status? Surely we could just use fake_status (#17867). */
   tor_addr_t ipv6_addr; /**< IPv6 address if present; AF_UNSPEC if not */
   uint32_t addr; /**< IPv4 address. */
   uint16_t dir_port; /**< Directory port. */

@@ -47,6 +47,7 @@ int authority_cert_is_blacklisted(const authority_cert_t *cert);
 
 const routerstatus_t *router_pick_directory_server(dirinfo_type_t type,
                                                    int flags);
+int router_prefer_ipv6_dirport(const or_options_t *options);
 dir_server_t *router_get_trusteddirserver_by_digest(const char *d);
 dir_server_t *router_get_fallback_dirserver_by_digest(
                                                    const char *digest);
