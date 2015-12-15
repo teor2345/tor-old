@@ -515,6 +515,35 @@ fascist_firewall_allows_dir_server(const dir_server_t *ds,
   return fascist_firewall_allows_rs(&ds->fake_status, fw_connection);
 }
 
+/** If a and b are both valid and allowed by fw_connection, choose one based
+ * on want_a and return it.
+ * Otherwise, return whichever is valid and allowed by fw_connection.
+ * Otherwise, return NULL. */
+const tor_addr_port_t *
+fascist_firewall_preferred_address(const tor_addr_port_t *a,
+                                   const tor_addr_port_t *b,
+                                   int want_a,
+                                   firewall_connection_t fw_connection)
+{
+  /* Find the preferred and alternate addresses */
+  const tor_addr_port_t *pref_ap = tor_addr_port_choose(a, b, want_a);
+  const tor_addr_port_t *alt_ap = tor_addr_port_choose(a, b, !want_a);
+
+  /* Now put them through the firewall to see which we'll use */
+  if (pref_ap && fascist_firewall_allows_address_for(&pref_ap->addr,
+                                                     pref_ap->port,
+                                                     fw_connection)) {
+    return pref_ap;
+  } else if (alt_ap && fascist_firewall_allows_address_for(&alt_ap->addr,
+                                                           alt_ap->port,
+                                                           fw_connection)) {
+    return alt_ap;
+  } else {
+    /* Both are invalid or blocked */
+    return NULL;
+  }
+}
+
 /** Return 1 if <b>addr</b> is permitted to connect to our dir port,
  * based on <b>dir_policy</b>. Else return 0.
  */
