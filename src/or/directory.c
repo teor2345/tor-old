@@ -82,18 +82,18 @@ static void dir_microdesc_download_failed(smartlist_t *failed,
 static void note_client_request(int purpose, int compressed, size_t bytes);
 static int client_likes_consensus(networkstatus_t *v, const char *want_url);
 
-static void directory_initiate_command_rend(const tor_addr_t *addr,
-                                            uint16_t or_port,
-                                            uint16_t dir_port,
-                                            const char *digest,
-                                            uint8_t dir_purpose,
-                                            uint8_t router_purpose,
-                                            dir_indirection_t indirection,
-                                            const char *resource,
-                                            const char *payload,
-                                            size_t payload_len,
-                                            time_t if_modified_since,
-                                            const rend_data_t *rend_query);
+static void directory_initiate_command_rend(
+                                          const tor_addr_port_t *or_addr_port,
+                                          const tor_addr_port_t *dir_addr_port,
+                                          const char *digest,
+                                          uint8_t dir_purpose,
+                                          uint8_t router_purpose,
+                                          dir_indirection_t indirection,
+                                          const char *resource,
+                                          const char *payload,
+                                          size_t payload_len,
+                                          time_t if_modified_since,
+                                          const rend_data_t *rend_query);
 
 /********* START VARIABLES **********/
 
@@ -622,8 +622,12 @@ directory_initiate_command_routerstatus_rend(const routerstatus_t *status,
                                              const rend_data_t *rend_query)
 {
   const or_options_t *options = get_options();
+  const int pref_ipv6_or = nodelist_prefer_ipv6_orports(options);
+  const int pref_ipv6_dir = router_prefer_ipv6_dirports(options);
   const node_t *node;
-  tor_addr_t addr;
+  tor_addr_port_t ipv4_or_ap, ipv6_or_ap, ipv4_dir_ap, ipv6_dir_ap;
+  const tor_addr_port_t *use_or_ap = NULL;
+  const tor_addr_port_t *use_dir_ap = NULL;
   const int anonymized_connection = dirind_is_anon(indirection);
   node = node_get_by_id(status->identity_digest);
 
@@ -633,7 +637,6 @@ directory_initiate_command_routerstatus_rend(const routerstatus_t *status,
              routerstatus_describe(status));
     return;
   }
-  tor_addr_from_ipv4h(&addr, status->addr);
 
   if (options->ExcludeNodes && options->StrictNodes &&
       routerset_contains_routerstatus(options->ExcludeNodes, status, -1)) {
@@ -645,8 +648,61 @@ directory_initiate_command_routerstatus_rend(const routerstatus_t *status,
     return;
   }
 
-  directory_initiate_command_rend(&addr,
-                             status->or_port, status->dir_port,
+  /* At this point, if we are a clients making a direct connection to a
+   * directory server, we have selected a server that has at least one address
+   * allowed by ClientUseIPv4/6 and Reachable{"",OR,Dir}Addresses. This
+   * selection uses the preference in ClientPreferIPv6{OR,Dir}Port, if
+   * possible. (If UseBridges is set, clients ignore all these settings.)
+   *
+   * Now we use a similar process to select an address for the relay,
+   * but simply use the other address if the one we want isn't allowed by
+   * the firewall.
+   *
+   * (When Tor uploads and downloads a hidden service descriptor, it uses
+   * DIRIND_ANONYMOUS, except for Tor2Web, which uses DIRIND_ONEHOP.
+   * So this code will only modify the address for Tor2Web's HS descriptor
+   * fetches. Even Single Onion Servers (NYI) use DIRIND_ANONYMOUS, to avoid
+   * HSDirs denying service by rejecting descriptors.)
+   */
+
+  /* Setup the alternative addresses */
+  tor_addr_from_ipv4h(&ipv4_or_ap.addr, status->addr);
+  ipv4_or_ap.port = status->or_port;
+  tor_addr_copy(&ipv6_or_ap.addr, &status->ipv6_addr);
+  ipv6_or_ap.port = status->ipv6_orport;
+
+  /* Assume IPv6 DirPort is the same as IPv4 DirPort */
+  /* XX/teor - modify dir_port usage for #12538 - all relays dir caches? */
+  tor_addr_from_ipv4h(&ipv4_dir_ap.addr, status->addr);
+  ipv4_dir_ap.port = status->dir_port;
+  tor_addr_copy(&ipv6_dir_ap.addr, &status->ipv6_addr);
+  ipv6_dir_ap.port = status->dir_port;
+
+  /* We use an IPv6 address if we have one and we prefer it.
+   * Use the preferred address and port if they are reachable, otherwise,
+   * use the alternate address and port (if any).
+   */
+
+  /* Use the primary (IPv4) OR address if we're making an indirect connection.
+   */
+  if (anonymized_connection) {
+    use_or_ap = &ipv4_or_ap;
+  } else {
+    use_or_ap = fascist_firewall_preferred_address(&ipv6_or_ap,
+                                                   &ipv4_or_ap,
+                                                   pref_ipv6_or,
+                                                   FIREWALL_OR_CONNECTION);
+  }
+
+  use_dir_ap = fascist_firewall_preferred_address(&ipv6_dir_ap,
+                                                  &ipv4_dir_ap,
+                                                  pref_ipv6_dir,
+                                                  FIREWALL_OR_CONNECTION);
+
+  /* XX/teor - we don't retry the alternate OR/Dir address if this one fails.
+   * (See #6772.) Instead, we'll retry another directory on failure. */
+
+  directory_initiate_command_rend(use_or_ap, use_dir_ap,
                              status->identity_digest,
                              dir_purpose, router_purpose,
                              indirection, resource,
@@ -880,11 +936,14 @@ directory_command_should_use_begindir(const or_options_t *options,
   return 1;
 }
 
-/** Helper for directory_initiate_command_routerstatus: send the
- * command to a server whose address is <b>address</b>, whose IP is
- * <b>addr</b>, whose directory port is <b>dir_port</b>, whose tor version
- * <b>supports_begindir</b>, and whose identity key digest is
- * <b>digest</b>. */
+/** Helper for directory_initiate_command_rend: send the
+ * command to a server whose address is <b>_addr</b>, whose OR port is
+ * <b>or_port</b>, whose directory port is <b>dir_port</b>, whose identity key
+ * digest is <b>digest</b>, with purposes <b>dir_purpose</b> and
+ * <b>router_purpose</b>, making an (in)direct connection as specified in
+ * <b>indirection</b>, with command <b>resource</b>, <b>payload</b> of
+ * <b>payload_len</b>, and asking for a result only <b>if_modified_since</b>.
+ */
 void
 directory_initiate_command(const tor_addr_t *_addr,
                            uint16_t or_port, uint16_t dir_port,
@@ -894,7 +953,27 @@ directory_initiate_command(const tor_addr_t *_addr,
                            const char *payload, size_t payload_len,
                            time_t if_modified_since)
 {
-  directory_initiate_command_rend(_addr, or_port, dir_port,
+  /* Assume _addr applies to both the ORPort and the DirPort, but use the
+   * null tor_addr if ORPort or DirPort are 0. */
+  tor_addr_port_t or_ap, dir_ap;
+
+  if (or_port) {
+    tor_addr_copy(&or_ap.addr, _addr);
+  } else {
+    /* the family doesn't matter here, so make it the same as _addr */
+    tor_addr_make_null(&or_ap.addr, tor_addr_family(_addr));
+  }
+  or_ap.port = or_port;
+
+  if (dir_port) {
+    tor_addr_copy(&dir_ap.addr, _addr);
+  } else {
+    /* the family doesn't matter here, so make it the same as _addr */
+    tor_addr_make_null(&dir_ap.addr, tor_addr_family(_addr));
+  }
+  dir_ap.port = dir_port;
+
+  directory_initiate_command_rend(&or_ap, &dir_ap,
                              digest, dir_purpose,
                              router_purpose, indirection,
                              resource, payload, payload_len,
@@ -914,10 +993,11 @@ is_sensitive_dir_purpose(uint8_t dir_purpose)
 }
 
 /** Same as directory_initiate_command(), but accepts rendezvous data to
- * fetch a hidden service descriptor. */
+ * fetch a hidden service descriptor, and takes its address & port arguments
+ * as tor_addr_port_t. */
 static void
-directory_initiate_command_rend(const tor_addr_t *_addr,
-                                uint16_t or_port, uint16_t dir_port,
+directory_initiate_command_rend(const tor_addr_port_t *or_addr_port,
+                                const tor_addr_port_t *dir_addr_port,
                                 const char *digest,
                                 uint8_t dir_purpose, uint8_t router_purpose,
                                 dir_indirection_t indirection,
@@ -926,19 +1006,24 @@ directory_initiate_command_rend(const tor_addr_t *_addr,
                                 time_t if_modified_since,
                                 const rend_data_t *rend_query)
 {
+  tor_assert(or_addr_port);
+  tor_assert(dir_addr_port);
+  tor_assert(or_addr_port->port || dir_addr_port->port);
+  tor_assert(digest);
+
   dir_connection_t *conn;
   const or_options_t *options = get_options();
   int socket_error = 0;
-  int use_begindir = directory_command_should_use_begindir(options, _addr,
-                                     or_port, router_purpose, indirection);
+  const int use_begindir = directory_command_should_use_begindir(options,
+                                     &or_addr_port->addr, or_addr_port->port,
+                                     router_purpose, indirection);
   const int anonymized_connection = dirind_is_anon(indirection);
+  const int or_connection = use_begindir || anonymized_connection;
+
   tor_addr_t addr;
-
-  tor_assert(_addr);
-  tor_assert(or_port || dir_port);
-  tor_assert(digest);
-
-  tor_addr_copy(&addr, _addr);
+  tor_addr_copy(&addr, &(or_connection ? or_addr_port : dir_addr_port)->addr);
+  uint16_t port = (or_connection ? or_addr_port : dir_addr_port)->port;
+  uint16_t dir_port = dir_addr_port->port;
 
   log_debug(LD_DIR, "anonymized %d, use_begindir %d.",
             anonymized_connection, use_begindir);
@@ -954,7 +1039,7 @@ directory_initiate_command_rend(const tor_addr_t *_addr,
 
   /* ensure that we don't make direct connections when a SOCKS server is
    * configured. */
-  if (!anonymized_connection && !use_begindir && !options->HTTPProxy &&
+  if (!or_connection && !options->HTTPProxy &&
       (options->Socks4Proxy || options->Socks5Proxy)) {
     log_warn(LD_DIR, "Cannot connect to a directory server through a "
                      "SOCKS proxy!");
@@ -971,7 +1056,7 @@ directory_initiate_command_rend(const tor_addr_t *_addr,
 
   /* set up conn so it's got all the data we need to remember */
   tor_addr_copy(&conn->base_.addr, &addr);
-  conn->base_.port = use_begindir ? or_port : dir_port;
+  conn->base_.port = port;
   conn->base_.address = tor_dup_addr(&addr);
   memcpy(conn->identity_digest, digest, DIGEST_LEN);
 
@@ -989,7 +1074,7 @@ directory_initiate_command_rend(const tor_addr_t *_addr,
   if (rend_query)
     conn->rend_data = rend_data_dup(rend_query);
 
-  if (!anonymized_connection && !use_begindir) {
+  if (!or_connection) {
     /* then we want to connect to dirport directly */
 
     if (options->HTTPProxy) {
