@@ -46,6 +46,11 @@ int fascist_firewall_allows_node(const node_t *node,
                                  firewall_connection_t fw_connection);
 int fascist_firewall_allows_dir_server(const dir_server_t *ds,
                                        firewall_connection_t fw_connection);
+const tor_addr_port_t * fascist_firewall_preferred_address(
+                                          const tor_addr_port_t *a,
+                                          const tor_addr_port_t *b,
+                                          int want_a,
+                                          firewall_connection_t fw_connection);
 int dir_policy_permits_address(const tor_addr_t *addr);
 int socks_policy_permits_address(const tor_addr_t *addr);
 int authdir_policy_permits_address(uint32_t addr, uint16_t port);
