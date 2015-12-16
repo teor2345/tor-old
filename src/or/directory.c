@@ -953,11 +953,24 @@ directory_initiate_command(const tor_addr_t *_addr,
                            const char *payload, size_t payload_len,
                            time_t if_modified_since)
 {
-  /* Assume _addr applies to both the DirPort and ORPort. */
+  /* Assume _addr applies to both the ORPort and the DirPort, but use the
+   * null tor_addr if ORPort or DirPort are 0. */
   tor_addr_port_t or_ap, dir_ap;
-  tor_addr_copy(&or_ap.addr, _addr);
+
+  if (or_port) {
+    tor_addr_copy(&or_ap.addr, _addr);
+  } else {
+    /* the family doesn't matter here, so make it the same as _addr */
+    tor_addr_make_null(&or_ap.addr, tor_addr_family(_addr));
+  }
   or_ap.port = or_port;
-  tor_addr_copy(&dir_ap.addr, _addr);
+
+  if (dir_port) {
+    tor_addr_copy(&dir_ap.addr, _addr);
+  } else {
+    /* the family doesn't matter here, so make it the same as _addr */
+    tor_addr_make_null(&dir_ap.addr, tor_addr_family(_addr));
+  }
   dir_ap.port = dir_port;
 
   directory_initiate_command_rend(&or_ap, &dir_ap,
