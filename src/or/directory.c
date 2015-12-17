@@ -346,8 +346,9 @@ directory_post_to_dirservers(uint8_t dir_purpose, uint8_t router_purpose,
       if (purpose_needs_anonymity(dir_purpose, router_purpose)) {
         indirection = DIRIND_ANONYMOUS;
       } else if (!fascist_firewall_allows_dir_server(ds,
-                                                  FIREWALL_DIR_CONNECTION)) {
-        if (fascist_firewall_allows_dir_server(ds, FIREWALL_OR_CONNECTION))
+                                                     FIREWALL_DIR_CONNECTION,
+                                                     0)) {
+        if (fascist_firewall_allows_dir_server(ds, FIREWALL_OR_CONNECTION, 0))
           indirection = DIRIND_ONEHOP;
         else
           indirection = DIRIND_ANONYMOUS;
@@ -629,6 +630,9 @@ directory_initiate_command_routerstatus_rend(const routerstatus_t *status,
   const tor_addr_port_t *use_or_ap = NULL;
   const tor_addr_port_t *use_dir_ap = NULL;
   const int anonymized_connection = dirind_is_anon(indirection);
+  /* this argument is ignored as long as the address pair is IPv4/IPv6 */
+  const int want_ignored = 1;
+
   node = node_get_by_id(status->identity_digest);
 
   if (!node && anonymized_connection) {
@@ -687,16 +691,18 @@ directory_initiate_command_routerstatus_rend(const routerstatus_t *status,
      * Use the preferred address and port if they are reachable, otherwise,
      * use the alternate address and port (if any).
      */
-    use_or_ap = fascist_firewall_preferred_address(&ipv6_or_ap,
-                                                   &ipv4_or_ap,
-                                                   pref_ipv6_or,
-                                                   FIREWALL_OR_CONNECTION);
+    use_or_ap = fascist_firewall_choose_address(&ipv4_or_ap,
+                                                &ipv6_or_ap,
+                                                want_ignored,
+                                                FIREWALL_OR_CONNECTION,
+                                                0);
   }
 
-  use_dir_ap = fascist_firewall_preferred_address(&ipv6_dir_ap,
-                                                  &ipv4_dir_ap,
-                                                  pref_ipv6_dir,
-                                                  FIREWALL_DIR_CONNECTION);
+  use_dir_ap = fascist_firewall_choose_address(&ipv4_dir_ap,
+                                               &ipv6_dir_ap,
+                                               want_ignored,
+                                               FIREWALL_DIR_CONNECTION,
+                                               0);
 
   /* XX/teor - we don't retry the alternate OR/Dir address if this one fails.
    * (See #6772.) Instead, we'll retry another directory on failure. */
@@ -928,8 +934,8 @@ directory_command_should_use_begindir(const or_options_t *options,
   if (indirection == DIRIND_DIRECT_CONN || indirection == DIRIND_ANON_DIRPORT)
     return 0;
   if (indirection == DIRIND_ONEHOP)
-    if (!fascist_firewall_allows_address_for(addr, or_port,
-                                             FIREWALL_OR_CONNECTION) ||
+    if (!fascist_firewall_allows_address_addr(addr, or_port,
+                                              FIREWALL_OR_CONNECTION, 0) ||
         directory_fetches_from_authorities(options))
       return 0; /* We're firewalled or are acting like a relay -- also no. */
   return 1;

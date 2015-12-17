@@ -1515,6 +1515,48 @@ router_is_already_dir_fetching(const tor_addr_port_t *ap, int serverdesc,
   return 0;
 }
 
+/* Check if we already have a directory fetch from ds, for serverdesc
+ * (including extrainfo) or microdesc documents.
+ * If so, return 1, if not, return 0.
+ */
+static int
+router_is_already_dir_fetching_ds(const dir_server_t *ds,
+                                  int serverdesc,
+                                  int microdesc)
+{
+  tor_addr_port_t ipv4_dir_ap, ipv6_dir_ap;
+
+  /* Assume IPv6 DirPort is the same as IPv4 DirPort */
+  tor_addr_from_ipv4h(&ipv4_dir_ap.addr, ds->addr);
+  ipv4_dir_ap.port = ds->dir_port;
+  tor_addr_copy(&ipv6_dir_ap.addr, &ds->ipv6_addr);
+  ipv6_dir_ap.port = ds->dir_port;
+
+  return (router_is_already_dir_fetching(&ipv4_dir_ap, serverdesc, microdesc)
+       || router_is_already_dir_fetching(&ipv6_dir_ap, serverdesc, microdesc));
+}
+
+/* Check if we already have a directory fetch from rs, for serverdesc
+ * (including extrainfo) or microdesc documents.
+ * If so, return 1, if not, return 0.
+ */
+static int
+router_is_already_dir_fetching_rs(const routerstatus_t *rs,
+                                  int serverdesc,
+                                  int microdesc)
+{
+  tor_addr_port_t ipv4_dir_ap, ipv6_dir_ap;
+
+  /* Assume IPv6 DirPort is the same as IPv4 DirPort */
+  tor_addr_from_ipv4h(&ipv4_dir_ap.addr, rs->addr);
+  ipv4_dir_ap.port = rs->dir_port;
+  tor_addr_copy(&ipv6_dir_ap.addr, &rs->ipv6_addr);
+  ipv6_dir_ap.port = rs->dir_port;
+
+  return (router_is_already_dir_fetching(&ipv4_dir_ap, serverdesc, microdesc)
+       || router_is_already_dir_fetching(&ipv6_dir_ap, serverdesc, microdesc));
+}
+
 /** How long do we avoid using a directory server after it's given us a 503? */
 #define DIR_503_TIMEOUT (60*60)
 
@@ -1534,8 +1576,6 @@ router_is_already_dir_fetching(const tor_addr_port_t *ap, int serverdesc,
       n_busy = 0;                                                             \
       try_ip_pref = 0;                                                        \
       n_not_preferred = 0;                                                    \
-      pref_ipv6_or = !pref_ipv6_or;                                           \
-      pref_ipv6_dir = !pref_ipv6_dir;                                         \
       goto retry_label;                                                       \
     }                                                                         \
   STMT_END                                                                    \
@@ -1555,8 +1595,6 @@ router_is_already_dir_fetching(const tor_addr_port_t *ap, int serverdesc,
       n_busy = 0;                                                             \
       try_ip_pref = 1;                                                        \
       n_not_preferred = 0;                                                    \
-      pref_ipv6_or = nodelist_prefer_ipv6_orports(options);                   \
-      pref_ipv6_dir = router_prefer_ipv6_dirports(options);                   \
       goto retry_label;                                                       \
     }                                                                         \
   STMT_END
@@ -1585,8 +1623,6 @@ router_pick_directory_server_impl(dirinfo_type_t type, int flags,
   const int no_microdesc_fetching = (flags & PDS_NO_EXISTING_MICRODESC_FETCH);
   const int for_guard = (flags & PDS_FOR_GUARD);
   int try_excluding = 1, n_excluded = 0, n_busy = 0;
-  int pref_ipv6_or = nodelist_prefer_ipv6_orports(options);
-  int pref_ipv6_dir = router_prefer_ipv6_dirports(options);
   int try_ip_pref = 1, n_not_preferred = 0;
 
   if (!consensus)
@@ -1605,7 +1641,6 @@ router_pick_directory_server_impl(dirinfo_type_t type, int flags,
   SMARTLIST_FOREACH_BEGIN(nodelist_get_list(), const node_t *, node) {
     int is_trusted, is_trusted_extrainfo;
     int is_overloaded;
-    tor_addr_port_t ipv4_or_ap, ipv6_or_ap, ipv4_dir_ap, ipv6_dir_ap;
     const routerstatus_t *status = node->rs;
     const country_t country = node->country;
 
@@ -1638,25 +1673,9 @@ router_pick_directory_server_impl(dirinfo_type_t type, int flags,
       continue;
     }
 
-    /* Setup the alternative addresses */
-    tor_addr_from_ipv4h(&ipv4_or_ap.addr, status->addr);
-    ipv4_or_ap.port = status->or_port;
-    tor_addr_copy(&ipv6_or_ap.addr, &status->ipv6_addr);
-    ipv6_or_ap.port = status->ipv6_orport;
-
-    /* Assume IPv6 DirPort is the same as IPv4 DirPort */
-    /* XX/teor - modify dir_port usage for #12538 - all relays dir caches? */
-    tor_addr_from_ipv4h(&ipv4_dir_ap.addr, status->addr);
-    ipv4_dir_ap.port = status->dir_port;
-    tor_addr_copy(&ipv6_dir_ap.addr, &status->ipv6_addr);
-    ipv6_dir_ap.port = status->dir_port;
-
-    if (router_is_already_dir_fetching(&ipv4_dir_ap,
-                                       no_serverdesc_fetching,
-                                       no_microdesc_fetching)
-     || router_is_already_dir_fetching(&ipv6_dir_ap,
-                                       no_serverdesc_fetching,
-                                       no_microdesc_fetching)) {
+    if (router_is_already_dir_fetching_rs(status,
+                                          no_serverdesc_fetching,
+                                          no_microdesc_fetching)) {
       ++n_busy;
       continue;
     }
@@ -1669,20 +1688,12 @@ router_pick_directory_server_impl(dirinfo_type_t type, int flags,
      * address for each router (if any). (To ensure correct load-balancing
      * we try routers that only have one address both times.)
      */
-    const tor_addr_port_t *pref_or_ap = tor_addr_port_choose(&ipv6_or_ap,
-                                                             &ipv4_or_ap,
-                                                             pref_ipv6_or);
-    const tor_addr_port_t *pref_dir_ap = tor_addr_port_choose(&ipv6_dir_ap,
-                                                              &ipv4_dir_ap,
-                                                              pref_ipv6_dir);
     if (!fascistfirewall ||
-        fascist_firewall_allows_address_for(&pref_or_ap->addr,
-                                            pref_or_ap->port,
-                                            FIREWALL_OR_CONNECTION))
+        fascist_firewall_allows_rs(status, FIREWALL_OR_CONNECTION,
+                                   try_ip_pref))
       smartlist_add(is_overloaded ? overloaded_tunnel : tunnel, (void*)node);
-    else if (fascist_firewall_allows_address_for(&pref_dir_ap->addr,
-                                                 pref_dir_ap->port,
-                                                 FIREWALL_DIR_CONNECTION))
+    else if (fascist_firewall_allows_rs(status, FIREWALL_DIR_CONNECTION,
+                                        try_ip_pref))
       smartlist_add(is_overloaded ? overloaded_direct : direct, (void*)node);
     else if (!tor_addr_is_null(&status->ipv6_addr))
       ++n_not_preferred;
@@ -1771,8 +1782,6 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
   smartlist_t *pick_from;
   int n_busy = 0;
   int try_excluding = 1, n_excluded = 0;
-  int pref_ipv6_or = nodelist_prefer_ipv6_orports(options);
-  int pref_ipv6_dir = router_prefer_ipv6_dirports(options);
   int try_ip_pref = 1, n_not_preferred = 0;
 
   if (!sourcelist)
@@ -1787,7 +1796,6 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
 
   SMARTLIST_FOREACH_BEGIN(sourcelist, const dir_server_t *, d)
     {
-      tor_addr_port_t ipv4_or_ap, ipv6_or_ap, ipv4_dir_ap, ipv6_dir_ap;
       int is_overloaded =
           d->fake_status.last_dir_503_at + DIR_503_TIMEOUT > now;
 
@@ -1806,28 +1814,11 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
         continue;
       }
 
-      /* Setup the alternative addresses */
-      tor_addr_from_ipv4h(&ipv4_or_ap.addr, d->addr);
-      ipv4_or_ap.port = d->or_port;
-      tor_addr_copy(&ipv6_or_ap.addr, &d->ipv6_addr);
-      ipv6_or_ap.port = d->ipv6_orport;
-
-      /* Assume IPv6 DirPort is the same as IPv4 DirPort */
-      /* XX/teor - modify dir_port usage for #12538 - all relays dir caches? */
-      tor_addr_from_ipv4h(&ipv4_dir_ap.addr, d->addr);
-      ipv4_dir_ap.port = d->dir_port;
-      tor_addr_copy(&ipv6_dir_ap.addr, &d->ipv6_addr);
-      ipv6_dir_ap.port = d->dir_port;
-
-      if (router_is_already_dir_fetching(&ipv4_dir_ap,
-                                         no_serverdesc_fetching,
-                                         no_microdesc_fetching)
-          || router_is_already_dir_fetching(&ipv6_dir_ap,
-                                            no_serverdesc_fetching,
+      if (router_is_already_dir_fetching_ds(d, no_serverdesc_fetching,
                                             no_microdesc_fetching)) {
-            ++n_busy;
-            continue;
-          }
+        ++n_busy;
+        continue;
+      }
 
       /* We use an IPv6 address if we have one and we prefer it.
        * Add the router if its preferred address and port are reachable.
@@ -1835,20 +1826,12 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
        * address for each router (if any). (To ensure correct load-balancing
        * we try routers that only have one address both times.)
        */
-      const tor_addr_port_t *pref_or_ap = tor_addr_port_choose(&ipv6_or_ap,
-                                                               &ipv4_or_ap,
-                                                               pref_ipv6_or);
-      const tor_addr_port_t *pref_dir_ap = tor_addr_port_choose(&ipv6_dir_ap,
-                                                                &ipv4_dir_ap,
-                                                                pref_ipv6_dir);
       if (!fascistfirewall ||
-          fascist_firewall_allows_address_for(&pref_or_ap->addr,
-                                              pref_or_ap->port,
-                                              FIREWALL_OR_CONNECTION))
+          fascist_firewall_allows_dir_server(d, FIREWALL_OR_CONNECTION,
+                                             try_ip_pref))
         smartlist_add(is_overloaded ? overloaded_tunnel : tunnel, (void*)d);
-      else if (fascist_firewall_allows_address_for(&pref_dir_ap->addr,
-                                                  pref_dir_ap->port,
-                                                  FIREWALL_DIR_CONNECTION))
+      else if (fascist_firewall_allows_dir_server(d, FIREWALL_DIR_CONNECTION,
+                                                  try_ip_pref))
         smartlist_add(is_overloaded ? overloaded_direct : direct, (void*)d);
       else if (!tor_addr_is_null(&d->ipv6_addr))
         ++n_not_preferred;
@@ -1954,7 +1937,8 @@ routerlist_add_node_and_family(smartlist_t *sl, const routerinfo_t *router)
 void
 router_add_running_nodes_to_smartlist(smartlist_t *sl, int allow_invalid,
                                       int need_uptime, int need_capacity,
-                                      int need_guard, int need_desc)
+                                      int need_guard, int need_desc,
+                                      int pref_addr)
 { /* XXXX MOVE */
   SMARTLIST_FOREACH_BEGIN(nodelist_get_list(), const node_t *, node) {
     if (!node->is_running ||
@@ -1965,6 +1949,9 @@ router_add_running_nodes_to_smartlist(smartlist_t *sl, int allow_invalid,
     if (node->ri && node->ri->purpose != ROUTER_PURPOSE_GENERAL)
       continue;
     if (node_is_unreliable(node, need_uptime, need_capacity, need_guard))
+      continue;
+    /* Choose a node with a preferred OR address */
+    if (fascist_firewall_allows_node(node, FIREWALL_OR_CONNECTION, pref_addr))
       continue;
 
     smartlist_add(sl, (void *)node);
@@ -2427,6 +2414,10 @@ node_sl_choose_by_bandwidth(const smartlist_t *sl,
  * If <b>CRN_NEED_DESC</b> is set in flags, we only consider nodes that
  * have a routerinfo or microdescriptor -- that is, enough info to be
  * used to build a circuit.
+ * If <b>CRN_PREF_ADDR</b> is set in flags, we only consider nodes that
+ * have an address that is preferred by the ClientPreferIPv6ORPort setting
+ * (regardless of this flag, we exclude nodes that aren't allowed by the
+ * firewall, including ClientUseIPv4 0 and ClientUseIPv6 0).
  */
 const node_t *
 router_choose_random_node(smartlist_t *excludedsmartlist,
@@ -2439,6 +2430,7 @@ router_choose_random_node(smartlist_t *excludedsmartlist,
   const int allow_invalid = (flags & CRN_ALLOW_INVALID) != 0;
   const int weight_for_exit = (flags & CRN_WEIGHT_AS_EXIT) != 0;
   const int need_desc = (flags & CRN_NEED_DESC) != 0;
+  const int pref_addr = (flags & CRN_PREF_ADDR) != 0;
 
   smartlist_t *sl=smartlist_new(),
     *excludednodes=smartlist_new();
@@ -2464,7 +2456,7 @@ router_choose_random_node(smartlist_t *excludedsmartlist,
 
   router_add_running_nodes_to_smartlist(sl, allow_invalid,
                                         need_uptime, need_capacity,
-                                        need_guard, need_desc);
+                                        need_guard, need_desc, pref_addr);
   log_debug(LD_CIRC,
            "We found %d running nodes.",
             smartlist_len(sl));
@@ -2493,7 +2485,7 @@ router_choose_random_node(smartlist_t *excludedsmartlist,
   choice = node_sl_choose_by_bandwidth(sl, rule);
 
   smartlist_free(sl);
-  if (!choice && (need_uptime || need_capacity || need_guard)) {
+  if (!choice && (need_uptime || need_capacity || need_guard || pref_addr)) {
     /* try once more -- recurse but with fewer restrictions. */
     log_info(LD_CIRC,
              "We couldn't find any live%s%s%s routers; falling back "
@@ -2501,7 +2493,8 @@ router_choose_random_node(smartlist_t *excludedsmartlist,
              need_capacity?", fast":"",
              need_uptime?", stable":"",
              need_guard?", guard":"");
-    flags &= ~ (CRN_NEED_UPTIME|CRN_NEED_CAPACITY|CRN_NEED_GUARD);
+    flags &= ~ (CRN_NEED_UPTIME|CRN_NEED_CAPACITY|CRN_NEED_GUARD|
+                CRN_PREF_ADDR);
     choice = router_choose_random_node(
                      excludedsmartlist, excludedset, flags);
   }

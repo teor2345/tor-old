@@ -276,43 +276,6 @@ int tor_addr_port_parse(int severity, const char *addrport,
 
 int tor_addr_hostname_is_local(const char *name);
 
-/* IPv4 / IPv6 helpers */
-
-/** If a and b are both not NULL and not tor_addr_is_null(), choose one based
- * on want_a and return it.
- * Otherwise, return whichever is not NULL and not tor_addr_is_null().
- * Otherwise, return NULL. */
-static inline const tor_addr_t *
-tor_addr_choose(const tor_addr_t *a, const tor_addr_t *b, int want_a)
-{
-  if (a && tor_addr_is_null(a))
-    a = NULL;
-  if (b && tor_addr_is_null(b))
-    b = NULL;
-
-  if (a && (want_a || !b)) {
-    return a;
-  } else {
-    return b;
-  }
-}
-
-/** If a and b are both not NULL, and their ->addrs are both not
- * tor_addr_is_null(), and their ->ports are both not 0, choose one based on
- * want_a and return it.
- * Otherwise, return whichever is not NULL and addr is not tor_addr_is_null()
- * and port is not 0.
- * Otherwise, return NULL. */
-static inline const tor_addr_port_t *
-tor_addr_port_choose(const tor_addr_port_t *a, const tor_addr_port_t *b,
-                     int want_a)
-{
-  const tor_addr_t *chosen_addr = tor_addr_choose(a->port ? &a->addr : NULL,
-                                                  b->port ? &b->addr : NULL,
-                                                  want_a);
-  return SUBTYPE_P(chosen_addr, tor_addr_port_t, addr);
-}
-
 /* IPv4 helpers */
 int addr_port_lookup(int severity, const char *addrport, char **address,
                     uint32_t *addr, uint16_t *port_out);

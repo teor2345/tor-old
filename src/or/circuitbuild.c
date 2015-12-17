@@ -2144,7 +2144,9 @@ choose_good_entry_server(uint8_t purpose, cpath_build_state_t *state)
   const node_t *choice;
   smartlist_t *excluded;
   const or_options_t *options = get_options();
-  router_crn_flags_t flags = CRN_NEED_GUARD|CRN_NEED_DESC;
+  /* If possible, choose an entry server with a preferred address,
+   * otherwise, choose one with an allowed address */
+  router_crn_flags_t flags = CRN_NEED_GUARD|CRN_NEED_DESC|CRN_PREF_ADDR;
   const node_t *node;
 
   if (state && options->UseEntryGuards &&
@@ -2160,14 +2162,6 @@ choose_good_entry_server(uint8_t purpose, cpath_build_state_t *state)
     /* Exclude the exit node from the state, if we have one.  Also exclude its
      * family. */
     nodelist_add_node_and_family(excluded, node);
-  }
-  if (firewall_is_fascist_for(FIREWALL_OR_CONNECTION)) {
-    /* Exclude all ORs that we can't reach through our firewall */
-    smartlist_t *nodes = nodelist_get_list();
-    SMARTLIST_FOREACH(nodes, const node_t *, node, {
-      if (!fascist_firewall_allows_node(node, FIREWALL_OR_CONNECTION))
-        smartlist_add(excluded, (void*)node);
-    });
   }
   /* and exclude current entry guards and their families,
    * unless we're in a test network, and excluding guards
@@ -2335,7 +2329,7 @@ extend_info_from_node(const node_t *node, int for_direct_connect)
     return NULL;
 
   if (for_direct_connect)
-    node_get_pref_orport(node, &ap);
+    fascist_firewall_choose_address(node, int want_a, FIREWALL_OR_CONNECTION, 0, &ap);
   else
     node_get_prim_orport(node, &ap);
 
