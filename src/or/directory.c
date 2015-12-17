@@ -678,16 +678,15 @@ directory_initiate_command_routerstatus_rend(const routerstatus_t *status,
   tor_addr_copy(&ipv6_dir_ap.addr, &status->ipv6_addr);
   ipv6_dir_ap.port = status->dir_port;
 
-  /* We use an IPv6 address if we have one and we prefer it.
-   * Use the preferred address and port if they are reachable, otherwise,
-   * use the alternate address and port (if any).
-   */
-
-  /* Use the primary (IPv4) OR address if we're making an indirect connection.
-   */
   if (anonymized_connection) {
+    /* Use the primary (IPv4) OR address if we're making an indirect connection.
+     */
     use_or_ap = &ipv4_or_ap;
   } else {
+    /* We use an IPv6 address if we have one and we prefer it.
+     * Use the preferred address and port if they are reachable, otherwise,
+     * use the alternate address and port (if any).
+     */
     use_or_ap = fascist_firewall_preferred_address(&ipv6_or_ap,
                                                    &ipv4_or_ap,
                                                    pref_ipv6_or,
@@ -697,7 +696,7 @@ directory_initiate_command_routerstatus_rend(const routerstatus_t *status,
   use_dir_ap = fascist_firewall_preferred_address(&ipv6_dir_ap,
                                                   &ipv4_dir_ap,
                                                   pref_ipv6_dir,
-                                                  FIREWALL_OR_CONNECTION);
+                                                  FIREWALL_DIR_CONNECTION);
 
   /* XX/teor - we don't retry the alternate OR/Dir address if this one fails.
    * (See #6772.) Instead, we'll retry another directory on failure. */
