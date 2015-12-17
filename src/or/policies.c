@@ -291,6 +291,12 @@ parse_reachable_addresses(void)
 int
 firewall_is_fascist_for(firewall_connection_t fw_connection)
 {
+  const or_options_t* options = get_options();
+
+  if (options->ClientUseIPv4 == 0 || options->ClientUseIPv6 == 0) {
+    return 1;
+  }
+
   if (fw_connection == FIREWALL_OR_CONNECTION) {
     return reachable_or_addr_policy != NULL;
   } else if (fw_connection == FIREWALL_DIR_CONNECTION) {
