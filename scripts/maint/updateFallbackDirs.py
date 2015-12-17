@@ -320,13 +320,24 @@ def onionoo_fetch(what, **kwargs):
     except urllib2.HTTPError, error:
       response_code = error.code
       # strip any timezone out (to match dateutil.parser)
-      six_hours_ago = datetime.datetime.utcnow()
-      six_hours_ago = six_hours_ago.replace(tzinfo=None)
-      six_hours_ago -= datetime.timedelta(hours=6)
-      # Not Modified and still recent enough to be useful (Globe uses 6 hours)
-      if response_code == 304:
-        if last_mod < six_hours_ago:
-          raise Exception("Outdated data from " + url + ": "
+      one_day_ago = datetime.datetime.utcnow()
+      one_day_ago = six_hours_ago.replace(tzinfo=None)
+      one_day_ago -= datetime.timedelta(hours=24)
+      # Not Modified and still recent enough to be useful
+      # Onionoo / Globe use 6 hours, but we can afford a day
+      if response_code == 504:
+        # update last modified on a 504
+        if response.info().get('Last-modified') is not None:
+          last_mod_date = response.info().get('Last-modified')
+          last_mod = dateutil.parser.parse(last_mod_date)
+          last_mod = last_mod.replace(tzinfo=None)
+      if response_code == 304 or response_code == 504: # no data or delayed
+        if last_mod < one_day_ago:
+          if last_mod_date is not None:
+            date_message = "Outdated data: last downloaded  " + last_mod_date
+          else:
+            date_message = "No data: never downloaded "
+          raise Exception(date_message + " from " + url + ": "
                           + str(error.code) + ": " + error.reason)
         else:
           pass
@@ -334,7 +345,7 @@ def onionoo_fetch(what, **kwargs):
         raise Exception("Could not get " + url + ": "
                         + str(error.code) + ": " + error.reason)
 
-    if response_code == 200: # OK
+    if response_code == 200 or response_code == 504: # OK or delayed
 
       response_json = load_possibly_compressed_response_json(response)
 
