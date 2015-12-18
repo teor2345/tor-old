@@ -1766,7 +1766,7 @@ connection_connect_log_client_use_ip_version(const connection_t *conn)
              conn->type == CONN_TYPE_OR ? "OR" : "Dir",
              fmt_addr(&real_addr),
              options->ClientUseIPv4 == 0 ? "4" : "6");
-    log_backtrace(LOG_WARN, LD_BUG, "These functions gave us the connection.");
+    log_backtrace(LOG_WARN, LD_BUG, "Address came from");
   }
 
   /* Check if we couldn't satisfy an address family preference */
