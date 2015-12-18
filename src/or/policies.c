@@ -676,8 +676,8 @@ fascist_firewall_choose_address_base(uint32_t ipv4h_addr,
   /* This argument is ignored as long as the address pair is IPv4/IPv6,
    * because we always have a preference in a client.
    * For bridge clients, this selects the preferred address, which was
-   * previously IPv4 (if a bridge has both), so we keep that behaviour. */
-  const int bridge_client_prefer_ipv4 = 1;
+   * previously IPv6 (if a bridge has both), so we keep that behaviour. */
+  const int bridge_client_prefer_ipv4 = 0;
 
   tor_assert(ipv6_addr);
   tor_assert(ap);
