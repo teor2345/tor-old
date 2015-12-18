@@ -1689,10 +1689,12 @@ router_pick_directory_server_impl(dirinfo_type_t type, int flags,
     if (!fascistfirewall ||
         fascist_firewall_allows_rs(status, FIREWALL_OR_CONNECTION,
                                    try_ip_pref))
-      smartlist_add(is_overloaded ? overloaded_tunnel : tunnel, (void*)node);
+      smartlist_add(is_trusted ? trusted_tunnel :
+                    is_overloaded ? overloaded_tunnel : tunnel, (void*)node);
     else if (fascist_firewall_allows_rs(status, FIREWALL_DIR_CONNECTION,
                                         try_ip_pref))
-      smartlist_add(is_overloaded ? overloaded_direct : direct, (void*)node);
+      smartlist_add(is_trusted ? trusted_direct :
+                    is_overloaded ? overloaded_direct : direct, (void*)node);
     else if (!tor_addr_is_null(&status->ipv6_addr))
       ++n_not_preferred;
   } SMARTLIST_FOREACH_END(node);
