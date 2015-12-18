@@ -608,13 +608,14 @@ fascist_firewall_choose_address_impl(const tor_addr_port_t *a,
     use_b = b;
   }
 
-  /* If either is preferred */
-  if (use_a || use_b) {
-    /* Choose a if we want it, or we can't choose b */
-    return ((want_a || !use_b) ? use_a : use_b);
+  /* If both are allowed */
+  if (use_a && use_b) {
+    /* Choose a if we want it */
+    return (want_a ? use_a : use_b);
+  } else {
+    /* Choose a if we have it */
+    return (use_a ? use_a : use_b);
   }
-
-  return NULL;
 }
 
 /** If a and b are both valid and preferred by fw_connection,
@@ -637,8 +638,9 @@ fascist_firewall_choose_address(const tor_addr_port_t *a,
                                                                 fw_connection,
                                                                 1);
   if (pref_only || pref) {
-    /* If there is a preferred address, use it, returning NULL if we can only
-     * use preferred addresses */
+    /* If there is a preferred address, use it. If we can only use preferred
+     * addresses, and neither address is preferred, pref will be NULL, and we
+     * want to return NULL, so return it. */
     return pref;
   } else {
     /* If there's no preferred address, and we can return addresses that are
