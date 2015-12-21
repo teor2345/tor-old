@@ -1891,8 +1891,9 @@ crypto_digest_get_digest(crypto_digest_t *digest,
     return;
   }
 
+  const size_t alloc_bytes = crypto_digest_alloc_bytes(digest->algorithm);
   /* memcpy into a temporary ctx, since SHA*_Final clears the context */
-  memcpy(&tmpenv, digest, sizeof(crypto_digest_t));
+  memcpy(&tmpenv, digest, alloc_bytes);
   switch (digest->algorithm) {
     case DIGEST_SHA1:
       SHA1_Final(r, &tmpenv.d.sha1);
@@ -1926,15 +1927,14 @@ crypto_digest_get_digest(crypto_digest_t *digest,
 crypto_digest_t *
 crypto_digest_dup(const crypto_digest_t *digest)
 {
-  crypto_digest_t *r;
   tor_assert(digest);
-  r = tor_malloc(sizeof(crypto_digest_t));
-  memcpy(r,digest,sizeof(crypto_digest_t));
-  return r;
+  const size_t alloc_bytes = crypto_digest_alloc_bytes(digest->algorithm);
+  return tor_memdup(digest, alloc_bytes);
 }
 
 /** Replace the state of the digest object <b>into</b> with the state
- * of the digest object <b>from</b>.
+ * of the digest object <b>from</b>.  Requires that 'into' and 'from'
+ * have the same digest type.
  */
 void
 crypto_digest_assign(crypto_digest_t *into,
@@ -1942,7 +1942,9 @@ crypto_digest_assign(crypto_digest_t *into,
 {
   tor_assert(into);
   tor_assert(from);
-  memcpy(into,from,sizeof(crypto_digest_t));
+  tor_assert(into->algorithm == from->algorithm);
+  const size_t alloc_bytes = crypto_digest_alloc_bytes(from->algorithm);
+  memcpy(into,from,alloc_bytes);
 }
 
 /** Given a list of strings in <b>lst</b>, set the <b>len_out</b>-byte digest
