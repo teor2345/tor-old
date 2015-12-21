@@ -754,6 +754,26 @@ node_exit_policy_is_exact(const node_t *node, sa_family_t family)
   return 1;
 }
 
+#define SL_ADD_NEW_IPV4_AP(r, port_field, sl) \
+  STMT_BEGIN \
+    if ((r)->addr != 0 && (r)->port_field != 0) { \
+      tor_addr_port_t *ap = tor_malloc(sizeof(tor_addr_port_t)); \
+      tor_addr_from_ipv4h(&ap->addr, (r)->addr); \
+      ap->port = (r)->port_field; \
+      smartlist_add((sl), ap); \
+    } \
+  STMT_END
+
+#define SL_ADD_NEW_IPV6_AP(r, port_field, sl) \
+  STMT_BEGIN \
+    if (!tor_addr_is_null(&(r)->ipv6_addr) && (r)->port_field != 0) { \
+      tor_addr_port_t *ap = tor_malloc(sizeof(tor_addr_port_t)); \
+      tor_addr_copy(&ap->addr, &(r)->ipv6_addr); \
+      ap->port = (r)->port_field; \
+      smartlist_add((sl), ap); \
+    } \
+  STMT_END
+
 /** Return list of tor_addr_port_t with all OR ports (in the sense IP
  * addr + TCP port) for <b>node</b>.  Caller must free all elements
  * using tor_free() and free the list using smartlist_free().
@@ -768,27 +788,20 @@ node_get_all_orports(const node_t *node)
   smartlist_t *sl = smartlist_new();
 
   if (node->ri != NULL) {
-    if (node->ri->addr != 0) {
-      tor_addr_port_t *ap = tor_malloc(sizeof(tor_addr_port_t));
-      tor_addr_from_ipv4h(&ap->addr, node->ri->addr);
-      ap->port = node->ri->or_port;
-      smartlist_add(sl, ap);
-    }
-    if (!tor_addr_is_null(&node->ri->ipv6_addr)) {
-      tor_addr_port_t *ap = tor_malloc(sizeof(tor_addr_port_t));
-      tor_addr_copy(&ap->addr, &node->ri->ipv6_addr);
-      ap->port = node->ri->or_port;
-      smartlist_add(sl, ap);
-    }
+    SL_ADD_NEW_IPV4_AP(node->ri, or_port, sl);
+    SL_ADD_NEW_IPV6_AP(node->ri, ipv6_orport, sl);
   } else if (node->rs != NULL) {
-      tor_addr_port_t *ap = tor_malloc(sizeof(tor_addr_port_t));
-      tor_addr_from_ipv4h(&ap->addr, node->rs->addr);
-      ap->port = node->rs->or_port;
-      smartlist_add(sl, ap);
+    SL_ADD_NEW_IPV4_AP(node->rs, or_port, sl);
+    SL_ADD_NEW_IPV6_AP(node->rs, ipv6_orport, sl);
+  } else if (node->md != NULL) {
+    SL_ADD_NEW_IPV6_AP(node->md, ipv6_orport, sl);
   }
 
   return sl;
 }
+
+#undef SL_ADD_NEW_IPV4_AP
+#undef SL_ADD_NEW_IPV6_AP
 
 /** Wrapper around node_get_prim_orport for backward
     compatibility.  */
