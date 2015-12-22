@@ -13,6 +13,7 @@
 
 #define ROUTERLIST_PRIVATE
 #include "or.h"
+#include "backtrace.h"
 #include "crypto_ed25519.h"
 #include "circuitstats.h"
 #include "config.h"
@@ -1711,6 +1712,25 @@ router_pick_directory_server_impl(dirinfo_type_t type, int flags,
   if (n_busy_out)
     *n_busy_out = n_busy;
 
+  /* We couldn't find a node, or the one we have doesn't fit our preferences.
+   * This might be a bug. */
+  if (!result) {
+    log_warn(LD_BUG, "Firewall denied all OR and Dir addresses for all nodes "
+             "when searching for a directory.");
+    log_backtrace(LOG_WARN, LD_BUG, "Node search initiated by");
+  } else if (!fascist_firewall_allows_node(result, FIREWALL_OR_CONNECTION, 1)
+          && !fascist_firewall_allows_node(result, FIREWALL_DIR_CONNECTION, 1)
+             ) {
+    log_warn(LD_BUG, "Selected a node %s with non-preferred OR and Dir "
+             "addresses for launching a directory connection: "
+             "IPv4 %s OR %d Dir %d IPv6 %s OR %d Dir %d",
+             routerstatus_describe(result->rs),
+             fmt_addr32(result->rs->addr), result->rs->or_port,
+             result->rs->dir_port, fmt_addr(&result->rs->ipv6_addr),
+             result->rs->ipv6_orport, result->rs->dir_port);
+    log_backtrace(LOG_WARN, LD_BUG, "Node search initiated by");
+  }
+
   return result ? result->rs : NULL;
 }
 
@@ -1842,6 +1862,25 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
   RETRY_ALTERNATE_IP_VERSION(retry_search);
 
   RETRY_WITHOUT_EXCLUDE(retry_search);
+
+  /* We couldn't find a node, or the one we have doesn't fit our preferences.
+   * This might be a bug. */
+  if (!result) {
+    log_warn(LD_BUG, "Firewall denied all OR and Dir addresses for all "
+             "dir servers when searching for a directory.");
+    log_backtrace(LOG_WARN, LD_BUG, "Dir server search initiated by");
+  } else if (!fascist_firewall_allows_rs(result, FIREWALL_OR_CONNECTION, 1)
+             && !fascist_firewall_allows_rs(result, FIREWALL_DIR_CONNECTION, 1)
+             ) {
+    log_warn(LD_BUG, "Selected a dir server %s with non-preferred OR and Dir "
+             "addresses for launching a directory connection: "
+             "IPv4 %s OR %d Dir %d IPv6 %s OR %d Dir %d",
+             routerstatus_describe(result),
+             fmt_addr32(result->addr), result->or_port,
+             result->dir_port, fmt_addr(&result->ipv6_addr),
+             result->ipv6_orport, result->dir_port);
+    log_backtrace(LOG_WARN, LD_BUG, "Dir server search initiated by");
+  }
 
   if (n_busy_out)
     *n_busy_out = n_busy;
