@@ -272,10 +272,12 @@ parse_reachable_addresses(void)
     ret = -1;
   }
 
-  /* XX/teor - we ignore ReachableAddresses for bridges */
-  if (!options->UseBridges) {
-    if (policy_is_reject_star(reachable_or_addr_policy, AF_UNSPEC)
-        || policy_is_reject_star(reachable_dir_addr_policy, AF_UNSPEC)) {
+  /* XX/teor - we ignore ReachableAddresses for bridge clients and relays */
+  if (!options->UseBridges || server_mode(options)) {
+    if ((reachable_or_addr_policy
+         && policy_is_reject_star(reachable_or_addr_policy, AF_UNSPEC))
+        || (reachable_dir_addr_policy
+            && policy_is_reject_star(reachable_dir_addr_policy, AF_UNSPEC))) {
       log_warn(LD_CONFIG, "Tor cannot connect to the Internet if "
                "ReachableAddresses, ReachableORAddresses, or "
                "ReachableDirAddresses reject all addresses. Please accept "
