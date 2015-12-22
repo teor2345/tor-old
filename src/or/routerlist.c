@@ -13,6 +13,7 @@
 
 #define ROUTERLIST_PRIVATE
 #include "or.h"
+#include "backtrace.h"
 #include "crypto_ed25519.h"
 #include "circuitstats.h"
 #include "config.h"
@@ -1536,6 +1537,30 @@ router_is_already_dir_fetching_rs(const routerstatus_t *rs,
        || router_is_already_dir_fetching(&ipv6_dir_ap, serverdesc, microdesc));
 }
 
+/* Log a message if rs is not found or not a preferred address */
+static void
+router_picked_poor_directory_log(const routerstatus_t *rs)
+{
+  /* We couldn't find a node, or the one we have doesn't fit our preferences.
+   * This might be a bug. */
+  if (smartlist_len(nodelist_get_list()) && !rs) {
+    log_warn(LD_BUG, "Firewall denied all OR and Dir addresses for all relays "
+             "when searching for a directory.");
+    log_backtrace(LOG_WARN, LD_BUG, "Node search initiated by");
+  } else if (!fascist_firewall_allows_rs(rs, FIREWALL_OR_CONNECTION, 1)
+             && !fascist_firewall_allows_rs(rs, FIREWALL_DIR_CONNECTION, 1)
+             ) {
+    log_warn(LD_BUG, "Selected a directory %s with non-preferred OR and Dir "
+             "addresses for launching a connection: "
+             "IPv4 %s OR %d Dir %d IPv6 %s OR %d Dir %d",
+             routerstatus_describe(rs),
+             fmt_addr32(rs->addr), rs->or_port,
+             rs->dir_port, fmt_addr(&rs->ipv6_addr),
+             rs->ipv6_orport, rs->dir_port);
+    log_backtrace(LOG_WARN, LD_BUG, "Node search initiated by");
+  }
+}
+
 /** How long do we avoid using a directory server after it's given us a 503? */
 #define DIR_503_TIMEOUT (60*60)
 
@@ -1711,6 +1736,8 @@ router_pick_directory_server_impl(dirinfo_type_t type, int flags,
   if (n_busy_out)
     *n_busy_out = n_busy;
 
+  router_picked_poor_directory_log(result ? result->rs : NULL);
+
   return result ? result->rs : NULL;
 }
 
@@ -1842,6 +1869,8 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
   RETRY_ALTERNATE_IP_VERSION(retry_search);
 
   RETRY_WITHOUT_EXCLUDE(retry_search);
+
+  router_picked_poor_directory_log(result);
 
   if (n_busy_out)
     *n_busy_out = n_busy;
