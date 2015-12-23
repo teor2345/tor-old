@@ -999,7 +999,7 @@ rend_service_update_descriptor(rend_service_t *service)
   }
 }
 
-#define RSOS_POISON_FNAME "non_anonymous_hidden_service_rsos"
+#define SOS_POISON_FNAME "non_anonymous_hidden_service"
 
 /** Return True if hidden services <b>service> has been poisoned by RSOS
  *  mode. */
@@ -1014,7 +1014,7 @@ service_is_rsos_poisoned(const rend_service_t *service)
   }
 
   tor_asprintf(&poison_fname, "%s%s%s",
-               service->directory, PATH_SEPARATOR, RSOS_POISON_FNAME);
+               service->directory, PATH_SEPARATOR, SOS_POISON_FNAME);
 
   fstatus = file_status(poison_fname);
 
@@ -1058,7 +1058,7 @@ poison_rsos_hidden_service_dir(const rend_service_t *service)
   }
 
   tor_asprintf(&poison_fname, "%s%s%s",
-               service->directory, PATH_SEPARATOR, RSOS_POISON_FNAME);
+               service->directory, PATH_SEPARATOR, SOS_POISON_FNAME);
 
   switch (file_status(poison_fname)) {
   case FN_DIR:
@@ -1104,7 +1104,7 @@ rend_service_poison_all_rsos_dirs(void)
   return 0;
 }
 
-#undef RSOS_POISON_FNAME
+#undef SOS_POISON_FNAME
 
 /** Load and/or generate private keys for all hidden services, possibly
  * including keys for client authorization.  Return 0 on success, -1 on
