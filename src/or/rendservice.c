@@ -1053,8 +1053,8 @@ poison_rsos_hidden_service_dir(const rend_service_t *service)
   char *poison_fname = NULL;
 
   if (!service->directory) {
-    log_warn(LD_GENERAL, "Ephemeral HS can't be started as RSOS.");
-    goto done;
+    log_warn(LD_GENERAL, "Ephemeral HS started as RSOS.");
+    return 0;
   }
 
   tor_asprintf(&poison_fname, "%s%s%s",
