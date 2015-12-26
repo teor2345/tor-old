@@ -1909,12 +1909,7 @@ crypto_digest_get_digest(crypto_digest_t *digest,
       log_warn(LD_BUG, "Handling unexpected algorithm %d", digest->algorithm);
       tor_assert(0); /* This is fatal, because it should never happen. */
     default:
-      log_warn(LD_BUG, "Called with unknown algorithm %d", digest->algorithm);
-      /* If fragile_assert is not enabled, then we should at least not
-       * leak anything. */
-      memwipe(r, 0xff, sizeof(r));
-      memwipe(&tmpenv, 0, sizeof(crypto_digest_t));
-      tor_fragile_assert();
+      tor_assert(0); /* Unreachable. */
       break;
   }
   memcpy(out, r, out_len);
