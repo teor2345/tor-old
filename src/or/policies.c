@@ -272,8 +272,8 @@ parse_reachable_addresses(void)
     ret = -1;
   }
 
-  /* XX/teor - we ignore ReachableAddresses for bridge clients and relays */
-  if (!options->UseBridges || server_mode(options)) {
+  /* XX/teor - we ignore ReachableAddresses for relays */
+  if (server_mode(options)) {
     if ((reachable_or_addr_policy
          && policy_is_reject_star(reachable_or_addr_policy, AF_UNSPEC))
         || (reachable_dir_addr_policy
@@ -326,14 +326,14 @@ addr_policy_permits_address(uint32_t addr, uint16_t port,
 /** Return true iff we think our firewall will let us make a connection to
  * addr:port.
  *
- * If UseBridges is set, or we are configured as a server, ignore the
- * following address family preferences.
+ * If we are configured as a server, ignore any address family preference and
+ * just use IPv4.
  * Otherwise:
  *  - return false for all IPv4 addresses:
  *    - if ClientUseIPv4 is 0, or
  *      if pref_only and pref_ipv6 are both true;
  *  - return false for all IPv6 addresses:
- *    - if ClientUseIPv6 is 0, or
+ *    - if ClientUseIPv6 is 0 and UseBridges is 0, or
  *    - if pref_only is true and pref_ipv6 is false.
  *
  * Return false if addr is NULL or tor_addr_is_null(), or if port is 0. */
@@ -349,13 +349,15 @@ fascist_firewall_allows_address(const tor_addr_t *addr,
     return 0;
   }
 
-  if (!options->UseBridges && !server_mode(options)) {
+  if (!server_mode(options)) {
     if (tor_addr_family(addr) == AF_INET &&
         (!options->ClientUseIPv4 || (pref_only && pref_ipv6)))
       return 0;
 
+    /* Bridges can always use IPv6 */
     if (tor_addr_family(addr) == AF_INET6 &&
-        (!options->ClientUseIPv6 || (pref_only && !pref_ipv6)))
+        ((!options->ClientUseIPv6 && !options->UseBridges)
+         || (pref_only && !pref_ipv6)))
       return 0;
   }
 

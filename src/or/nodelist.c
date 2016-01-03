@@ -224,7 +224,6 @@ nodelist_prefer_ipv6(const or_options_t *options)
   /*
    Cheap implementation of config options ClientUseIPv4 & ClientUseIPv6 --
    If we're a server, use IPv4.
-   If we're a client running with bridges, use IPv6.
    Otherwise, use IPv6 if we can and it's preferred, or if IPv4 is disabled.
    See #4455 and #17840 for more on this subject.
    */
@@ -232,11 +231,6 @@ nodelist_prefer_ipv6(const or_options_t *options)
   /* Servers prefer IPv4 */
   if (server_mode(options)) {
     return 0;
-  }
-
-  /* Bridge clients prefer IPv6 */
-  if (options->UseBridges) {
-    return 1;
   }
 
   if (!options->ClientUseIPv4) {
@@ -257,8 +251,15 @@ nodelist_prefer_ipv6_orport(const or_options_t *options)
     return pref_ipv6;
   }
 
-  /* We prefer IPv6 ORPorts if the option is set */
-  if (options->ClientUseIPv6 && options->ClientPreferIPv6ORPort) {
+  /* We prefer IPv6 ORPorts if IPv6 is available and ClientPreferIPv6ORPort
+   * is 1. ClientPreferIPv6ORPort auto means "prefer IPv4". */
+  if (options->ClientUseIPv6 && options->ClientPreferIPv6ORPort == 1) {
+    return 1;
+  }
+
+  /* We prefer IPv6 ORPorts if we're a bridge client, and
+   * ClientPreferIPv6ORPort is auto or 1, regardless of ClientUseIPv6. */
+  if (options->UseBridges && options->ClientPreferIPv6ORPort != 0) {
     return 1;
   }
 
@@ -276,8 +277,16 @@ nodelist_prefer_ipv6_dirport(const or_options_t *options)
     return pref_ipv6;
   }
 
-  /* We prefer IPv6 DirPorts if the option is set */
-  if (options->ClientUseIPv6 && options->ClientPreferIPv6DirPort) {
+  /* We prefer IPv6 DirPorts if IPv6 is available and ClientPreferIPv6DirPort
+   * is 1. ClientPreferIPv6DirPort auto means "prefer IPv4".  */
+  if (options->ClientUseIPv6 && options->ClientPreferIPv6DirPort == 1) {
+    return 1;
+  }
+
+  /* We prefer IPv6 DirPorts if we're a bridge client, and
+   * ClientPreferIPv6DirPort is auto or 1, regardless of ClientUseIPv6.
+   * XX/teor - do bridge clients ever use a DirPort? */
+  if (options->UseBridges && options->ClientPreferIPv6DirPort != 0) {
     return 1;
   }
 
@@ -999,7 +1008,8 @@ node_ipv6_or_preferred(const node_t *node)
   tor_addr_port_t ipv4_addr;
   node_assert_ok(node);
 
-  if (!options->ClientUseIPv6) {
+  /* bridge clients can always use IPv6 addresses */
+  if (!options->ClientUseIPv6 && !options->UseBridges) {
     return 0;
   } else if (node->ipv6_preferred || node_get_prim_orport(node, &ipv4_addr)
       || nodelist_prefer_ipv6_orport(get_options())) {
@@ -1100,7 +1110,8 @@ node_ipv6_dir_preferred(const node_t *node)
   tor_addr_port_t ipv4_addr;
   node_assert_ok(node);
 
-  if (!options->ClientUseIPv6) {
+  /* bridge clients can always use IPv6 addresses */
+  if (!options->ClientUseIPv6 && !options->UseBridges) {
     return 0;
   } else if (node->ipv6_preferred || node_get_prim_dirport(node, &ipv4_addr)
       || nodelist_prefer_ipv6_dirport(get_options())) {

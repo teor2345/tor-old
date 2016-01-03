@@ -190,8 +190,8 @@ static config_var_t option_vars_[] = {
   V(CircuitPriorityHalflife,     DOUBLE,  "-100.0"), /*negative:'Use default'*/
   V(ClientDNSRejectInternalAddresses, BOOL,"1"),
   V(ClientOnly,                  BOOL,     "0"),
-  V(ClientPreferIPv6ORPort,      BOOL,     "0"),
-  V(ClientPreferIPv6DirPort,     BOOL,     "0"),
+  V(ClientPreferIPv6ORPort,      AUTOBOOL, "auto"),
+  V(ClientPreferIPv6DirPort,     AUTOBOOL, "auto"),
   V(ClientRejectInternalAddresses, BOOL,   "1"),
   V(ClientTransportPlugin,       LINELIST, NULL),
   V(ClientUseIPv6,               BOOL,     "0"),
@@ -3140,13 +3140,15 @@ options_validate(or_options_t *old_options, or_options_t *options,
            "ClientUseIPv6 is 0. Please set at least one of these options "
            "to 1.");
 
-  if (options->ClientUseIPv6 == 0 && options->ClientPreferIPv6ORPort == 1)
+  if (options->ClientUseIPv6 == 0 && options->ClientPreferIPv6ORPort == 1
+      && !options->UseBridges)
     log_warn(LD_CONFIG, "ClientPreferIPv6ORPort 1 is ignored unless "
-             "ClientUseIPv6 is also 1.");
+             "ClientUseIPv6 is also 1, or UseBridges is also 1.");
 
-  if (options->ClientUseIPv6 == 0 && options->ClientPreferIPv6DirPort == 1)
+  if (options->ClientUseIPv6 == 0 && options->ClientPreferIPv6DirPort == 1
+      && !options->UseBridges)
     log_warn(LD_CONFIG, "ClientPreferIPv6DirPort 1 is ignored unless "
-             "ClientUseIPv6 is also 1.");
+             "ClientUseIPv6 is also 1, or UseBridges is also 1.");
 
   if (options->UseBridges &&
       server_mode(options))

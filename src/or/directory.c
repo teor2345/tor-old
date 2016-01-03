@@ -655,7 +655,8 @@ directory_initiate_command_routerstatus_rend(const routerstatus_t *status,
    * directory server, we have selected a server that has at least one address
    * allowed by ClientUseIPv4/6 and Reachable{"",OR,Dir}Addresses. This
    * selection uses the preference in ClientPreferIPv6{OR,Dir}Port, if
-   * possible. (If UseBridges is set, clients ignore all these settings.)
+   * possible. (If UseBridges is set, clients always use IPv6, and prefer it
+   * by default.)
    *
    * Now we use a similar process to select an address for the relay,
    * but simply use the other address if the one we want isn't allowed by
