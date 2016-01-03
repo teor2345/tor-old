@@ -1726,9 +1726,9 @@ connection_connect_log_client_use_ip_version(const connection_t *conn)
 {
   const or_options_t *options = get_options();
 
-  /* Only non-bridge clients care about ClientUseIPv4/6, bail out early on
-   * servers and bridge clients */
-  if (options->UseBridges || server_mode(options) || !conn
+  /* Only clients care about ClientUseIPv4/6, bail out early on servers, and
+   * on connections we don't care about */
+  if (server_mode(options) || !conn
       || conn->type == CONN_TYPE_EXIT) {
     return;
   }
@@ -1738,7 +1738,8 @@ connection_connect_log_client_use_ip_version(const connection_t *conn)
     return;
   }
 
-  const int must_ipv4 = (options->ClientUseIPv6 == 0);
+  /* Bridge clients ignore ClientUseIPv6 */
+  const int must_ipv4 = (options->ClientUseIPv6 == 0 && !options->UseBridges);
   const int must_ipv6 = (options->ClientUseIPv4 == 0);
   const int pref_ipv6 = (conn->type == CONN_TYPE_OR
                          ? nodelist_prefer_ipv6_orport(options)
@@ -1769,12 +1770,14 @@ connection_connect_log_client_use_ip_version(const connection_t *conn)
   if ((!pref_ipv6 && tor_addr_family(&real_addr) == AF_INET6)
       || (pref_ipv6 && tor_addr_family(&real_addr) == AF_INET)) {
     log_info(LD_NET, "Connection to %s doesn't satisfy ClientPreferIPv6%sPort "
-             "%d, with ClientUseIPv4 %d and ClientUseIPv6 %d.",
+             "%d, with ClientUseIPv4 %d and ClientUseIPv6 %d and UseBridges "
+             "%d.",
              fmt_addr(&real_addr),
              conn->type == CONN_TYPE_OR ? "OR" : "Dir",
              conn->type == CONN_TYPE_OR ? options->ClientPreferIPv6ORPort
                                         : options->ClientPreferIPv6DirPort,
-             options->ClientUseIPv4, options->ClientUseIPv4);
+             options->ClientUseIPv4, options->ClientUseIPv4,
+             options->UseBridges);
   }
 }
 

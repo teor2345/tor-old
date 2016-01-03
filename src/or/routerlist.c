@@ -1592,8 +1592,8 @@ router_picked_poor_directory_log(const routerstatus_t *rs)
 #define RETRY_ALTERNATE_IP_VERSION(retry_label)                               \
   STMT_BEGIN                                                                  \
     if (result == NULL && try_ip_pref && options->ClientUseIPv4               \
-        && options->ClientUseIPv6 && !server_mode(options) && n_not_preferred \
-        && !n_busy) {                                                         \
+        && (options->ClientUseIPv6 || options->UseBridges)                    \
+        && !server_mode(options) && n_not_preferred && !n_busy) {             \
       n_excluded = 0;                                                         \
       n_busy = 0;                                                             \
       try_ip_pref = 0;                                                        \
@@ -1974,7 +1974,7 @@ router_add_running_nodes_to_smartlist(smartlist_t *sl, int allow_invalid,
       continue;
     if (node_is_unreliable(node, need_uptime, need_capacity, need_guard))
       continue;
-    /* Choose a node with a preferred OR address */
+    /* Choose a node with an OR address that matches the firewall rules */
     if (!fascist_firewall_allows_node(node, FIREWALL_OR_CONNECTION, pref_addr))
       continue;
 
@@ -2441,7 +2441,7 @@ node_sl_choose_by_bandwidth(const smartlist_t *sl,
  * If <b>CRN_PREF_ADDR</b> is set in flags, we only consider nodes that
  * have an address that is preferred by the ClientPreferIPv6ORPort setting
  * (regardless of this flag, we exclude nodes that aren't allowed by the
- * firewall, including ClientUseIPv4 0 and ClientUseIPv6 0).
+ * firewall, including ClientUseIPv4 0 and ClientUseIPv6 0 / UseBridges 0).
  */
 const node_t *
 router_choose_random_node(smartlist_t *excludedsmartlist,

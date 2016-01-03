@@ -373,8 +373,6 @@ test_router_pick_directory_server_impl(void *arg)
     policies_free_all();
 }
 
-||||||| parent of 4d453a7... Choose directory servers by IPv4/IPv6 preferences
-=======
 connection_t *mocked_connection = NULL;
 
 /* Mock connection_get_by_type_addr_port_purpose by returning
@@ -446,7 +444,6 @@ test_routerlist_router_is_already_dir_fetching(void *arg)
 #undef TEST_ADDR_STR
 #undef TEST_DIR_PORT
 
->>>>>>> 4d453a7... Choose directory servers by IPv4/IPv6 preferences
 #define NODE(name, flags) \
   { #name, test_routerlist_##name, (flags), NULL, NULL }
 #define ROUTER(name,flags) \
@@ -455,12 +452,8 @@ test_routerlist_router_is_already_dir_fetching(void *arg)
 struct testcase_t routerlist_tests[] = {
   NODE(initiate_descriptor_downloads, 0),
   NODE(launch_descriptor_downloads, 0),
-<<<<<<< HEAD
   ROUTER(pick_directory_server_impl, TT_FORK),
-||||||| parent of 4d453a7... Choose directory servers by IPv4/IPv6 preferences
-=======
   NODE(router_is_already_dir_fetching, TT_FORK),
->>>>>>> 4d453a7... Choose directory servers by IPv4/IPv6 preferences
   END_OF_TESTCASES
 };
 

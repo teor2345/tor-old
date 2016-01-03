@@ -272,8 +272,8 @@ parse_reachable_addresses(void)
     ret = -1;
   }
 
-  /* We ignore ReachableAddresses for bridge clients and relays */
-  if (!options->UseBridges && !server_mode(options)) {
+  /* We ignore ReachableAddresses for relays */
+  if (!server_mode(options)) {
     if ((reachable_or_addr_policy
          && policy_is_reject_star(reachable_or_addr_policy, AF_UNSPEC))
         || (reachable_dir_addr_policy
@@ -358,14 +358,14 @@ addr_policy_permits_address(uint32_t addr, uint16_t port,
 /** Return true iff we think our firewall will let us make a connection to
  * addr:port.
  *
- * If UseBridges is set, or we are configured as a server, ignore the
- * following address family preferences.
+ * If we are configured as a server, ignore any address family preference and
+ * just use IPv4.
  * Otherwise:
  *  - return false for all IPv4 addresses:
  *    - if ClientUseIPv4 is 0, or
  *      if pref_only and pref_ipv6 are both true;
  *  - return false for all IPv6 addresses:
- *    - if ClientUseIPv6 is 0, or
+ *    - if ClientUseIPv6 is 0 and UseBridges is 0, or
  *    - if pref_only is true and pref_ipv6 is false.
  *
  * Return false if addr is NULL or tor_addr_is_null(), or if port is 0. */
@@ -381,13 +381,15 @@ fascist_firewall_allows_address(const tor_addr_t *addr,
     return 0;
   }
 
-  if (!options->UseBridges && !server_mode(options)) {
+  if (!server_mode(options)) {
     if (tor_addr_family(addr) == AF_INET &&
         (!options->ClientUseIPv4 || (pref_only && pref_ipv6)))
       return 0;
 
+    /* Bridges can always use IPv6 */
     if (tor_addr_family(addr) == AF_INET6 &&
-        (!options->ClientUseIPv6 || (pref_only && !pref_ipv6)))
+        ((!options->ClientUseIPv6 && !options->UseBridges)
+         || (pref_only && !pref_ipv6)))
       return 0;
   }
 
@@ -414,11 +416,6 @@ fascist_firewall_prefer_ipv6_impl(const or_options_t *options)
     return 0;
   }
 
-  /* Bridge clients prefer IPv6 */
-  if (options->UseBridges) {
-    return 1;
-  }
-
   if (!options->ClientUseIPv4) {
     return 1;
   }
@@ -437,8 +434,15 @@ fascist_firewall_prefer_ipv6_orport(const or_options_t *options)
     return pref_ipv6;
   }
 
-  /* We prefer IPv6 ORPorts if the option is set */
-  if (options->ClientUseIPv6 && options->ClientPreferIPv6ORPort) {
+  /* We prefer IPv6 ORPorts if IPv6 is available and ClientPreferIPv6ORPort
+   * is 1. ClientPreferIPv6ORPort auto means "prefer IPv4". */
+  if (options->ClientUseIPv6 && options->ClientPreferIPv6ORPort == 1) {
+    return 1;
+  }
+
+  /* We prefer IPv6 ORPorts if we're a bridge client, and
+   * ClientPreferIPv6ORPort is auto or 1, regardless of ClientUseIPv6. */
+  if (options->UseBridges && options->ClientPreferIPv6ORPort != 0) {
     return 1;
   }
 
@@ -456,8 +460,16 @@ fascist_firewall_prefer_ipv6_dirport(const or_options_t *options)
     return pref_ipv6;
   }
 
-  /* We prefer IPv6 DirPorts if the option is set */
-  if (options->ClientUseIPv6 && options->ClientPreferIPv6DirPort) {
+  /* We prefer IPv6 DirPorts if IPv6 is available and ClientPreferIPv6DirPort
+   * is 1. ClientPreferIPv6DirPort auto means "prefer IPv4".  */
+  if (options->ClientUseIPv6 && options->ClientPreferIPv6DirPort == 1) {
+    return 1;
+  }
+
+  /* We prefer IPv6 DirPorts if we're a bridge client, and
+   * ClientPreferIPv6DirPort is auto or 1, regardless of ClientUseIPv6.
+   * XX/teor - do bridge clients ever use a DirPort? */
+  if (options->UseBridges && options->ClientPreferIPv6DirPort != 0) {
     return 1;
   }
 
