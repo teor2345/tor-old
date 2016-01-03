@@ -497,11 +497,14 @@ MOCK_IMPL(void, directory_get_from_dirserver, (
       const node_t *node = choose_random_dirguard(type);
       if (node && node->ri) {
         /* every bridge has a routerinfo. */
-        tor_addr_t addr;
         routerinfo_t *ri = node->ri;
-        node_get_addr(node, &addr);
-        directory_initiate_command(&addr,
-                                   ri->or_port, 0/*no dirport*/,
+        /* clients always make OR connections to bridges */
+        tor_addr_port_t or_ap;
+        /* we are willing to use a non-preferred address if we need to */
+        fascist_firewall_choose_address_node(node, FIREWALL_OR_CONNECTION, 0,
+                                             &or_ap);
+        directory_initiate_command(&or_ap.addr,
+                                   or_ap.port, 0/*no dirport*/,
                                    ri->cache_info.identity_digest,
                                    dir_purpose,
                                    router_purpose,
