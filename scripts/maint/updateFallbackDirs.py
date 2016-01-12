@@ -632,11 +632,11 @@ class Candidate(object):
     sv = math.fsum(map(lambda x: x[0], a))
     sw = math.fsum(map(lambda x: x[1], a))
 
-   if sw == 0.0:
-     svw = 0.0
-   else:
-     svw = sv/sw
-   return svw
+    if sw == 0.0:
+      svw = 0.0
+    else:
+      svw = sv/sw
+    return svw
 
   def _add_generic_history(self, history):
     periods = r['read_history'].keys()
