@@ -266,6 +266,17 @@ def load_json_from_file(json_file_name):
 
 ## OnionOO Functions
 
+def datestr_to_datetime(datestr):
+  # Parse datetimes like: Fri, 02 Oct 2015 13:34:14 GMT
+  if datestr is not None:
+    dt = dateutil.parser.parse(datestr)
+  else:
+    # Never modified - use start of epoch
+    dt = datetime.datetime.utcfromtimestamp(0)
+  # strip any timezone out (in case they're supported in future)
+  dt = dt.replace(tzinfo=None)
+  return dt
+
 def onionoo_fetch(what, **kwargs):
   params = kwargs
   params['type'] = 'relay'
@@ -304,48 +315,42 @@ def onionoo_fetch(what, **kwargs):
     if last_mod_date is not None:
       request.add_header('If-modified-since', last_mod_date)
 
-    # Parse datetimes like: Fri, 02 Oct 2015 13:34:14 GMT
-    if last_mod_date is not None:
-      last_mod = dateutil.parser.parse(last_mod_date)
-    else:
-      # Never modified - use start of epoch
-      last_mod = datetime.datetime.utcfromtimestamp(0)
-    # strip any timezone out (in case they're supported in future)
-    last_mod = last_mod.replace(tzinfo=None)
+    # Parse last modified date
+    last_mod = datestr_to_datetime(last_mod_date)
 
+    # Not Modified and still recent enough to be useful
+    # Onionoo / Globe used to use 6 hours, but we can afford a day
+    required_freshness = datetime.datetime.utcnow()
+    # strip any timezone out (to match dateutil.parser)
+    required_freshness = required_freshness.replace(tzinfo=None)
+    required_freshness -= datetime.timedelta(hours=24)
+
+    # Make the OnionOO request
     response_code = 0
     try:
       response = urllib2.urlopen(request)
       response_code = response.getcode()
     except urllib2.HTTPError, error:
       response_code = error.code
-      # strip any timezone out (to match dateutil.parser)
-      one_day_ago = datetime.datetime.utcnow()
-      one_day_ago = six_hours_ago.replace(tzinfo=None)
-      one_day_ago -= datetime.timedelta(hours=24)
-      # Not Modified and still recent enough to be useful
-      # Onionoo / Globe use 6 hours, but we can afford a day
-      if response_code == 504:
-        # update last modified on a 504
-        if response.info().get('Last-modified') is not None:
-          last_mod_date = response.info().get('Last-modified')
-          last_mod = dateutil.parser.parse(last_mod_date)
-          last_mod = last_mod.replace(tzinfo=None)
-      if response_code == 304 or response_code == 504: # no data or delayed
-        if last_mod < one_day_ago:
-          if last_mod_date is not None:
-            date_message = "Outdated data: last downloaded  " + last_mod_date
-          else:
-            date_message = "No data: never downloaded "
-          raise Exception(date_message + " from " + url + ": "
-                          + str(error.code) + ": " + error.reason)
-        else:
-          pass
+      if response_code == 304: # not modified
+        pass
       else:
         raise Exception("Could not get " + url + ": "
                         + str(error.code) + ": " + error.reason)
 
-    if response_code == 200 or response_code == 504: # OK or delayed
+    if response_code == 200: # OK
+      last_mod = datestr_to_datetime(response.info().get('Last-Modified'))
+
+    # Check for freshness
+    if last_mod < required_freshness:
+      if last_mod_date is not None:
+        date_message = "Outdated data: last updated " + last_mod_date
+      else:
+        date_message = "No data: never downloaded "
+      raise Exception(date_message + " from " + url)
+
+    # Process the data
+    if response_code == 200: # OK
 
       response_json = load_possibly_compressed_response_json(response)
 
