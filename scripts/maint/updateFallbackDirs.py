@@ -339,7 +339,8 @@ def onionoo_fetch(what, **kwargs):
                         + str(error.code) + ": " + error.reason)
 
     if response_code == 200: # OK
-      last_mod = datestr_to_datetime(response.info().get('Last-Modified'))
+      last_mod_date = response.info().get('Last-Modified')
+      last_mod = datestr_to_datetime(last_mod_date)
 
     # Check for freshness
     if last_mod < required_freshness:
