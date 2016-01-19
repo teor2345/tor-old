@@ -1591,7 +1591,8 @@ get_pf_socket(void)
 
 #if defined(TRANS_NETFILTER) || defined(TRANS_PF) || defined(TRANS_TPROXY)
 /** Try fill in the address of <b>req</b> from the socket configured
- * with <b>conn</b>. */
+ * with <b>conn</b>. Assumes options->TransProxyType_parsed has been checked
+ * for consistency with the TRANS_* #defines by the caller. */
 static int
 destination_from_socket(entry_connection_t *conn, socks_request_t *req)
 {
@@ -1599,7 +1600,8 @@ destination_from_socket(entry_connection_t *conn, socks_request_t *req)
   socklen_t orig_dst_len = sizeof(orig_dst);
   tor_addr_t addr;
 
-#ifdef TRANS_TRPOXY
+#ifdef TRANS_TPROXY
+  const or_options_t *options = get_options();
   if (options->TransProxyType_parsed == TPT_TPROXY) {
     if (getsockname(ENTRY_TO_CONN(conn)->s, (struct sockaddr*)&orig_dst,
                     &orig_dst_len) < 0) {
@@ -1755,11 +1757,18 @@ static int
 connection_ap_get_original_destination(entry_connection_t *conn,
                                        socks_request_t *req)
 {
+#if defined(TRANS_TPROXY) || defined(TRANS_PF)
+  const or_options_t *options = get_options();
+#endif
+
+#ifdef TRANS_TPROXY
+  if (options->TransProxyType_parsed == TPT_TPROXY)
+    return destination_from_socket(conn, req);
+#endif
+
 #ifdef TRANS_NETFILTER
   return destination_from_socket(conn, req);
 #elif defined(TRANS_PF)
-  const or_options_t *options = get_options();
-
   if (options->TransProxyType_parsed == TPT_PF_DIVERT)
     return destination_from_socket(conn, req);
 

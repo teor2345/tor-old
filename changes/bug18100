@@ -1,0 +1,4 @@
+  o Minor fixes (transparent proxies):
+    - Fix TRANS_TPROXY socket support. 
+      Closes bug #18100. Reported by "sthen" and "jirib", patch by "teor".
+      Bugfix on 0.2.6.3-alpha, commit a8835170 on 4 Feb 2015.
