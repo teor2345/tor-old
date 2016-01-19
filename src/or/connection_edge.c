@@ -1652,11 +1652,15 @@ destination_from_socket(entry_connection_t *conn, socks_request_t *req)
     }
     goto done;
   }
-  goto done;
-#else
-  (void)conn;
-  (void)req;
-  log_warn(LD_BUG, "Unable to determine destination from socket.");
+#endif
+
+/* TRANS_NETFILTER executes "goto done" unconditionally, it will never reach
+ * this point */
+#ifndef TRANS_NETFILTER
+  /* We assume callers have checked TransProxyType_parsed correctly */
+  log_warn(LD_BUG, "Invalid combination of proxy destination determination "
+           "mechanism %s, TRANS_TPROXY, TRANS_NETFILTER, and TRANS_PF.",
+           options->TransProxyType);
   return -1;
 #endif
 
@@ -1780,13 +1784,15 @@ connection_ap_get_original_destination(entry_connection_t *conn,
   if (options->TransProxyType_parsed == TPT_DEFAULT ||
       options->TransProxyType_parsed == TPT_IPFW)
     return destination_from_pf(conn, req);
+#endif
 
-  (void)conn;
-  (void)req;
+/* TRANS_NETFILTER returns unconditionally, it will never reach this point */
+#if !defined(TRANS_NETFILTER) && (defined(TRANS_TPROXY) || defined(TRANS_PF))
   log_warn(LD_BUG, "Proxy destination determination mechanism %s unknown.",
            options->TransProxyType);
   return -1;
-#else
+#elif !defined(TRANS_NETFILTER)
+  /* If none of TRANS_NETFILTER, TRANS_TPROXY, or TRANS_PF is configured */
   (void)conn;
   (void)req;
   log_warn(LD_BUG, "Called connection_ap_get_original_destination, but no "
