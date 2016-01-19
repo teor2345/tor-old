@@ -1601,10 +1601,15 @@ destination_from_socket(entry_connection_t *conn, socks_request_t *req)
   tor_addr_t addr;
 #if defined(TRANS_TPROXY) || (!defined(TRANS_NETFILTER) && defined(TRANS_PF))
   const or_options_t *options = get_options();
-#endif
 
+  if (
 #ifdef TRANS_TPROXY
-  if (options->TransProxyType_parsed == TPT_TPROXY) {
+      options->TransProxyType_parsed == TPT_TPROXY
+#elif !defined(TRANS_NETFILTER) && defined(TRANS_PF)
+      /* Only execute the TRANS_PF code if we don't have TRANS_NETFILTER */
+      options->TransProxyType_parsed == TPT_PF_DIVERT
+#endif
+      ) {
     if (getsockname(ENTRY_TO_CONN(conn)->s, (struct sockaddr*)&orig_dst,
                     &orig_dst_len) < 0) {
       int e = tor_socket_errno(ENTRY_TO_CONN(conn)->s);
@@ -1642,21 +1647,7 @@ destination_from_socket(entry_connection_t *conn, socks_request_t *req)
     return -1;
   }
   goto done;
-#elif defined(TRANS_PF)
-  if (options->TransProxyType_parsed == TPT_PF_DIVERT) {
-    if (getsockname(ENTRY_TO_CONN(conn)->s, (struct sockaddr*)&orig_dst,
-                    &orig_dst_len) < 0) {
-      int e = tor_socket_errno(ENTRY_TO_CONN(conn)->s);
-      log_warn(LD_NET, "getsockname() failed: %s", tor_socket_strerror(e));
-      return -1;
-    }
-    goto done;
-  }
-#endif
-
-/* TRANS_NETFILTER executes "goto done" unconditionally, it will never reach
- * this point */
-#ifndef TRANS_NETFILTER
+#else
   /* We assume callers have checked TransProxyType_parsed correctly */
   log_warn(LD_BUG, "Invalid combination of proxy destination determination "
            "mechanism %s, TRANS_TPROXY, TRANS_NETFILTER, and TRANS_PF.",
