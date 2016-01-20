@@ -272,8 +272,8 @@ parse_reachable_addresses(void)
     ret = -1;
   }
 
-  /* XX/teor - we ignore ReachableAddresses for bridge clients and relays */
-  if (!options->UseBridges || server_mode(options)) {
+  /* We ignore ReachableAddresses for bridge clients and relays */
+  if (!options->UseBridges && !server_mode(options)) {
     if ((reachable_or_addr_policy
          && policy_is_reject_star(reachable_or_addr_policy, AF_UNSPEC))
         || (reachable_dir_addr_policy
@@ -282,6 +282,24 @@ parse_reachable_addresses(void)
                "ReachableAddresses, ReachableORAddresses, or "
                "ReachableDirAddresses reject all addresses. Please accept "
                "some addresses in these options.");
+    } else if (options->ClientUseIPv4 == 1
+       && ((reachable_or_addr_policy
+            && policy_is_reject_star(reachable_or_addr_policy, AF_INET))
+        || (reachable_dir_addr_policy
+            && policy_is_reject_star(reachable_dir_addr_policy, AF_INET)))) {
+          log_warn(LD_CONFIG, "You have set ClientUseIPv4 1, but "
+                   "ReachableAddresses, ReachableORAddresses, or "
+                   "ReachableDirAddresses reject all IPv4 addresses. "
+                   "Tor will not connect using IPv4.");
+    } else if ((options->ClientUseIPv6 != 0 || options->UseBridges)
+       && ((reachable_or_addr_policy
+            && policy_is_reject_star(reachable_or_addr_policy, AF_INET6))
+        || (reachable_dir_addr_policy
+            && policy_is_reject_star(reachable_dir_addr_policy, AF_INET6)))) {
+          log_warn(LD_CONFIG, "You have set ClientUseIPv6 1 or Use Bridges 1, "
+                   "but ReachableAddresses, ReachableORAddresses, or "
+                   "ReachableDirAddresses reject all IPv6 addresses. "
+                   "Tor will not connect using IPv6.");
     }
   }
 
