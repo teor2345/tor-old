@@ -761,9 +761,16 @@ node_exit_policy_is_exact(const node_t *node, sa_family_t family)
   return 1;
 }
 
-#define SL_ADD_NEW_IPV4_AP(r, port_field, sl) \
+/* Check if the "addr" and port_field fields from r are a valid non-listening
+ * address. If so, set valid to true and add a newly allocated tor_addr_port_t
+ * containing "addr" and port_field to sl.
+ * "addr" is an IPv4 host-order address and port_field is a uint16_t.
+ * r is typically a routerinfo_t or routerstatus_t.
+ */
+#define SL_ADD_NEW_IPV4_AP(r, port_field, sl, valid) \
   STMT_BEGIN \
-    if ((r)->addr != 0 && (r)->port_field != 0) { \
+    if (tor_addr_port_is_valid_ipv4h((r)->addr, (r)->port_field, 0)) { \
+      valid = 1; \
       tor_addr_port_t *ap = tor_malloc(sizeof(tor_addr_port_t)); \
       tor_addr_from_ipv4h(&ap->addr, (r)->addr); \
       ap->port = (r)->port_field; \
@@ -771,9 +778,16 @@ node_exit_policy_is_exact(const node_t *node, sa_family_t family)
     } \
   STMT_END
 
-#define SL_ADD_NEW_IPV6_AP(r, port_field, sl) \
+/* Check if the "addr" and port_field fields from r are a valid non-listening
+ * address. If so, set valid to true and add a newly allocated tor_addr_port_t
+ * containing "addr" and port_field to sl.
+ * "addr" is a tor_addr_t and port_field is a uint16_t.
+ * r is typically a routerinfo_t or routerstatus_t.
+ */
+#define SL_ADD_NEW_IPV6_AP(r, port_field, sl, valid) \
   STMT_BEGIN \
-    if (!tor_addr_is_null(&(r)->ipv6_addr) && (r)->port_field != 0) { \
+    if (tor_addr_port_is_valid(&(r)->ipv6_addr, (r)->port_field, 0)) { \
+      valid = 1; \
       tor_addr_port_t *ap = tor_malloc(sizeof(tor_addr_port_t)); \
       tor_addr_copy(&ap->addr, &(r)->ipv6_addr); \
       ap->port = (r)->port_field; \
@@ -793,15 +807,30 @@ smartlist_t *
 node_get_all_orports(const node_t *node)
 {
   smartlist_t *sl = smartlist_new();
+  int valid = 0;
 
+  /* Find an IPv4 address */
   if (node->ri != NULL) {
-    SL_ADD_NEW_IPV4_AP(node->ri, or_port, sl);
-    SL_ADD_NEW_IPV6_AP(node->ri, ipv6_orport, sl);
-  } else if (node->rs != NULL) {
-    SL_ADD_NEW_IPV4_AP(node->rs, or_port, sl);
-    SL_ADD_NEW_IPV6_AP(node->rs, ipv6_orport, sl);
-  } else if (node->md != NULL) {
-    SL_ADD_NEW_IPV6_AP(node->md, ipv6_orport, sl);
+    SL_ADD_NEW_IPV4_AP(node->ri, or_port, sl, valid);
+  }
+
+  /* If we didn't find a valid address in the ri, try the rs */
+  if (!valid && node->rs != NULL) {
+    SL_ADD_NEW_IPV4_AP(node->rs, or_port, sl, valid);
+  }
+
+  /* Find an IPv6 address */
+  valid = 0;
+  if (node->ri != NULL) {
+    SL_ADD_NEW_IPV6_AP(node->ri, ipv6_orport, sl, valid);
+  }
+
+  if (!valid && node->rs != NULL) {
+    SL_ADD_NEW_IPV6_AP(node->rs, ipv6_orport, sl, valid);
+  }
+
+  if (!valid && node->md != NULL) {
+    SL_ADD_NEW_IPV6_AP(node->md, ipv6_orport, sl, valid);
   }
 
   return sl;
