@@ -288,6 +288,20 @@ parse_reachable_addresses(void)
   return ret;
 }
 
+/** Return true iff the firewall options, including ClientUseIPv4 0 and
+ * ClientUseIPv6 0, might block any address:port combination.
+ */
+int
+firewall_is_fascist_or(void)
+{
+  const or_options_t *options = get_options();
+  /* Assume every non-bridge relay has an IPv4 address.
+   * Clients which use bridges may only know the IPv6 address of their
+   * bridge. */
+  return (reachable_or_addr_policy != NULL || options->ClientUseIPv4 == 0
+          || (options->ClientUseIPv6 == 0 && options->UseBridges == 1));
+}
+
 /** Return true iff <b>policy</b> (possibly NULL) will allow a
  * connection to <b>addr</b>:<b>port</b>.
  */

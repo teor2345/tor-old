@@ -29,6 +29,7 @@ typedef enum firewall_connection_t {
 
 typedef int exit_policy_parser_cfg_t;
 
+int firewall_is_fascist_or(void);
 int fascist_firewall_allows_address_addr(const tor_addr_t *addr, uint16_t port,
                                          firewall_connection_t fw_connection,
                                          int pref_only);
