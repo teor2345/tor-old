@@ -3108,20 +3108,20 @@ options_validate(or_options_t *old_options, or_options_t *options,
 
   /* We check if Reachable*Addresses blocks all addresses in
    * parse_reachable_addresses(). */
-  if (options->ClientUseIPv4 == 0 && options->ClientUseIPv6 == 0)
+  if (options->ClientUseIPv4 == 0 && !fascist_firewall_use_ipv6(options))
     REJECT("Tor cannot connect to the Internet if ClientUseIPv4 is 0 and "
            "ClientUseIPv6 is 0. Please set at least one of these options "
-           "to 1.");
+           "to 1, or configure bridges.");
 
-  if (options->ClientUseIPv6 == 0 && options->ClientPreferIPv6ORPort == 1
-      && !options->UseBridges)
+  if (!fascist_firewall_use_ipv6(options)
+      && options->ClientPreferIPv6ORPort == 1)
     log_warn(LD_CONFIG, "ClientPreferIPv6ORPort 1 is ignored unless "
-             "ClientUseIPv6 is also 1, or UseBridges is also 1.");
+             "ClientUseIPv6 is also 1, or bridges are configured.");
 
-  if (options->ClientUseIPv6 == 0 && options->ClientPreferIPv6DirPort == 1
-      && !options->UseBridges)
+  if (!fascist_firewall_use_ipv6(options)
+      && options->ClientPreferIPv6DirPort == 1)
     log_warn(LD_CONFIG, "ClientPreferIPv6DirPort 1 is ignored unless "
-             "ClientUseIPv6 is also 1, or UseBridges is also 1.");
+             "ClientUseIPv6 is also 1, or bridges are configured.");
 
   if (options->UseBridges &&
       server_mode(options))

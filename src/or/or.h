@@ -4066,7 +4066,9 @@ typedef struct {
    * connecting over IPv4. We enforce this for OR and Dir connections. */
   int ClientUseIPv4;
   /** If true, clients may connect over IPv6. If false, they will avoid
-   * connecting over IPv4. We enforce this for OR and Dir connections. */
+   * connecting over IPv4. We enforce this for OR and Dir connections.
+   * Use fascist_firewall_use_ipv6() instead of accessing this value
+   * directly. */
   int ClientUseIPv6;
   /** If true, prefer an IPv6 OR port over an IPv4 one for entry node
    * connections. If auto, bridge clients prefer IPv6, and other clients
