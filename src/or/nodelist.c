@@ -1005,8 +1005,10 @@ node_get_declared_family(const node_t *node)
     return NULL;
 }
 
-/* Does this node have a valid IPv6 address? */
-static int
+/* Does this node have a valid IPv6 address?
+ * Prefer node_has_ipv6_orport() or node_has_ipv6_dirport() for
+ * checking specific ports. */
+int
 node_has_ipv6_addr(const node_t *node)
 {
   /* Don't check the ORPort or DirPort, as this function isn't port-specific,
@@ -1021,6 +1023,24 @@ node_has_ipv6_addr(const node_t *node)
     return 1;
 
   return 0;
+}
+
+/* Does this node have a valid IPv6 ORPort? */
+int
+node_has_ipv6_orport(const node_t *node)
+{
+  tor_addr_port_t ipv6_orport;
+  node_get_pref_ipv6_orport(node, &ipv6_orport);
+  return tor_addr_port_is_valid_ap(&ipv6_orport, 0);
+}
+
+/* Does this node have a valid IPv6 DirPort? */
+int
+node_has_ipv6_dirport(const node_t *node)
+{
+  tor_addr_port_t ipv6_dirport;
+  node_get_pref_ipv6_dirport(node, &ipv6_dirport);
+  return tor_addr_port_is_valid_ap(&ipv6_dirport, 0);
 }
 
 /** Return 1 if we prefer the IPv6 address and OR TCP port of
@@ -1047,9 +1067,7 @@ node_ipv6_or_preferred(const node_t *node)
     return 0;
   } else if (node->ipv6_preferred || node_get_prim_orport(node, &ipv4_addr)
       || nodelist_prefer_ipv6_orport(get_options())) {
-    tor_addr_port_t ipv6_orport;
-    node_get_pref_ipv6_orport(node, &ipv6_orport);
-    return tor_addr_port_is_valid_ap(&ipv6_orport, 0);
+    return node_has_ipv6_orport(node);
   }
   return 0;
 }
@@ -1148,9 +1166,7 @@ node_ipv6_dir_preferred(const node_t *node)
     return 0;
   } else if (node->ipv6_preferred || node_get_prim_dirport(node, &ipv4_addr)
       || nodelist_prefer_ipv6_dirport(get_options())) {
-    tor_addr_port_t ipv6_dirport;
-    node_get_pref_ipv6_dirport(node, &ipv6_dirport);
-    return tor_addr_port_is_valid_ap(&ipv6_dirport, 0);
+    return node_has_ipv6_dirport(node);
   }
   return 0;
 }

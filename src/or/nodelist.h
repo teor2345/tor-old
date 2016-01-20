@@ -58,6 +58,9 @@ long node_get_declared_uptime(const node_t *node);
 time_t node_get_published_on(const node_t *node);
 const smartlist_t *node_get_declared_family(const node_t *node);
 
+int node_has_ipv6_addr(const node_t *node);
+int node_has_ipv6_orport(const node_t *node);
+int node_has_ipv6_dirport(const node_t *node);
 /* Deprecated - use node_ipv6_or_preferred or node_ipv6_dir_preferred */
 #define node_ipv6_preferred(node) node_ipv6_or_preferred(node)
 int node_ipv6_or_preferred(const node_t *node);
