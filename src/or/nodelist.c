@@ -831,8 +831,8 @@ node_exit_policy_is_exact(const node_t *node, sa_family_t family)
 }
 
 /* Check if the "addr" and port_field fields from r are a valid non-listening
- * address. If so, set valid to true and add a newly allocated tor_addr_port_t
- * containing "addr" and port_field to sl.
+ * address/port. If so, set valid to true and add a newly allocated
+ * tor_addr_port_t containing "addr" and port_field to sl.
  * "addr" is an IPv4 host-order address and port_field is a uint16_t.
  * r is typically a routerinfo_t or routerstatus_t.
  */
@@ -848,8 +848,8 @@ node_exit_policy_is_exact(const node_t *node, sa_family_t family)
   STMT_END
 
 /* Check if the "addr" and port_field fields from r are a valid non-listening
- * address. If so, set valid to true and add a newly allocated tor_addr_port_t
- * containing "addr" and port_field to sl.
+ * address/port. If so, set valid to true and add a newly allocated
+ * tor_addr_port_t containing "addr" and port_field to sl.
  * "addr" is a tor_addr_t and port_field is a uint16_t.
  * r is typically a routerinfo_t or routerstatus_t.
  */
@@ -878,17 +878,17 @@ node_get_all_orports(const node_t *node)
   smartlist_t *sl = smartlist_new();
   int valid = 0;
 
-  /* Find an IPv4 address */
+  /* Find a valid IPv4 address and port */
   if (node->ri != NULL) {
     SL_ADD_NEW_IPV4_AP(node->ri, or_port, sl, valid);
   }
 
-  /* If we didn't find a valid address in the ri, try the rs */
+  /* If we didn't find a valid address/port in the ri, try the rs */
   if (!valid && node->rs != NULL) {
     SL_ADD_NEW_IPV4_AP(node->rs, or_port, sl, valid);
   }
 
-  /* Find an IPv6 address */
+  /* Find a valid IPv6 address and port */
   valid = 0;
   if (node->ri != NULL) {
     SL_ADD_NEW_IPV6_AP(node->ri, ipv6_orport, sl, valid);
