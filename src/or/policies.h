@@ -43,6 +43,9 @@ int fascist_firewall_allows_address_ipv4h(uint32_t ipv4h_or_addr,
                                           uint16_t ipv4_or_port,
                                           firewall_connection_t fw_connection,
                                           int pref_only);
+int fascist_firewall_allows_rs(const routerstatus_t *rs,
+                               firewall_connection_t fw_connection,
+                               int pref_only);
 int fascist_firewall_allows_node(const node_t *node,
                                  firewall_connection_t fw_connection,
                                  int pref_only);
@@ -56,6 +59,9 @@ const tor_addr_port_t * fascist_firewall_choose_address(
                                           int want_a,
                                           firewall_connection_t fw_connection,
                                           int pref_only);
+int fascist_firewall_choose_address_rs(const routerstatus_t *rs,
+                                       firewall_connection_t fw_connection,
+                                       int pref_only, tor_addr_port_t* ap);
 int fascist_firewall_choose_address_node(const node_t *node,
                                          firewall_connection_t fw_connection,
                                          int pref_only, tor_addr_port_t* ap);

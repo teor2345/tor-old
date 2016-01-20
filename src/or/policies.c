@@ -614,7 +614,7 @@ fascist_firewall_allows_rs_impl(const routerstatus_t *rs,
  * If pref_only, return false if addr is not in the client's preferred address
  * family.
  * Consults the corresponding node if the addresses in rs are not permitted. */
-static int
+int
 fascist_firewall_allows_rs(const routerstatus_t *rs,
                            firewall_connection_t fw_connection, int pref_only)
 {
@@ -880,7 +880,7 @@ fascist_firewall_choose_address_ipv4h(uint32_t ipv4h_addr,
  * a preferred address before an address that's not preferred.
  * If neither address is chosen, return 0, else return 1.
  * Consults the corresponding node if the addresses in rs are not valid. */
-static int
+int
 fascist_firewall_choose_address_rs(const routerstatus_t *rs,
                                    firewall_connection_t fw_connection,
                                    int pref_only, tor_addr_port_t* ap)

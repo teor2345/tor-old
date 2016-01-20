@@ -1742,8 +1742,8 @@ connection_connect_log_client_use_ip_version(const connection_t *conn)
   const int must_ipv4 = (options->ClientUseIPv6 == 0 && !options->UseBridges);
   const int must_ipv6 = (options->ClientUseIPv4 == 0);
   const int pref_ipv6 = (conn->type == CONN_TYPE_OR
-                         ? nodelist_prefer_ipv6_orport(options)
-                         : nodelist_prefer_ipv6_dirport(options));
+                         ? fascist_firewall_prefer_ipv6_orport(options)
+                         : fascist_firewall_prefer_ipv6_dirport(options));
   tor_addr_t real_addr;
   tor_addr_make_null(&real_addr, AF_UNSPEC);
 

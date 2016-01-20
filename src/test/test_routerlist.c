@@ -119,7 +119,6 @@ test_routerlist_launch_descriptor_downloads(void *arg)
   smartlist_free(downloadable);
 }
 
-<<<<<<< HEAD
 void
 construct_consensus(const char **consensus_text_md)
 {
@@ -452,8 +451,8 @@ test_routerlist_router_is_already_dir_fetching(void *arg)
 struct testcase_t routerlist_tests[] = {
   NODE(initiate_descriptor_downloads, 0),
   NODE(launch_descriptor_downloads, 0),
-  ROUTER(pick_directory_server_impl, TT_FORK),
   NODE(router_is_already_dir_fetching, TT_FORK),
+  ROUTER(pick_directory_server_impl, TT_FORK),
   END_OF_TESTCASES
 };
 
