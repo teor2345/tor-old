@@ -2120,8 +2120,8 @@ launch_direct_bridge_descriptor_fetch(bridge_info_t *bridge)
     return;
   }
 
-  directory_initiate_command(&bridge->addr,
-                             bridge->port, 0/*no dirport*/,
+  directory_initiate_command(&bridge->addr, bridge->port,
+                             NULL, 0, /*no dirport*/
                              bridge->identity,
                              DIR_PURPOSE_FETCH_SERVERDESC,
                              ROUTER_PURPOSE_BRIDGE,
