@@ -59,6 +59,20 @@ mock_saved_log_at(int ix)
     return "";
 }
 
+/* If a case-insensitive match for msg is found in the saved logs, return the
+ * position of the first match in the logs.
+ * Otherwise, return MOCK_SAVED_LOG_MSG_NOT_FOUND if not found. */
+int
+mock_saved_log_position(const char *msg)
+{
+  for (int i = 0; i < mock_saved_log_number(); i++) {
+    if (!strcasecmp(msg, mock_saved_log_at(i))) {
+      return i;
+    }
+  }
+  return MOCK_SAVED_LOG_MSG_NOT_FOUND;
+}
+
 int
 mock_saved_severity_at(int ix)
 {

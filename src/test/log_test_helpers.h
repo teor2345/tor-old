@@ -24,6 +24,8 @@ const smartlist_t *mock_saved_logs(void);
 int setup_capture_of_logs(int new_level);
 void teardown_capture_of_logs(int prev);
 const char *mock_saved_log_at(int ix);
+#define MOCK_SAVED_LOG_MSG_NOT_FOUND (-1)
+int mock_saved_log_position(const char *msg);
 int mock_saved_severity_at(int ix);
 int mock_saved_log_number(void);
 
