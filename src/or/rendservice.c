@@ -3652,8 +3652,9 @@ rend_consider_services_upload(time_t now)
 {
   int i;
   rend_service_t *service;
-  int rendpostperiod = get_options()->RendPostPeriod;
-  int rendinitialpostdelay = (get_options()->TestingTorNetwork ?
+  const or_options_t *options = get_options();
+  int rendpostperiod = options->RendPostPeriod;
+  int rendinitialpostdelay = (options->TestingTorNetwork ?
                               MIN_REND_INITIAL_POST_DELAY_TESTING :
                               MIN_REND_INITIAL_POST_DELAY);
 
