@@ -3158,6 +3158,41 @@ options_validate(or_options_t *old_options, or_options_t *options,
     options->PredictedPortsRelevanceTime = MAX_PREDICTED_CIRCS_RELEVANCE;
   }
 
+  if (options->RendezvousSingleOnionServiceNonAnonymousServer
+      && options->LearnCircuitBuildTimeout) {
+    /* LearnCircuitBuildTimeout and RSOS are incompatible in
+     * two ways:
+     *
+     * - LearnCircuitBuildTimeout results in a low CBT, which
+     *   RSOS's use of one-hop intro and rendezvous circuits lowers
+     *   much further, producing *far* too many timeouts.
+     *
+     * - The adaptive CBT code does not update its timeout estimate
+     *   using build times for single-hop circuits.
+     *
+     * If we fix both of these issues someday, we should test
+     * RSOS with LearnCircuitBuildTimeout on again. */
+    log_notice(LD_CONFIG,"RendezvousSingleOnionServiceNonAnonymousServer is "
+               "enabled; turning LearnCircuitBuildTimeout off.");
+    options->LearnCircuitBuildTimeout = 0;
+  }
+
+  if (options->RendezvousSingleOnionServiceNonAnonymousServer
+      && options->UseEntryGuards) {
+    /* RSOS services do not (and should not) use entry guards
+     * in any meaningful way.  Further, RSOS causes the hidden
+     * service code to do things which break the path bias
+     * detector, and it's far easier to turn off entry guards (and
+     * thus the path bias detector with it) than to figure out how to
+     * make a piece of code which cannot possibly help RSOS, compatible with
+     * RSOS.
+     */
+    log_notice(LD_CONFIG,
+               "RendezvousSingleOnionServiceNonAnonymousServer is enabled; "
+               "disabling UseEntryGuards.");
+    options->UseEntryGuards = 0;
+  }
+
 #ifdef ENABLE_TOR2WEB_MODE
   if (options->Tor2webMode && options->LearnCircuitBuildTimeout) {
     /* LearnCircuitBuildTimeout and Tor2webMode are incompatible in
