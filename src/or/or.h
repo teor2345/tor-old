@@ -3467,12 +3467,12 @@ static INLINE const loose_or_circuit_t *CONST_TO_LOOSE_CIRCUIT(const circuit_t *
 }
 static INLINE loose_or_circuit_t *OR_TO_LOOSE_CIRCUIT(or_circuit_t *x)
 {
-  tor_assert(x->base_.magic == OR_CIRCUIT_MAGIC);
+  tor_assert(x->base_.magic == LOOSE_OR_CIRCUIT_MAGIC);
   return (loose_or_circuit_t *) SUBTYPE_P(x, loose_or_circuit_t, or_);
 }
 static INLINE const loose_or_circuit_t *CONST_OR_TO_LOOSE_CIRCUIT(const or_circuit_t *x)
 {
-  tor_assert(x->base_.magic == OR_CIRCUIT_MAGIC);
+  tor_assert(x->base_.magic == LOOSE_OR_CIRCUIT_MAGIC);
   return (const loose_or_circuit_t *) SUBTYPE_P(x, loose_or_circuit_t, or_);
 }
 
