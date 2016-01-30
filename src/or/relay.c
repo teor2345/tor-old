@@ -720,7 +720,7 @@ connection_edge_send_command(edge_connection_t *fromconn,
     return -1;
   }
 
-  return relay_send_command_from_edge(fromconn->stream_id, circ,
+  return relay_send_command(fromconn->stream_id, circ,
                                       relay_command, payload,
                                       payload_len, cpath_layer);
 }
@@ -1702,7 +1702,7 @@ connection_edge_process_relay_cell(cell_t *cell, circuit_t *circ,
       {
         char payload[1];
         payload[0] = (char)END_CIRC_REASON_REQUESTED;
-        relay_send_command_from_edge(0, circ, RELAY_COMMAND_TRUNCATED,
+        relay_send_command(0, circ, RELAY_COMMAND_TRUNCATED,
                                      payload, sizeof(payload), NULL);
       }
       return 0;
@@ -2256,7 +2256,7 @@ circuit_consider_sending_sendme(circuit_t *circ, crypt_path_t *layer_hint)
       layer_hint->deliver_window += CIRCWINDOW_INCREMENT;
     else
       circ->deliver_window += CIRCWINDOW_INCREMENT;
-    if (relay_send_command_from_edge(0, circ, RELAY_COMMAND_SENDME,
+    if (relay_send_command(0, circ, RELAY_COMMAND_SENDME,
                                      NULL, 0, layer_hint) < 0) {
       log_warn(LD_CIRC,
                "relay_send_command_from_edge failed. Circuit's closed.");

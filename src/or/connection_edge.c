@@ -278,7 +278,7 @@ relay_send_end_cell_from_edge(streamid_t stream_id, circuit_t *circ,
 
   payload[0] = (char) reason;
 
-  return relay_send_command_from_edge(stream_id, circ, RELAY_COMMAND_END,
+  return relay_send_command(stream_id, circ, RELAY_COMMAND_END,
                                       payload, 1, cpath_layer);
 }
 

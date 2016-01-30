@@ -1092,7 +1092,7 @@ circuit_send_next_onion_skin(origin_circuit_t *circ)
 
       /* send it to hop->prev, because it will transfer
        * it to a create cell and then send to hop */
-      if (relay_send_command_from_edge(0, TO_CIRCUIT(circ),
+      if (relay_send_command(0, TO_CIRCUIT(circ),
                                        command,
                                        (char*)payload, payload_len,
                                        hop->prev) < 0)

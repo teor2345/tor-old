@@ -823,7 +823,7 @@ pathbias_send_usable_probe(circuit_t *circ)
   tor_free(probe_nonce);
 
   /* Send a test relay cell */
-  if (relay_send_command_from_edge(ocirc->pathbias_probe_id, circ,
+  if (relay_send_command(ocirc->pathbias_probe_id, circ,
                                RELAY_COMMAND_BEGIN, payload,
                                payload_len, cpath_layer) < 0) {
     log_notice(LD_CIRC,

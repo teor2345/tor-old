@@ -74,7 +74,7 @@ rend_client_send_establish_rendezvous(origin_circuit_t *circ)
   /* We've attempted to use this circuit. Probe it if we fail */
   pathbias_count_use_attempt(circ);
 
-  if (relay_send_command_from_edge(0, TO_CIRCUIT(circ),
+  if (relay_send_command(0, TO_CIRCUIT(circ),
                                    RELAY_COMMAND_ESTABLISH_RENDEZVOUS,
                                    circ->rend_data->rend_cookie,
                                    REND_COOKIE_LEN,
@@ -308,7 +308,7 @@ rend_client_send_introduction(origin_circuit_t *introcirc,
          REND_COOKIE_LEN);
 
   log_info(LD_REND, "Sending an INTRODUCE1 cell");
-  if (relay_send_command_from_edge(0, TO_CIRCUIT(introcirc),
+  if (relay_send_command(0, TO_CIRCUIT(introcirc),
                                    RELAY_COMMAND_INTRODUCE1,
                                    payload, payload_len,
                                    introcirc->cpath->prev)<0) {

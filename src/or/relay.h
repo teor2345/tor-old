@@ -28,7 +28,7 @@ int relay_send_command_from_edge_(streamid_t stream_id, circuit_t *circ,
                                const char *filename, int lineno);
 #define relay_send_command_from_edge(stream_id, circ, relay_command, payload, \
                                      payload_len, cpath_layer)          \
-  relay_send_command_from_edge_((stream_id), (circ), (relay_command),   \
+  relay_send_command_((stream_id), (circ), (relay_command),   \
                                 (payload), (payload_len), (cpath_layer), \
                                 __FILE__, __LINE__)
 int connection_edge_send_command(edge_connection_t *fromconn,

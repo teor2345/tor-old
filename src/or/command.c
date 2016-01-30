@@ -468,7 +468,7 @@ command_process_created_cell(cell_t *cell, channel_t *chan)
       return;
     }
 
-    relay_send_command_from_edge(0, circ, command,
+    relay_send_command(0, circ, command,
                                  (const char*)payload, len, NULL);
   }
 }
@@ -610,7 +610,7 @@ command_process_destroy_cell(cell_t *cell, channel_t *chan)
       char payload[1];
       log_debug(LD_OR, "Delivering 'truncated' back.");
       payload[0] = (char)reason;
-      relay_send_command_from_edge(0, circ, RELAY_COMMAND_TRUNCATED,
+      relay_send_command(0, circ, RELAY_COMMAND_TRUNCATED,
                                    payload, sizeof(payload), NULL);
     }
   }

@@ -978,7 +978,7 @@ loose_circuit_extend_to_next_hop(loose_or_circuit_t *loose_circ)
 
     /* Send it to hop->prev, because it will transfer it to a create cell and
      * then send to hop. */
-    if (relay_send_command_from_edge(0, LOOSE_TO_CIRCUIT(loose_circ), command,
+    if (relay_send_command(0, LOOSE_TO_CIRCUIT(loose_circ), command,
                                      (char*)payload, payload_len,
                                      hop->prev) < 0) {
       return 0; /* Circuit is closed. */

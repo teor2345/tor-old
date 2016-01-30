@@ -1441,7 +1441,7 @@ router_perform_bandwidth_test(int num_circs, time_t now)
       continue;
     circ->base_.timestamp_dirty = now;
     while (i-- > 0) {
-      if (relay_send_command_from_edge(0, TO_CIRCUIT(circ),
+      if (relay_send_command(0, TO_CIRCUIT(circ),
                                        RELAY_COMMAND_DROP,
                                        NULL, 0, circ->cpath->prev)<0) {
         return; /* stop if error */
