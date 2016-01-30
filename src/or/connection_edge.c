@@ -2891,7 +2891,7 @@ connection_exit_begin_conn(cell_t *cell, circuit_t *circ)
   if (rh.length > RELAY_PAYLOAD_SIZE)
     return -END_CIRC_REASON_TORPROTOCOL;
 
-  /* Note: we have to use relay_send_command_from_edge here, not
+  /* Note: we have to use relay_send_end_cell_from_edge here, not
    * connection_edge_end or connection_edge_send_command, since those require
    * that we have a stream connected to a circuit, and we don't connect to a
    * circuit until we have a pending/successful resolve. */

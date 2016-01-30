@@ -22,12 +22,12 @@ int circuit_receive_relay_cell(cell_t *cell, circuit_t *circ,
                                cell_direction_t cell_direction);
 void relay_header_pack(uint8_t *dest, const relay_header_t *src);
 void relay_header_unpack(relay_header_t *dest, const uint8_t *src);
-int relay_send_command_from_edge_(streamid_t stream_id, circuit_t *circ,
-                               uint8_t relay_command, const char *payload,
-                               size_t payload_len, crypt_path_t *cpath_layer,
-                               const char *filename, int lineno);
-#define relay_send_command_from_edge(stream_id, circ, relay_command, payload, \
-                                     payload_len, cpath_layer)          \
+int relay_send_command_(streamid_t stream_id, circuit_t *circ,
+                        uint8_t relay_command, const char *payload,
+                        size_t payload_len, crypt_path_t *cpath_layer,
+                        const char *filename, int lineno);
+#define relay_send_command(stream_id, circ, relay_command, payload, \
+                           payload_len, cpath_layer)                \
   relay_send_command_((stream_id), (circ), (relay_command),   \
                                 (payload), (payload_len), (cpath_layer), \
                                 __FILE__, __LINE__)

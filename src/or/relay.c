@@ -563,16 +563,16 @@ relay_command_to_string(uint8_t command)
  * it onto the open circuit <b>circ</b>. <b>stream_id</b> is the ID on
  * <b>circ</b> for the stream that's sending the relay cell, or 0 if it's a
  * control cell.  <b>cpath_layer</b> is NULL for OR->OP cells, or the
- * destination hop for OP->OR cells.
+ * destination hop for OP->OR cells (or bridge->bridgegaurd cells).
  *
  * If you can't send the cell, mark the circuit for close and return -1. Else
  * return 0.
  */
 int
-relay_send_command_from_edge_(streamid_t stream_id, circuit_t *circ,
-                              uint8_t relay_command, const char *payload,
-                              size_t payload_len, crypt_path_t *cpath_layer,
-                              const char *filename, int lineno)
+relay_send_command_(streamid_t stream_id, circuit_t *circ,
+                    uint8_t relay_command, const char *payload,
+                    size_t payload_len, crypt_path_t *cpath_layer,
+                    const char *filename, int lineno)
 {
   cell_t cell;
   relay_header_t rh;
