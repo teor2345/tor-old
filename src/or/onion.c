@@ -469,7 +469,6 @@ onion_skin_server_handshake(int type,
 {
   int r = -1;
 
-  // prop#188
   switch (type) {
   case ONION_HANDSHAKE_TYPE_TAP:
     if (onionskin_len != TAP_ONIONSKIN_CHALLENGE_LEN)
