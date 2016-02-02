@@ -1865,7 +1865,8 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
       goto err;
     }
 
-    rp = extend_info_from_node(node, 0);
+    rp = extend_info_from_node(node,
+                               rend_allow_direct_connection(get_options()));
     if (!rp) {
       if (err_msg_out) {
         tor_asprintf(&err_msg,
@@ -3680,7 +3681,8 @@ rend_consider_services_intro_points(void)
        * pick it again in the next iteration. */
       smartlist_add(exclude_nodes, (void*)node);
       intro = tor_malloc_zero(sizeof(rend_intro_point_t));
-      intro->extend_info = extend_info_from_node(node, 0);
+      intro->extend_info = extend_info_from_node(node,
+                                        rend_allow_direct_connection(options));
       intro->intro_key = crypto_pk_new();
       const int fail = crypto_pk_generate_key(intro->intro_key);
       tor_assert(!fail);
