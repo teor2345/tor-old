@@ -1369,7 +1369,8 @@ rend_client_get_random_intro_impl(const rend_cache_entry_t *entry,
       smartlist_del(usable_nodes, i);
       goto again;
     }
-    new_extend_info = extend_info_from_node(node, 0);
+    new_extend_info = extend_info_from_node(node,
+                                        rend_allow_direct_connection(options));
     if (!new_extend_info) {
       log_info(LD_REND, "We don't have a descriptor for the intro-point relay "
                "'%s'; trying another.",
