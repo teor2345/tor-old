@@ -1364,16 +1364,12 @@ rend_client_get_random_intro_impl(const rend_cache_entry_t *entry,
       smartlist_del(usable_nodes, i);
       goto again;
     }
-#ifdef ENABLE_TOR2WEB_MODE
-    new_extend_info = extend_info_from_node(node, options->Tor2webMode);
-#else
-    new_extend_info = extend_info_from_node(node, 0);
-#endif
+    int direct_conn = rend_allow_direct_connection(options);
+    new_extend_info = extend_info_from_node(node, direct_conn);
     if (!new_extend_info) {
-      const char *alternate_reason = "";
-#ifdef ENABLE_TOR2WEB_MODE
-      alternate_reason = ", or we cannot connect directly to it";
-#endif
+      const char *alternate_reason = (direct_conn
+                                      ? ", or we cannot connect directly to it"
+                                      : "");
       log_info(LD_REND, "We don't have a descriptor for the intro-point relay "
                "'%s'%s; trying another.",
                extend_info_describe(intro->extend_info), alternate_reason);
