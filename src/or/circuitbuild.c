@@ -26,6 +26,7 @@
 #include "connection_edge.h"
 #include "connection_or.h"
 #include "control.h"
+#include "crypto.h"
 #include "directory.h"
 #include "entrynodes.h"
 #include "main.h"
@@ -36,14 +37,14 @@
 #include "onion_tap.h"
 #include "onion_fast.h"
 #include "policies.h"
-#include "transports.h"
 #include "relay.h"
+#include "rendcommon.h"
 #include "rephist.h"
 #include "router.h"
 #include "routerlist.h"
 #include "routerparse.h"
 #include "routerset.h"
-#include "crypto.h"
+#include "transports.h"
 
 #ifndef MIN
 #define MIN(a,b) ((a)<(b)?(a):(b))
@@ -1961,9 +1962,9 @@ onion_pick_cpath_exit(origin_circuit_t *circ, extend_info_t *exit)
   cpath_build_state_t *state = circ->build_state;
 
   if (state->onehop_tunnel) {
-    log_debug(LD_CIRC, "Launching a one-hop circuit for dir%s tunnel.",
-              (get_options()->RendezvousSingleOnionServiceNonAnonymousServer ?
-               "or intro or rendezvous" : ""));
+    log_debug(LD_CIRC, "Launching a one-hop circuit for dir tunnel%s.",
+              (rend_allow_direct_connection(get_options()) ?
+               ", or intro or rendezvous connection" : ""));
     state->desired_path_len = 1;
   } else {
     int r = new_route_len(circ->base_.purpose, exit, nodelist_get_list());

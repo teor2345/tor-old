@@ -1553,11 +1553,7 @@ rend_service_receive_introduction(origin_circuit_t *circuit,
     goto err;
   }
 
-#ifndef NON_ANONYMOUS_MODE_ENABLED
-  if (!get_options()->RendezvousSingleOnionServiceNonAnonymousServer) {
-    tor_assert(!(circuit->build_state->onehop_tunnel));
-  }
-#endif
+  assert_circ_onehop_ok(circuit, 0, options);
   tor_assert(circuit->rend_data);
 
   /* We'll use this in a bazillion log messages */
@@ -1759,9 +1755,7 @@ rend_service_receive_introduction(origin_circuit_t *circuit,
   for (i=0;i<MAX_REND_FAILURES;i++) {
     int flags = CIRCLAUNCH_NEED_CAPACITY | CIRCLAUNCH_IS_INTERNAL;
     if (circ_needs_uptime) flags |= CIRCLAUNCH_NEED_UPTIME;
-    /* If RendezvousSingleOnionServiceNonAnonymousServer is set, we want to
-     * make one-hop rendezvous circuits. */
-    if (get_options()->RendezvousSingleOnionServiceNonAnonymousServer) {
+    if (rend_allow_direct_connection(options)) {
           flags = flags | CIRCLAUNCH_ONEHOP_TUNNEL;
     }
     launched = circuit_launch_by_extend_info(
@@ -2662,9 +2656,7 @@ rend_service_relaunch_rendezvous(origin_circuit_t *oldcirc)
            safe_str(extend_info_describe(oldstate->chosen_exit)));
 
   int flags = CIRCLAUNCH_NEED_CAPACITY | CIRCLAUNCH_IS_INTERNAL;
-  /* If RendezvousSingleOnionServiceNonAnonymousServer is set, we want to
-   * make one-hop rendezvous circuits. */
-  if (get_options()->RendezvousSingleOnionServiceNonAnonymousServer) {
+  if (rend_allow_direct_connection(get_options())) {
     flags = flags | CIRCLAUNCH_ONEHOP_TUNNEL;
   }
 
@@ -2697,9 +2689,7 @@ rend_service_launch_establish_intro(rend_service_t *service,
   origin_circuit_t *launched;
   int flags = CIRCLAUNCH_NEED_UPTIME|CIRCLAUNCH_IS_INTERNAL;
 
-  /* If RendezvousSingleOnionServiceNonAnonymousServer is set, we want to
-   * make one-hop intro circuits. */
-  if (get_options()->RendezvousSingleOnionServiceNonAnonymousServer) {
+  if (rend_allow_direct_connection(get_options())) {
     flags = flags | CIRCLAUNCH_ONEHOP_TUNNEL;
   }
 
@@ -2787,11 +2777,7 @@ rend_service_intro_has_opened(origin_circuit_t *circuit)
   crypto_pk_t *intro_key;
 
   tor_assert(circuit->base_.purpose == CIRCUIT_PURPOSE_S_ESTABLISH_INTRO);
-#ifndef NON_ANONYMOUS_MODE_ENABLED
-  if (!get_options()->RendezvousSingleOnionServiceNonAnonymousServer) {
-    tor_assert(!(circuit->build_state->onehop_tunnel));
-  }
-#endif
+  assert_circ_onehop_ok(circuit, 0, get_options());
   tor_assert(circuit->cpath);
   tor_assert(circuit->rend_data);
 
@@ -2988,11 +2974,7 @@ rend_service_rendezvous_has_opened(origin_circuit_t *circuit)
   tor_assert(circuit->base_.purpose == CIRCUIT_PURPOSE_S_CONNECT_REND);
   tor_assert(circuit->cpath);
   tor_assert(circuit->build_state);
-#ifndef NON_ANONYMOUS_MODE_ENABLED
-  if (!get_options()->RendezvousSingleOnionServiceNonAnonymousServer) {
-    tor_assert(!(circuit->build_state->onehop_tunnel));
-  }
-#endif
+  assert_circ_onehop_ok(circuit, 0, get_options());
   tor_assert(circuit->rend_data);
 
   /* Declare the circuit dirty to avoid reuse, and for path-bias */
@@ -3747,13 +3729,13 @@ rend_consider_services_upload(time_t now)
     if (!service->next_upload_time) { /* never been uploaded yet */
       /* The fixed lower bound of rendinitialpostdelay seconds ensures that
        * the descriptor is stable before being published. See comment below. */
-      service->next_upload_time = now + rendinitialpostdelay;
-      /* Hide the startup time of hidden services by adding a random delay.
-       * But Single Onion Services prioritise availability over hiding their
+      service->next_upload_time = (now + rendinitialpostdelay
+                                   + crypto_rand_int(2*rendpostperiod));
+      /* Single Onion Services prioritise availability over hiding their
        * startup time, as their IP address is publicly discoverable anyway.
        */
-      if (!options->RendezvousSingleOnionServiceNonAnonymousServer) {
-        service->next_upload_time += crypto_rand_int(2*rendpostperiod);
+      if (rend_reveal_startup_time(options)) {
+        service->next_upload_time = now + rendinitialpostdelay;
       }
     }
     /* Does every introduction points have been established? */
