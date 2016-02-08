@@ -943,3 +943,37 @@ rend_data_client_create(const char *onion_address, const char *desc_id,
   return NULL;
 }
 
+/* Do the options allow us to make direct connections to introduction or
+ * rendezvous points?
+ * Returns true in Tor2web and RSOS modes. */
+int
+rend_allow_direct_connection(const or_options_t *options)
+{
+  if (options->RendezvousSingleOnionServiceNonAnonymousServer) {
+    return 1;
+  }
+
+#ifdef NON_ANONYMOUS_MODE_ENABLED
+  /* Tor2web */
+  return 1;
+#else
+  return 0;
+#endif
+}
+
+/* Do the options allow us to reveal the exact startup time of the onion
+ * service?
+ * Single Onion Services prioritise availability over hiding their
+ * startup time, as their IP address is publicly discoverable anyway.
+ * Returns true in RSOS mode. */
+int
+rend_reveal_startup_time(const or_options_t *options)
+{
+  /* Even though it only applies to onion services, this code is in rendcommon
+   * so that it's near the other RSOS option code. */
+  if (options->RendezvousSingleOnionServiceNonAnonymousServer) {
+    return 1;
+  }
+
+  return 0;
+}

@@ -2135,11 +2135,8 @@ connection_ap_handshake_send_begin(entry_connection_t *ap_conn)
 
   begin_type = ap_conn->use_begindir ?
                  RELAY_COMMAND_BEGIN_DIR : RELAY_COMMAND_BEGIN;
-  if (begin_type == RELAY_COMMAND_BEGIN) {
-#ifndef NON_ANONYMOUS_MODE_ENABLED
-    tor_assert(circ->build_state->onehop_tunnel == 0);
-#endif
-  }
+  assert_circ_onehop_ok(circ, (begin_type == RELAY_COMMAND_BEGIN_DIR),
+                        get_options());
 
   if (connection_edge_send_command(edge_conn, begin_type,
                   begin_type == RELAY_COMMAND_BEGIN ? payload : NULL,
