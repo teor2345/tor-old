@@ -1612,7 +1612,6 @@ connection_edge_process_relay_cell(cell_t *cell, circuit_t *circ,
         connection_mark_and_flush(TO_CONN(conn));
       }
       return 0;
-    // prop#188
     case RELAY_COMMAND_EXTEND:
     case RELAY_COMMAND_EXTEND2: {
       static uint64_t total_n_extend=0, total_nonearly=0;
