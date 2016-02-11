@@ -911,7 +911,7 @@ addr_policy_append_reject_addr(smartlist_t **dest, const tor_addr_t *addr)
   if (!*dest)
     *dest = smartlist_new();
   smartlist_add(*dest, add);
-  log_debug(LD_CONFIG, "Adding a reject ExitPolicy 'reject %s:*'",
+  log_debug(LD_CONFIG, "Adding a reject policy 'reject %s:*'",
             fmt_addr(addr));
 }
 
@@ -1022,7 +1022,7 @@ exit_policy_remove_redundancies(smartlist_t *dest)
         char p1[POLICY_BUF_LEN], p2[POLICY_BUF_LEN];
         policy_write_item(p1, sizeof(p1), tmp, 0);
         policy_write_item(p2, sizeof(p2), ap, 0);
-        log_debug(LD_CONFIG, "Removing exit policy %s (%d).  It is made "
+        log_debug(LD_CONFIG, "Removing policy %s (%d).  It is made "
             "redundant by %s (%d).", p1, j, p2, i);
         smartlist_del_keeporder(dest, j--);
         addr_policy_free(tmp);
@@ -1051,7 +1051,7 @@ exit_policy_remove_redundancies(smartlist_t *dest)
           char p1[POLICY_BUF_LEN], p2[POLICY_BUF_LEN];
           policy_write_item(p1, sizeof(p1), ap, 0);
           policy_write_item(p2, sizeof(p2), tmp, 0);
-          log_debug(LD_CONFIG, "Removing exit policy %s.  It is already "
+          log_debug(LD_CONFIG, "Removing policy %s.  It is already "
               "covered by %s.", p1, p2);
           smartlist_del_keeporder(dest, i--);
           addr_policy_free(ap);
@@ -1062,8 +1062,8 @@ exit_policy_remove_redundancies(smartlist_t *dest)
   }
 }
 
-/** Reject private helper for policies_parse_exit_policy_internal: rejects
- * publicly routable addresses on this exit relay.
+/** Reject private helper for policies_parse_policy_internal_impl: rejects
+ * publicly routable addresses on this machine.
  *
  * Add reject entries to the linked list *dest:
  *   - if configured_addresses is non-NULL, add entries that reject each
@@ -1073,8 +1073,8 @@ exit_policy_remove_redundancies(smartlist_t *dest)
  *   - if reject_configured_port_addresses is true, add entries that reject
  *     each IPv4 and IPv6 address configured for a port.
  *
- * IPv6 entries are only added if ipv6_exit is true. (All IPv6 addresses are
- * already blocked by policies_parse_exit_policy_internal if ipv6_exit is
+ * IPv6 entries are only added if allow_ipv6 is true. (All IPv6 addresses are
+ * already blocked by policies_parse_policy_internal_impl if allow_ipv6 is
  * false.)
  *
  * The list *dest is created as needed.
@@ -1082,7 +1082,7 @@ exit_policy_remove_redundancies(smartlist_t *dest)
 void
 policies_parse_exit_policy_reject_private(
                                       smartlist_t **dest,
-                                      int ipv6_exit,
+                                      int allow_ipv6,
                                       const smartlist_t *configured_addresses,
                                       int reject_interface_addresses,
                                       int reject_configured_port_addresses)
@@ -1092,7 +1092,7 @@ policies_parse_exit_policy_reject_private(
   /* Reject configured addresses, if they are from public netblocks. */
   if (configured_addresses) {
     addr_policy_append_reject_addr_list_filter(dest, configured_addresses,
-                                               1, ipv6_exit);
+                                               1, allow_ipv6);
   }
 
   /* Reject configured port addresses, if they are from public netblocks. */
@@ -1103,7 +1103,7 @@ policies_parse_exit_policy_reject_private(
 
       /* Only reject port IP addresses, not port unix sockets */
       if (!port->is_unix_addr) {
-        addr_policy_append_reject_addr_filter(dest, &port->addr, 1, ipv6_exit);
+        addr_policy_append_reject_addr_filter(dest, &port->addr, 1, allow_ipv6);
       }
     } SMARTLIST_FOREACH_END(port);
   }
@@ -1118,7 +1118,7 @@ policies_parse_exit_policy_reject_private(
     free_interface_address6_list(public_addresses);
 
     /* Don't look for IPv6 addresses if we're configured as IPv4-only */
-    if (ipv6_exit) {
+    if (allow_ipv6) {
       /* Reject public IPv6 addresses on any interface */
       public_addresses = get_interface_address6_list(LOG_INFO, AF_INET6, 0);
       addr_policy_append_reject_addr_list_filter(dest, public_addresses, 0, 1);
@@ -1135,12 +1135,15 @@ policies_parse_exit_policy_reject_private(
 /**
  * Iterate through <b>policy</b> looking for redundant entries. Log a
  * warning message with the first redundant entry, if any is found.
+ * Use extend_policy to decide what policy type to log.
  */
 static void
-policies_log_first_redundant_entry(const smartlist_t *policy)
+policies_log_first_redundant_entry(const smartlist_t *policy,
+                                   int extend_policy)
 {
   int found_final_effective_entry = 0;
   int first_redundant_entry = 0;
+  const char *policy_type = (extend_policy ? "ExtendPolicy" : "ExitPolicy");
   tor_assert(policy);
   SMARTLIST_FOREACH_BEGIN(policy, const addr_policy_t *, p) {
     sa_family_t family;
@@ -1188,11 +1191,11 @@ policies_log_first_redundant_entry(const smartlist_t *policy)
     /* since we've already parsed the policy into an addr_policy_t struct,
      * we might not log exactly what the user typed in */
     policy_write_item(line, TOR_ADDR_BUF_LEN + 32, p, 0);
-    log_warn(LD_DIR, "Exit policy '%s' and all following policies are "
+    log_warn(LD_DIR, "%s '%s' and all following policies are "
              "redundant, as it follows accept/reject *:* rules for both "
-             "IPv4 and IPv6. They will be removed from the exit policy. (Use "
-             "accept/reject *:* as the last entry in any exit policy.)",
-             line);
+             "IPv4 and IPv6. They will be removed from the %s. (Use "
+             "accept/reject *:* as the last entry in any %s.)",
+             policy_type, line, policy_type, policy_type);
   }
 }
 
@@ -1201,36 +1204,35 @@ policies_log_first_redundant_entry(const smartlist_t *policy)
   "reject *:563,reject *:1214,reject *:4661-4666,"                  \
   "reject *:6346-6429,reject *:6699,reject *:6881-6999,accept *:*"
 
-/** Parse the exit policy <b>cfg</b> into the linked list *<b>dest</b>.
+/** Parse the rend or exit policy <b>cfg</b> into the linked list *<b>dest</b>.
  *
- * If <b>ipv6_exit</b> is false, prepend "reject *6:*" to the policy.
+ * If <b>allow_ipv6</b> is false, prepend "reject *6:*" to the policy.
  *
  * If <b>rejectprivate</b> is true:
  *   - prepend "reject private:*" to the policy.
- *   - prepend entries that reject publicly routable addresses on this exit
- *     relay by calling policies_parse_exit_policy_reject_private
+ *   - prepend entries that reject publicly routable addresses on this machine
+ *     by calling policies_parse_exit_policy_reject_private
  *
- * If cfg doesn't end in an absolute accept or reject and if
- * <b>add_default_policy</b> is true, add the default exit
- * policy afterwards.
+ * If cfg doesn't end in an absolute accept or reject:
+ *   - if <b>extend_policy</b> is true, accept by defailt,
+ *   - if <b>add_default_policy</b> is true, add the default exit
+ *     policy afterwards,
+ *   - otherwise, reject by default.
  *
  * Return -1 if we can't parse cfg, else return 0.
- *
- * This function is used to parse the exit policy from our torrc. For
- * the functions used to parse the exit policy from a router descriptor,
- * see router_add_exit_policy.
  */
 static int
-policies_parse_exit_policy_internal(config_line_t *cfg,
+policies_parse_policy_internal_impl(config_line_t *cfg,
                                     smartlist_t **dest,
-                                    int ipv6_exit,
+                                    int allow_ipv6,
                                     int rejectprivate,
                                     const smartlist_t *configured_addresses,
                                     int reject_interface_addresses,
                                     int reject_configured_port_addresses,
-                                    int add_default_policy)
+                                    int add_default_exit_policy,
+                                    int extend_policy)
 {
-  if (!ipv6_exit) {
+  if (!allow_ipv6) {
     append_exit_policy_string(dest, "reject *6:*");
   }
   if (rejectprivate) {
@@ -1238,7 +1240,7 @@ policies_parse_exit_policy_internal(config_line_t *cfg,
     append_exit_policy_string(dest, "reject private:*");
     /* Reject IPv4 and IPv6 publicly routable addresses on this exit relay */
     policies_parse_exit_policy_reject_private(
-                                            dest, ipv6_exit,
+                                            dest, allow_ipv6,
                                             configured_addresses,
                                             reject_interface_addresses,
                                             reject_configured_port_addresses);
@@ -1249,9 +1251,13 @@ policies_parse_exit_policy_internal(config_line_t *cfg,
   /* Before we add the default policy and final rejects, check to see if
    * there are any lines after accept *:* or reject *:*. These lines have no
    * effect, and are most likely an error. */
-  policies_log_first_redundant_entry(*dest);
+  policies_log_first_redundant_entry(*dest, extend_policy);
 
-  if (add_default_policy) {
+  /* Rendezvous policies accept by default, exit policies reject by default */
+  if (extend_policy) {
+    append_exit_policy_string(dest, "accept *4:*");
+    append_exit_policy_string(dest, "accept *6:*");
+  } else if (add_default_exit_policy) {
     append_exit_policy_string(dest, DEFAULT_EXIT_POLICY);
   } else {
     append_exit_policy_string(dest, "reject *4:*");
@@ -1275,6 +1281,10 @@ policies_parse_exit_policy_internal(config_line_t *cfg,
  *
  * If <b>EXIT_POLICY_ADD_DEFAULT</b> bit is set in <b>options</b>, append
  * default exit policy entries to <b>result</b> smartlist.
+ *
+ * This function is used to parse the exit policy from our torrc. For
+ * the functions used to parse the exit policy from a router descriptor,
+ * see router_add_exit_policy.
  */
 int
 policies_parse_exit_policy(config_line_t *cfg, smartlist_t **dest,
@@ -1285,12 +1295,12 @@ policies_parse_exit_policy(config_line_t *cfg, smartlist_t **dest,
   int reject_private = (options & EXIT_POLICY_REJECT_PRIVATE) ? 1 : 0;
   int add_default = (options & EXIT_POLICY_ADD_DEFAULT) ? 1 : 0;
 
-  return policies_parse_exit_policy_internal(cfg,dest,ipv6_enabled,
+  return policies_parse_policy_internal_impl(cfg,dest,ipv6_enabled,
                                              reject_private,
                                              configured_addresses,
                                              reject_private,
                                              reject_private,
-                                             add_default);
+                                             add_default, 0);
 }
 
 /** Helper function that adds a copy of addr to a smartlist as long as it is
@@ -1365,6 +1375,8 @@ policies_copy_outbound_addresses_to_smartlist(smartlist_t *addr_list,
  *
  * If or_options->ExitRelay is false, then make our exit policy into
  * "reject *:*" regardless.
+ *
+ * Return -1 if we can't parse <b>ExitPolicy</b>, else return 0.
  */
 int
 policies_parse_exit_policy_from_options(const or_options_t *or_options,
@@ -1406,6 +1418,64 @@ policies_parse_exit_policy_from_options(const or_options_t *or_options,
 
   rv = policies_parse_exit_policy(or_options->ExitPolicy, result, parser_cfg,
                                   configured_addresses);
+
+  SMARTLIST_FOREACH(configured_addresses, tor_addr_t *, a, tor_free(a));
+  smartlist_free(configured_addresses);
+
+  return rv;
+}
+
+/** Parse <b>ExtendPolicy</b> member of <b>or_options</b> into <b>result</b>
+ * smartlist.
+ * If <b>or_options->ClientUseIPv6</b> is false, prepend an entry that
+ * rejects all IPv6 destinations.
+ *
+ * If <b>or_options->ExtendAllowPrivateAddresses</b> is false:
+ *  - prepend an entry that rejects all destinations in all netblocks reserved
+ *    for private use.
+ *  - if local_address is non-zero, treat it as a host-order IPv4 address, and
+ *    add it to the list of configured addresses.
+ *  - if ipv6_local_address is non-NULL, and not the null tor_addr_t, add it
+ *    to the list of configured addresses.
+ *  - if or_options->OutboundBindAddressIPv4_ is not the null tor_addr_t, add
+ *    it to the list of configured addresses.
+ *  - if or_options->OutboundBindAddressIPv6_ is not the null tor_addr_t, add
+ *    it to the list of configured addresses.
+ *
+ * Append accept entries to the <b>result</b> smartlist.
+ *
+ * Return -1 if we can't parse <b>ExtendPolicy</b>, else return 0.
+ */
+int
+policies_parse_extend_policy_from_options(const or_options_t *or_options,
+                                          smartlist_t **result)
+{
+  /* replace with fascist_firewall_use_ipv6() once #17840 merges */
+  const int allow_ipv6 = or_options->ClientUseIPv6;
+  const int rejectprivate = !or_options->ExtendAllowPrivateAddresses;
+  uint32_t addr = 0;
+  smartlist_t *configured_addresses = NULL;
+  int rv = 0;
+
+  configured_addresses = smartlist_new();
+
+  /* Copy the configured addresses into the tor_addr_t* list */
+  if (router_pick_published_address(or_options, &addr) == 0) {
+    policies_copy_ipv4h_to_smartlist(configured_addresses, addr);
+  }
+  /* Unlike an Exit OR, an onion service has no way of learning its IPv6
+   * address. But it will block all IPv6 addresses unless ClientUseIPv6 is
+   * enabled.
+  policies_copy_addr_to_smartlist(configured_addresses, ipv6_local_address);
+   */
+  policies_copy_outbound_addresses_to_smartlist(configured_addresses,
+                                                or_options);
+
+  rv = policies_parse_policy_internal_impl(or_options->ExtendPolicy, result,
+                                           allow_ipv6, rejectprivate,
+                                           configured_addresses,
+                                           rejectprivate, rejectprivate,
+                                           0, 1);
 
   SMARTLIST_FOREACH(configured_addresses, tor_addr_t *, a, tor_free(a));
   smartlist_free(configured_addresses);

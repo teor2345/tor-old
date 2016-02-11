@@ -1908,6 +1908,9 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
     rp = NULL;
     goto err;
   }
+
+
+
   goto done;
 
  err:

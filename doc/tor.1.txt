@@ -2310,6 +2310,22 @@ The following options are used to configure a hidden service.
     However, client use of a RSOS may be statistically distinguishable.
     (Default: 0)
 
+[[ExtendPolicy]] **ExtendPolicy** __policy__,__policy__,__...__::::
+    An **ExitPolicy**-style policy that determines which rendezvous points this
+    onion (hidden) service will connect to. Designed to allow RSOS operators
+    to block rendezvous connections to the local machine and local network. +
+
+    If **ExtendAllowPrivateAddresses** is 0, reject the local machine's IPv4
+    address (configured via **Address**, or auto-discovered); reject all IPv4
+    and IPv6 addresses configured via \*Port options, and reject all IPv4 and
+    IPv6 local interface addresses. +
+
+    All IPv6 addresses are rejected for rendedvous unless ClientUseIPv6 is 1.
+    Tor has no way of configuring or auto-discovering an IPv6 address on an
+    onion service. If ClientUseIPv6 is 1, all local IPv6 addresses must be
+    explicitly rejected by the RSOS operator in "ExtendPolicy reject6" entries.
+    (Default: accept all rendezvous points)
+
 TESTING NETWORK OPTIONS
 -----------------------
 

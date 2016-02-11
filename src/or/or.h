@@ -3731,6 +3731,11 @@ typedef struct {
    */
   int RendezvousSingleOnionServiceNonAnonymousServer;
 
+  /** Lists of onion service rendezvous policy components. Intended for use
+   * with Rendezvous Single Onion Services, to prevent direct rendezvous
+   * connections to the local machine or local network. */
+  config_line_t *ExtendPolicy;
+
   int ConnLimit; /**< Demanded minimum number of simultaneous connections. */
   int ConnLimit_; /**< Maximum allowed number of simultaneous connections. */
   int RunAsDaemon; /**< If true, run in the background. (Unix only) */

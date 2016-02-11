@@ -47,6 +47,9 @@ MOCK_DECL(addr_policy_result_t, compare_tor_addr_to_addr_policy,
 addr_policy_result_t compare_tor_addr_to_node_policy(const tor_addr_t *addr,
                               uint16_t port, const node_t *node);
 
+int policies_parse_extend_policy_from_options(const or_options_t *or_options,
+                                              smartlist_t **result);
+
 int policies_parse_exit_policy_from_options(
                                           const or_options_t *or_options,
                                           uint32_t local_address,

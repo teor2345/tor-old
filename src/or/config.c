@@ -298,6 +298,7 @@ static config_var_t option_vars_[] = {
   V(CloseHSClientCircuitsImmediatelyOnTimeout, BOOL, "0"),
   V(CloseHSServiceRendCircuitsImmediatelyOnTimeout, BOOL, "0"),
   V(RendezvousSingleOnionServiceNonAnonymousServer, BOOL, "0"),
+  V(ExtendPolicy,                  LINELIST, NULL),
   V(HTTPProxy,                   STRING,   NULL),
   V(HTTPProxyAuthenticator,      STRING,   NULL),
   V(HTTPSProxy,                  STRING,   NULL),
