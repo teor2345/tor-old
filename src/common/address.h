@@ -265,6 +265,7 @@ void tor_addr_from_ipv6_bytes(tor_addr_t *dest, const char *bytes);
 void tor_addr_from_in6(tor_addr_t *dest, const struct in6_addr *in6);
 int tor_addr_is_null(const tor_addr_t *addr);
 int tor_addr_is_loopback(const tor_addr_t *addr);
+int tor_addr_is_multicast(const tor_addr_t *a);
 
 int tor_addr_port_split(int severity, const char *addrport,
                         char **address_out, uint16_t *port_out);
@@ -311,7 +312,6 @@ tor_addr_port_t *tor_addr_port_new(const tor_addr_t *addr, uint16_t port);
 
 #ifdef ADDRESS_PRIVATE
 MOCK_DECL(smartlist_t *,get_interface_addresses_raw,(int severity));
-STATIC int tor_addr_is_multicast(const tor_addr_t *a);
 MOCK_DECL(int,get_interface_address6_via_udp_socket_hack,(int severity,
                                                           sa_family_t family,
                                                           tor_addr_t *addr));
