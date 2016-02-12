@@ -3257,6 +3257,32 @@ options_validate(or_options_t *old_options, or_options_t *options,
     options->PredictedPortsRelevanceTime = MAX_PREDICTED_CIRCS_RELEVANCE;
   }
 
+#ifndef NON_ANONYMOUS_MODE_ENABLED
+  /* If you run an anonymous client with an active RSOS, the client loses
+   * anonymity. */
+  if (options->RendezvousSingleOnionServiceNonAnonymousServer
+      && options->RendConfigLines && options->SocksPort_set
+      && !options->Tor2webMode) {
+    REJECT("RendezvousSingleOnionServiceNonAnonymousServer is incompatible "
+           "with using Tor as an anonymous client. Please set SocksPort to "
+           "0, or RendezvousSingleOnionServiceNonAnonymousServer to 0, or "
+           "Tor2webMode 1.");
+  }
+#endif
+
+#ifdef NON_ANONYMOUS_MODE_ENABLED
+  /* If you run a hidden service in non-anonymous mode, the hidden service
+   * loses anonymity, even if SOCKSPort / Tor2web mode isn't used. */
+  if (!options->RendezvousSingleOnionServiceNonAnonymousServer
+      && options->RendConfigLines) {
+    REJECT("Non-anonymous (Tor2web) mode is incompatible with using Tor as a "
+           "hidden service. Please set "
+           "RendezvousSingleOnionServiceNonAnonymousServer 1, or remove all "
+           "HiddenServiceDir lines, or use a version of tor compiled without "
+           "--enable-tor2webmode.");
+  }
+#endif
+
   if (options->RendezvousSingleOnionServiceNonAnonymousServer
       && options->LearnCircuitBuildTimeout) {
     /* LearnCircuitBuildTimeout and RSOS are incompatible in
