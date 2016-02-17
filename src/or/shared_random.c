@@ -340,7 +340,7 @@ reveal_encode(const sr_commit_t *commit, char *dst, size_t len)
   tor_assert(commit);
   tor_assert(dst);
 
-  set_uint64(buf, tor_htonll((uint64_t) commit->commit_ts));
+  set_uint64(buf, tor_htonll((uint64_t) commit->reveal_ts));
   offset += 8;
   memcpy(buf + offset, commit->random_number,
          sizeof(commit->random_number));
