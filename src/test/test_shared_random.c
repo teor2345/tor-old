@@ -378,7 +378,7 @@ test_encoding(void *arg)
   {
     /* Test the reveal encode. */
     char encoded[SR_REVEAL_BASE64_LEN + 1];
-    parsed_commit.commit_ts = ts;
+    parsed_commit.reveal_ts = ts;
     memcpy(parsed_commit.random_number, hashed_rand,
            sizeof(parsed_commit.random_number));
     ret = reveal_encode(&parsed_commit, encoded, sizeof(encoded));
