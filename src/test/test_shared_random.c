@@ -15,6 +15,38 @@
 #include "routerparse.h"
 #include "networkstatus.h"
 
+static authority_cert_t *mock_cert;
+extern const char AUTHORITY_CERT_1[];
+
+static authority_cert_t *
+get_my_v3_authority_cert_m(void)
+{
+  tor_assert(mock_cert);
+  return mock_cert;
+}
+
+/* Setup a minimal dirauth environment by initializing the SR state and
+ * making sure the options are set to be an authority directory. */
+static void
+init_authority_state(void)
+{
+  MOCK(get_my_v3_authority_cert, get_my_v3_authority_cert_m);
+
+  or_options_t *options = get_options_mutable();
+  mock_cert = authority_cert_parse_from_string(AUTHORITY_CERT_1, NULL);
+  tt_assert(mock_cert);
+  options->AuthoritativeDir = 1;
+  tt_int_op(0, ==, load_ed_keys(options, time(NULL)));
+  sr_state_init(0, 0);
+  /* It's possible a commit has been generated in our state depending on
+   * the phase we are currently in which uses "now" as the starting
+   * timestamp. Delete it before we do any testing below. */
+  sr_state_delete_commits();
+
+ done:
+  UNMOCK(get_my_v3_authority_cert);
+}
+
 static void
 test_get_sr_protocol_phase(void *arg)
 {
@@ -25,8 +57,7 @@ test_get_sr_protocol_phase(void *arg)
   (void) arg;
 
   /* Initialize SR state */
-  retval = sr_init(0);
-  tt_int_op(retval, ==, 0);
+  init_authority_state();
 
   {
     retval = parse_rfc1123_time("Wed, 20 Apr 2015 23:59:00 UTC", &the_time);
@@ -220,8 +251,6 @@ test_get_next_valid_after_time(void *arg)
  done:
   networkstatus_vote_free(mock_consensus);
 }
-
-extern const char AUTHORITY_CERT_1[];
 
 /* In this test we are going to generate a sr_commit_t object and validate
  * it. We first generate our values, and then we parse them as if they were
@@ -431,22 +460,13 @@ static void
 test_vote(void *arg)
 {
   int ret;
-  authority_cert_t *auth_cert = NULL;
   time_t now = time(NULL);
   sr_commit_t *our_commit = NULL;
 
   (void) arg;
 
   {  /* Setup a minimal dirauth environment for this test  */
-    or_options_t *options = get_options_mutable();
-
-    auth_cert = authority_cert_parse_from_string(AUTHORITY_CERT_1, NULL);
-    tt_assert(auth_cert);
-
-    options->AuthoritativeDir = 1;
-    tt_int_op(0, ==, load_ed_keys(options, now));
-
-    sr_state_init(0, 0);
+    init_authority_state();
     /* Set ourself in reveal phase so we can parse the reveal value in the
      * vote as well. */
     set_sr_phase(SR_PHASE_REVEAL);
@@ -457,7 +477,7 @@ test_vote(void *arg)
    * vote coming from the network. */
   {
     sr_commit_t *saved_commit;
-    our_commit = sr_generate_our_commit(now, auth_cert);
+    our_commit = sr_generate_our_commit(now, mock_cert);
     tt_assert(our_commit);
     sr_state_add_commit(our_commit);
     /* Make sure it's there. */
@@ -741,7 +761,7 @@ test_sr_compute_srv(void *arg)
 #define SRV_TEST_VECTOR \
   "FE62C30C210AAE50B37652A337F86AB084F40BF5B9BE46C0222E41792D93F3BB"
 
-  sr_state_init(0, 0);
+  init_authority_state();
 
   /* Setup the commits for this unittest */
   test_sr_setup_commits();
@@ -805,7 +825,7 @@ test_sr_get_majority_srv_from_votes(void *arg)
 
   (void) arg;
 
-  sr_state_init(0, 0);
+  init_authority_state();
   /* Make sure our SRV is fresh so we can consider the super majority with
    * the consensus params of number of agreements needed. */
   sr_state_set_fresh_srv();
@@ -945,7 +965,7 @@ test_utils(void *arg)
 
   /* Testing phase transition */
   {
-    sr_state_init(0, 0);
+    init_authority_state();
     set_sr_phase(SR_PHASE_COMMIT);
     tt_int_op(is_phase_transition(SR_PHASE_REVEAL), ==, 1);
     tt_int_op(is_phase_transition(SR_PHASE_COMMIT), ==, 0);
@@ -960,15 +980,6 @@ test_utils(void *arg)
   return;
 }
 
-static authority_cert_t *mock_cert;
-
-static authority_cert_t *
-get_my_v3_authority_cert_m(void)
-{
-  tor_assert(mock_cert);
-  return mock_cert;
-}
-
 static void
 test_state_transition(void *arg)
 {
@@ -977,15 +988,8 @@ test_state_transition(void *arg)
 
   (void) arg;
 
-  MOCK(get_my_v3_authority_cert, get_my_v3_authority_cert_m);
-
   {  /* Setup a minimal dirauth environment for this test  */
-    or_options_t *options = get_options_mutable();
-    mock_cert = authority_cert_parse_from_string(AUTHORITY_CERT_1, NULL);
-    tt_assert(mock_cert);
-    options->AuthoritativeDir = 1;
-    tt_int_op(0, ==, load_ed_keys(options, now));
-    sr_state_init(0, 0);
+    init_authority_state();
     state = get_sr_state();
     tt_assert(state);
   }
@@ -1039,7 +1043,9 @@ test_state_transition(void *arg)
     cur = sr_state_get_current_srv();
     tt_assert(cur);
     set_sr_phase(SR_PHASE_REVEAL);
+    MOCK(get_my_v3_authority_cert, get_my_v3_authority_cert_m);
     new_protocol_run(now);
+    UNMOCK(get_my_v3_authority_cert);
     /* Rotation happened. */
     tt_assert(sr_state_get_previous_srv() == cur);
     /* We are going into COMMIT phase so we had to rotate our SRVs. Usually
@@ -1070,8 +1076,6 @@ test_state_transition(void *arg)
 static void
 test_keep_commit(void *arg)
 {
-  authority_cert_t *auth_cert;
-  crypto_pk_t *k = crypto_pk_new();
   char fp[FINGERPRINT_LEN + 1];
   sr_commit_t *commit = NULL, *dup_commit = NULL;
   sr_state_t *state;
@@ -1080,22 +1084,18 @@ test_keep_commit(void *arg)
   (void) arg;
 
   {  /* Setup a minimal dirauth environment for this test  */
-    or_options_t *options = get_options_mutable();
-    auth_cert = authority_cert_parse_from_string(AUTHORITY_CERT_1, NULL);
-    tt_assert(auth_cert);
-    options->AuthoritativeDir = 1;
-    tt_int_op(0, ==, load_ed_keys(options, now));
+    crypto_pk_t *k = crypto_pk_new();
     /* Have a key that is not the one from our commit. */
     tt_int_op(0, ==, crypto_pk_generate_key(k));
     tt_int_op(0, ==, crypto_pk_get_fingerprint(k, fp, 0));
-    sr_state_init(0, 0);
+    init_authority_state();
     state = get_sr_state();
   }
 
   /* Test this very important function that tells us if we should keep a
    * commit or not in our state. Most of it depends on the phase and what's
    * in the commit so we'll change the commit as we go. */
-  commit = sr_generate_our_commit(now, auth_cert);
+  commit = sr_generate_our_commit(now, mock_cert);
   tt_assert(commit);
   /* Set us in COMMIT phase for starter. */
   set_sr_phase(SR_PHASE_COMMIT);
@@ -1115,7 +1115,7 @@ test_keep_commit(void *arg)
 
   /* Let's reset our commit and go into REVEAL phase. */
   sr_commit_free(commit);
-  commit = sr_generate_our_commit(now, auth_cert);
+  commit = sr_generate_our_commit(now, mock_cert);
   tt_assert(commit);
   /* Dup the commit so we have one with and one without a reveal value. */
   dup_commit = tor_malloc_zero(sizeof(*dup_commit));
@@ -1158,22 +1158,14 @@ test_keep_commit(void *arg)
 static void
 test_state_update(void *arg)
 {
-  time_t now = time(NULL);
   time_t commit_phase_time = 1452076000;
   time_t reveal_phase_time = 1452086800;
   sr_state_t *state;
 
   (void) arg;
 
-  MOCK(get_my_v3_authority_cert, get_my_v3_authority_cert_m);
-
   {
-    or_options_t *options = get_options_mutable();
-    mock_cert = authority_cert_parse_from_string(AUTHORITY_CERT_1, NULL);
-    tt_assert(mock_cert);
-    options->AuthoritativeDir = 1;
-    tt_int_op(0, ==, load_ed_keys(options, now));
-    sr_state_init(0, 0);
+    init_authority_state();
     state = get_sr_state();
     set_sr_phase(SR_PHASE_COMMIT);
     /* We'll cheat a bit here and reset the creation time of the state which
@@ -1181,7 +1173,11 @@ test_state_update(void *arg)
      * phase. */
     state->valid_after = 0;
     state->n_reveal_rounds = 0;
+    state->n_commit_rounds = 0;
   }
+
+  /* We need to mock for the state update function call. */
+  MOCK(get_my_v3_authority_cert, get_my_v3_authority_cert_m);
 
   /* We are in COMMIT phase here and we'll trigger a state update but no
    * transition. */
