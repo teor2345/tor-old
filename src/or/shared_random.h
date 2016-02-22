@@ -131,7 +131,7 @@ STATIC int commit_has_reveal_value(const sr_commit_t *commit);
 STATIC int verify_commit_and_reveal(const sr_commit_t *commit);
 
 STATIC sr_srv_t *get_majority_srv_from_votes(const smartlist_t *votes,
-                                             unsigned int current);
+                                             int current);
 
 STATIC void save_commit_to_state(sr_commit_t *commit);
 STATIC sr_srv_t *srv_dup(const sr_srv_t *orig);

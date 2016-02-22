@@ -773,7 +773,7 @@ smartlist_get_most_frequent_srv(const smartlist_t *sl, int *count_out)
  * current SRV value else the previous one. NULL is returned if no appropriate
  * value could be found. */
 STATIC sr_srv_t *
-get_majority_srv_from_votes(const smartlist_t *votes, unsigned int current)
+get_majority_srv_from_votes(const smartlist_t *votes, int current)
 {
   int count = 0;
   sr_srv_t *most_frequent_srv = NULL;
