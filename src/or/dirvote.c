@@ -3156,8 +3156,10 @@ dirvote_compute_consensuses(void)
   }
 
   /* A new consensus has been created: pass it to the shared random subsystem
-     to update the SR state. */
-  sr_act_post_consensus(pending[FLAV_MICRODESC].consensus);
+   * to update the SR state. */
+  if (pending[FLAV_NS].consensus != NULL) {
+    sr_act_post_consensus(pending[FLAV_NS].consensus);
+  }
 
   dirvote_clear_pending_consensuses();
   memcpy(pending_consensuses, pending, sizeof(pending));
