@@ -763,7 +763,7 @@ compare_srvs_(const void **_a, const void **_b)
 /** Return the most frequent member of the sorted list of DIGEST256_LEN
  * digests in <b>sl</b> with the count of that most frequent element. */
 static sr_srv_t *
-smartlist_get_most_frequent_srv(smartlist_t *sl, int *count_out)
+smartlist_get_most_frequent_srv(const smartlist_t *sl, int *count_out)
 {
   return smartlist_get_most_frequent_(sl, compare_srvs_, count_out);
 }
