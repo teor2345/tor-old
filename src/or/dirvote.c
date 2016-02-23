@@ -2497,7 +2497,7 @@ dirvote_get_start_of_next_interval(time_t now, int interval, int offset)
 time_t
 get_next_valid_after_time(time_t now)
 {
-  int next_valid_after_time;
+  time_t next_valid_after_time;
   const or_options_t *options = get_options();
   voting_schedule_t *new_voting_schedule =
     get_voting_schedule(options, now, LOG_INFO);

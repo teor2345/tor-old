@@ -358,7 +358,7 @@ test_encoding(void *arg)
   int ret, duper_rand = 42;
   /* Random number is 32 bytes. */
   char raw_rand[32];
-  uint64_t ts = 1454333590;
+  time_t ts = 1454333590;
   char hashed_rand[DIGEST256_LEN], hashed_reveal[DIGEST256_LEN];
   sr_commit_t parsed_commit;
 
@@ -1017,7 +1017,7 @@ test_state_transition(void *arg)
     reset_state_for_new_protocol_run(now);
     tt_int_op(state->n_reveal_rounds, ==, 0);
     tt_int_op(state->n_commit_rounds, ==, 0);
-    tt_int_op(state->n_protocol_runs, ==, 45);
+    tt_u64_op(state->n_protocol_runs, ==, 45);
     tt_int_op(digestmap_size(state->commits), ==, 0);
   }
 
@@ -1059,7 +1059,7 @@ test_state_transition(void *arg)
     tt_int_op(state->n_reveal_rounds, ==, 0);
     tt_int_op(state->n_commit_rounds, ==, 0);
     /* 46 here since we were at 45 just before. */
-    tt_int_op(state->n_protocol_runs, ==, 46);
+    tt_u64_op(state->n_protocol_runs, ==, 46);
   }
 
   /* Cleanup of SRVs. */
@@ -1208,7 +1208,7 @@ test_state_update(void *arg)
   tt_int_op(state->valid_after, ==, commit_phase_time);
   tt_int_op(state->n_commit_rounds, ==, 1);
   tt_int_op(state->n_reveal_rounds, ==, 0);
-  tt_int_op(state->n_protocol_runs, ==, 1);
+  tt_u64_op(state->n_protocol_runs, ==, 1);
   tt_int_op(state->phase, ==, SR_PHASE_COMMIT);
   tt_int_op(digestmap_size(state->commits), ==, 1);
   tt_assert(state->current_srv);

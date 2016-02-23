@@ -997,7 +997,7 @@ sr_parse_srv(const smartlist_t *args)
   }
 
   /* First argument is the number of reveal values */
-  num_reveals = tor_parse_long(smartlist_get(args, 0),
+  num_reveals = (int)tor_parse_long(smartlist_get(args, 0),
                                10, 0, INT32_MAX, &ok, NULL);
   if (!ok) {
     goto end;
