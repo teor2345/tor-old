@@ -950,7 +950,7 @@ test_utils(void *arg)
     tt_assert(!crypto_pk_generate_key(k));
 
     tt_int_op(0, ==, crypto_pk_get_fingerprint(k, fp, 0));
-    memcpy(fp, commit.rsa_identity_fpr, sizeof(fp));
+    memcpy(commit.rsa_identity_fpr, fp, sizeof(fp));
     tt_int_op(commit_is_authoritative(&commit, fp), ==, 1);
     /* Change the pubkey. */
     memset(commit.rsa_identity_fpr, 0, sizeof(commit.rsa_identity_fpr));
