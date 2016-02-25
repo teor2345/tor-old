@@ -1,0 +1,4 @@
+  o Minor bugfixes (crypto):
+    - Fix a buffer overrun when looping through common_digests_t.
+      Fixes bug 18383; bugfix on 39b597c2 in 0.2.8.1-alpha.
+      Patch by "teor".
