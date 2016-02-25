@@ -1475,8 +1475,12 @@ tor_timegm(const struct tm *tm, time_t *time_out)
 {
   /* This is a pretty ironclad timegm implementation, snarfed from Python2.2.
    * It's way more brute-force than fiddling with tzset().
-   */
-  time_t year, days, hours, minutes, seconds;
+   *
+   * We use int64_t rather than time_t to avoid overflow on multiplication on
+   * platforms with 32-bit time_t. Since year is clipped to INT32_MAX, and
+   * since 365 * 24 * 60 * 60 is approximately 31 million, it's not possible
+   * for INT32_MAX years to overflow int64_t when converted to seconds. */
+  int64_t year, days, hours, minutes, seconds;
   int i, invalid_year, dpm;
   /* avoid int overflow on addition */
   if (tm->tm_year < INT32_MAX-1900) {
@@ -1516,7 +1520,15 @@ tor_timegm(const struct tm *tm, time_t *time_out)
 
   minutes = hours*60 + tm->tm_min;
   seconds = minutes*60 + tm->tm_sec;
-  *time_out = seconds;
+  /* Check that "seconds" will fit in a time_t. On platforms where time_t is
+   * 32-bit, this check will fail for dates in and after 2038.
+   * "seconds" can't be negative, because "year" >= 1970. */
+  tor_assert(seconds >= TIME_MIN);
+  if (seconds > TIME_MAX) {
+    log_warn(LD_BUG, "Result would overflow in tor_timegm");
+    return -1;
+  }
+  *time_out = (time_t)seconds;
   return 0;
 }
 
