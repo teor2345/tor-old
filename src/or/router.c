@@ -1088,12 +1088,19 @@ check_whether_orport_reachable(void)
          can_reach_or_port;
 }
 
-/** Return 1 if we don't have a dirport configured, or if it's reachable. */
+/** Return 1 if:
+ *  - we don't have a dirport configured, or
+ *  - we don't want to be a directory server, or
+ *  - we don't want to use the network, or
+ *  - we're configured to assume we're reachable, or
+ *  - we've checked our dirport and it is reachable.
+ */
 int
 check_whether_dirport_reachable(void)
 {
   const or_options_t *options = get_options();
   return !options->DirPort_set ||
+         !dir_server_mode(options) ||
          options->AssumeReachable ||
          net_is_disabled() ||
          can_reach_dir_port;
@@ -1192,10 +1199,12 @@ router_should_be_directory_server(const or_options_t *options, int dir_port)
 int
 dir_server_mode(const or_options_t *options)
 {
+  uint16_t dir_port = router_get_advertised_dir_port(options, 0);
   if (!options->DirCache)
     return 0;
   return options->DirPort_set ||
-    (server_mode(options) && router_has_bandwidth_to_be_dirserver(options));
+    (server_mode(options) && router_should_be_directory_server(options,
+                                                               dir_port));
 }
 
 /** Look at a variety of factors, and return 0 if we don't want to

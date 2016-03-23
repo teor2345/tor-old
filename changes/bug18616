@@ -1,0 +1,6 @@
+  o Minor bugfixes (directory mirrors):
+    - Check accounting when determining whether a relay should be
+      a directory mirror. Check whether a relay is a directory
+      mirror when determining DirPort reachability.
+      Fixes bug 18616; bugfix on 1ceb7142a1 in tor-0.2.8.1-alpha.
+      Reported by "toralf", patch by "teor".
