@@ -495,14 +495,16 @@ circuit_handle_first_hop(origin_circuit_t *circ)
   int err_reason = 0;
   const char *msg = NULL;
   int should_launch = 0;
+  const or_options_t *options = get_options();
 
   firsthop = onion_next_hop_in_cpath(circ->cpath);
   tor_assert(firsthop);
   tor_assert(firsthop->extend_info);
 
-  /* XX/teor - does tor ever need build a circuit directly to itself? */
+  /* Some bridges are on private addresses. Others pass a dummy private
+   * address to the pluggable transport, which ignores it. */
   if (tor_addr_is_internal(&firsthop->extend_info->addr, 0) &&
-      !get_options()->ExtendAllowPrivateAddresses) {
+      !options->UseBridges && !options->ExtendAllowPrivateAddresses) {
     log_fn(LOG_PROTOCOL_WARN, LD_PROTOCOL,
            "Client asked me to connect directly to a private address");
     return -END_CIRC_REASON_TORPROTOCOL;
