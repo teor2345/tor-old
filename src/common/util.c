@@ -1482,6 +1482,12 @@ tor_timegm(const struct tm *tm, time_t *time_out)
    * for INT32_MAX years to overflow int64_t when converted to seconds. */
   int64_t year, days, hours, minutes, seconds;
   int i, invalid_year, dpm;
+
+  /* Initialize time_out to 0 for now, to avoid bad usage in case this function
+     fails and the caller ignores the return value. */
+  tor_assert(time_out);
+  *time_out = 0;
+
   /* avoid int overflow on addition */
   if (tm->tm_year < INT32_MAX-1900) {
     year = tm->tm_year + 1900;
@@ -1523,9 +1529,8 @@ tor_timegm(const struct tm *tm, time_t *time_out)
   /* Check that "seconds" will fit in a time_t. On platforms where time_t is
    * 32-bit, this check will fail for dates in and after 2038.
    * "seconds" can't be negative, because "year" >= 1970. */
-  tor_assert(seconds >= TIME_MIN);
-  if (seconds > TIME_MAX) {
-    log_warn(LD_BUG, "Result would overflow in tor_timegm");
+  if (seconds < TIME_MIN || seconds > TIME_MAX) {
+    log_warn(LD_BUG, "Result does not fit in tor_timegm");
     return -1;
   }
   *time_out = (time_t)seconds;
