@@ -3760,7 +3760,7 @@ connection_dir_close_consensus_conn_if_extra(dir_connection_t *conn)
 void
 connection_dir_close_extra_consensus_conns(void)
 {
-  /* Only cleanup connections if the is more than one consensus connection,
+  /* Only cleanup connections if there is more than one consensus connection,
    * and at least one of those connections is already downloading
    * (during bootstrap), or connecting (just after the bootstrap consensus is
    * downloaded).
