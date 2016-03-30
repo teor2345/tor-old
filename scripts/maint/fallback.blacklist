@@ -39,3 +39,11 @@
 # https://lists.torproject.org/pipermail/tor-relays/2016-January/008555.html
 62.210.207.124:9030 orport=9001 id=58938B1A5C4029B4415D38A4F36B7724273F4755 ipv6=[2001:bc8:31eb:100::1]:9001
 62.210.207.124:9130 orport=9101 id=338D0AB6DBAB7B529B9C91B2FD770658000693C4 ipv6=[2001:bc8:31eb:100::1]:9101
+
+# these fallback candidates fail the consensus download test in a way that
+# causes stem to hang (and not respond to ^C, at least on OS X)
+# (Is something sending weird responses to DirPort traffic?)
+217.23.14.190:1194
+151.80.164.147:80
+148.251.255.92:80
+78.142.19.59:80
