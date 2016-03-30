@@ -1,0 +1,9 @@
+  o Minor enhancements (fallback directory mirrors):
+    - Improve fallback consensus download checks. Improve logging.
+      Remove // comments from relay ContactInfos.
+      Give each fallback the same weight for client selection.
+      Add new fallback directory mirrors to the whitelist.
+      Add fallback candidates with bad DirPort responses to the blacklist.
+      Update fallback directories based on the latest OnionOO data.
+      Closes tasks 17905 and 17158 and bug 18689 on tor 0.2.8.1-alpha;
+      patch by "teor".
