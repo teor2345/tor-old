@@ -34,19 +34,21 @@ logging.basicConfig(level=logging.INFO)
 
 ## Top-Level Configuration
 
+# Output all candidate fallbacks, or only output selected fallbacks?
+OUTPUT_CANDIDATES = False
+
 # Perform DirPort checks over IPv4?
 # Change this to False if IPv4 doesn't work for you, or if you don't want to
 # download a consensus for each fallback
-PERFORM_IPV4_DIRPORT_CHECKS = True
+# Don't check ~1000 candidates when OUTPUT_CANDIDATES is True
+PERFORM_IPV4_DIRPORT_CHECKS = False if OUTPUT_CANDIDATES else True
 
 # Perform DirPort checks over IPv6?
 # If you know IPv6 works for you, set this to True
 # This will exclude IPv6 relays without an IPv6 DirPort configured
 # So it's best left at False until #18394 is implemented
-PERFORM_IPV6_DIRPORT_CHECKS = False
-
-# Output all candidate fallbacks, or only output selected fallbacks?
-OUTPUT_CANDIDATES = False
+# Don't check ~1000 candidates when OUTPUT_CANDIDATES is True
+PERFORM_IPV6_DIRPORT_CHECKS = False if OUTPUT_CANDIDATES else False
 
 ## OnionOO Settings
 
@@ -707,6 +709,12 @@ class Candidate(object):
       self._badexit = self._avg_generic_history(badexit) / ONIONOO_SCALE_ONE
 
   def is_candidate(self):
+    must_be_running_now = (PERFORM_IPV4_DIRPORT_CHECKS
+                           or PERFORM_IPV6_DIRPORT_CHECKS)
+    if (must_be_running_now and not self.is_running()):
+      logging.info('%s not a candidate: not running now, unable to check ' +
+                   'DirPort consensus download', self._fpr)
+      return False
     if (self._data['last_changed_address_or_port'] >
         self.CUTOFF_ADDRESS_AND_PORT_STABLE):
       logging.info('%s not a candidate: changed address/port recently (%s)',
@@ -867,6 +875,9 @@ class Candidate(object):
   def is_guard(self):
     return 'Guard' in self._data['flags']
 
+  def is_running(self):
+    return 'Running' in self._data['flags']
+
   def fallback_weight_fraction(self, total_weight):
     return float(self._data['consensus_weight']) / total_weight
 
@@ -883,6 +894,7 @@ class Candidate(object):
 
   @staticmethod
   def fallback_consensus_dl_speed(dirip, dirport, nickname, max_time):
+    download_failed = False
     downloader = DescriptorDownloader()
     start = datetime.datetime.utcnow()
     # some directory mirrors respond to requests in ways that hang python
@@ -891,55 +903,61 @@ class Candidate(object):
                  dirip, dirport)
     # there appears to be about 1 second of overhead when comparing stem's
     # internal trace time and the elapsed time calculated here
-    downloader.get_consensus(endpoints = [(dirip, dirport)]).run()
+    TIMEOUT_SLOP = 1.0
+    try:
+      downloader.get_consensus(endpoints = [(dirip, dirport)],
+                               timeout = (max_time + TIMEOUT_SLOP),
+                               validate = True,
+                               retries = 0,
+                               fall_back_to_authority = False).run()
+    except Exception, stem_error:
+      logging.debug('Unable to retrieve a consensus from %s: %s', nickname,
+                    stem_error)
+      status = 'error: "%s"' % (stem_error)
+      level = logging.WARNING
+      download_failed = True
     elapsed = (datetime.datetime.utcnow() - start).total_seconds()
     if elapsed > max_time:
       status = 'too slow'
       level = logging.WARNING
+      download_failed = True
     else:
       status = 'ok'
       level = logging.DEBUG
     logging.log(level, 'Consensus download: %0.1fs %s from %s (%s:%d), ' +
                  'max download time %0.1fs.', elapsed, status, nickname,
                  dirip, dirport, max_time)
-    return elapsed
+    return download_failed
 
   def fallback_consensus_dl_check(self):
+    # include the relay if we're not doing a check, or we can't check (IPv6)
+    ipv4_failed = False
+    ipv6_failed = False
     if PERFORM_IPV4_DIRPORT_CHECKS:
-      ipv4_speed = Candidate.fallback_consensus_dl_speed(self.dirip,
+      ipv4_failed = Candidate.fallback_consensus_dl_speed(self.dirip,
                                                 self.dirport,
                                                 self._data['nickname'],
                                                 CONSENSUS_DOWNLOAD_SPEED_MAX)
-    else:
-      ipv4_speed = None
     if self.ipv6addr is not None and PERFORM_IPV6_DIRPORT_CHECKS:
       # Clients assume the IPv6 DirPort is the same as the IPv4 DirPort
-      ipv6_speed = Candidate.fallback_consensus_dl_speed(self.ipv6addr,
+      ipv6_failed = Candidate.fallback_consensus_dl_speed(self.ipv6addr,
                                                 self.dirport,
                                                 self._data['nickname'],
                                                 CONSENSUS_DOWNLOAD_SPEED_MAX)
-    else:
-      ipv6_speed = None
     # Now retry the relay if it took too long the first time
-    if (PERFORM_IPV4_DIRPORT_CHECKS
-        and ipv4_speed > CONSENSUS_DOWNLOAD_SPEED_MAX
+    if (PERFORM_IPV4_DIRPORT_CHECKS and ipv4_failed
         and CONSENSUS_DOWNLOAD_RETRY):
-      ipv4_speed = Candidate.fallback_consensus_dl_speed(self.dirip,
+      ipv4_failed = Candidate.fallback_consensus_dl_speed(self.dirip,
                                                 self.dirport,
                                                 self._data['nickname'],
                                                 CONSENSUS_DOWNLOAD_SPEED_MAX)
     if (self.ipv6addr is not None and PERFORM_IPV6_DIRPORT_CHECKS
-        and ipv6_speed > CONSENSUS_DOWNLOAD_SPEED_MAX
-        and CONSENSUS_DOWNLOAD_RETRY):
-      ipv6_speed = Candidate.fallback_consensus_dl_speed(self.ipv6addr,
+        and ipv6_failed and CONSENSUS_DOWNLOAD_RETRY):
+      ipv6_failed = Candidate.fallback_consensus_dl_speed(self.ipv6addr,
                                                 self.dirport,
                                                 self._data['nickname'],
                                                 CONSENSUS_DOWNLOAD_SPEED_MAX)
-
-    return ((not PERFORM_IPV4_DIRPORT_CHECKS
-             or ipv4_speed <= CONSENSUS_DOWNLOAD_SPEED_MAX)
-            and (not PERFORM_IPV6_DIRPORT_CHECKS
-                 or ipv6_speed <= CONSENSUS_DOWNLOAD_SPEED_MAX))
+    return ((not ipv4_failed) and (not ipv6_failed))
 
   def fallbackdir_line(self, total_weight, original_total_weight, dl_speed_ok):
     # /*
