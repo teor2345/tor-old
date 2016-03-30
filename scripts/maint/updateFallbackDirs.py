@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 # Usage: scripts/maint/updateFallbackDirs.py > src/or/fallback_dirs.inc
+# Needs stem available in your PYTHONPATH, or just ln -s ../stem/stem .
 #
 # Then read the generated list to ensure no-one slipped anything funny into
 # their name or contactinfo
@@ -29,12 +30,19 @@ import dateutil.parser
 from stem.descriptor.remote import DescriptorDownloader
 
 import logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 ## Top-Level Configuration
 
+# Perform DirPort checks over IPv4?
+# Change this to False if IPv4 doesn't work for you, or if you don't want to
+# download a consensus for each fallback
+PERFORM_IPV4_DIRPORT_CHECKS = True
+
 # Perform DirPort checks over IPv6?
 # If you know IPv6 works for you, set this to True
+# This will exclude IPv6 relays without an IPv6 DirPort configured
+# So it's best left at False until #18394 is implemented
 PERFORM_IPV6_DIRPORT_CHECKS = False
 
 # Output all candidate fallbacks, or only output selected fallbacks?
@@ -244,11 +252,11 @@ def write_to_file(str, file_name, max_len):
     with open(file_name, 'w') as f:
       f.write(str[0:max_len])
   except EnvironmentError, error:
-    logging.debug('Writing file %s failed: %d: %s'%
-                  (file_name,
-                   error.errno,
-                   error.strerror)
-                  )
+    logging.warning('Writing file %s failed: %d: %s'%
+                    (file_name,
+                     error.errno,
+                     error.strerror)
+                    )
 
 def read_from_file(file_name, max_len):
   try:
@@ -256,11 +264,11 @@ def read_from_file(file_name, max_len):
       with open(file_name, 'r') as f:
         return f.read(max_len)
   except EnvironmentError, error:
-    logging.debug('Loading file %s failed: %d: %s'%
-                  (file_name,
-                   error.errno,
-                   error.strerror)
-                  )
+    logging.info('Loading file %s failed: %d: %s'%
+                 (file_name,
+                  error.errno,
+                  error.strerror)
+                 )
   return None
 
 def load_possibly_compressed_response_json(response):
@@ -701,28 +709,29 @@ class Candidate(object):
   def is_candidate(self):
     if (self._data['last_changed_address_or_port'] >
         self.CUTOFF_ADDRESS_AND_PORT_STABLE):
-      logging.debug('%s not a candidate: changed address/port recently (%s)',
-        self._fpr, self._data['last_changed_address_or_port'])
+      logging.info('%s not a candidate: changed address/port recently (%s)',
+                   self._fpr, self._data['last_changed_address_or_port'])
       return False
     if self._running < CUTOFF_RUNNING:
-      logging.debug('%s not a candidate: running avg too low (%lf)',
-                    self._fpr, self._running)
+      logging.info('%s not a candidate: running avg too low (%lf)',
+                   self._fpr, self._running)
       return False
     if self._v2dir < CUTOFF_V2DIR:
-      logging.debug('%s not a candidate: v2dir avg too low (%lf)',
-                    self._fpr, self._v2dir)
+      logging.info('%s not a candidate: v2dir avg too low (%lf)',
+                   self._fpr, self._v2dir)
       return False
     if self._badexit is not None and self._badexit > PERMITTED_BADEXIT:
-      logging.debug('%s not a candidate: badexit avg too high (%lf)',
-                    self._fpr, self._badexit)
+      logging.info('%s not a candidate: badexit avg too high (%lf)',
+                   self._fpr, self._badexit)
       return False
     # if the relay doesn't report a version, also exclude the relay
     if (not self._data.has_key('recommended_version')
         or not self._data['recommended_version']):
+      logging.info('%s not a candidate: version not recommended', self._fpr)
       return False
     if self._guard < CUTOFF_GUARD:
-      logging.debug('%s not a candidate: guard avg too low (%lf)',
-                    self._fpr, self._guard)
+      logging.info('%s not a candidate: guard avg too low (%lf)',
+                   self._fpr, self._guard)
       return False
     return True
 
@@ -736,24 +745,47 @@ class Candidate(object):
         If the fallback has an ipv6 key, the whitelist line must also have
         it, and vice versa, otherwise they don't match. """
     for entry in relaylist:
+      if  entry['id'] != self._fpr:
+        # can't log here, every relay's fingerprint is compared to the entry
+        continue
       if entry['ipv4'] != self.dirip:
+        logging.info('%s is not in the whitelist: fingerprint matches, but ' +
+                     'IPv4 (%s) does not match entry IPv4 (%s)',
+                     self._fpr, self.dirip, entry['ipv4'])
         continue
       if int(entry['dirport']) != self.dirport:
+        logging.info('%s is not in the whitelist: fingerprint matches, but ' +
+                     'DirPort (%d) does not match entry DirPort (%d)',
+                     self._fpr, self.dirport, int(entry['dirport']))
         continue
       if int(entry['orport']) != self.orport:
+        logging.info('%s is not in the whitelist: fingerprint matches, but ' +
+                     'ORPort (%d) does not match entry ORPort (%d)',
+                     self._fpr, self.orport, int(entry['orport']))
         continue
-      if  entry['id'] != self._fpr:
-        continue
-      if (entry.has_key('ipv6')
-          and self.ipv6addr is not None and self.ipv6orport is not None):
+      has_ipv6 = self.ipv6addr is not None and self.ipv6orport is not None
+      if (entry.has_key('ipv6') and has_ipv6):
+        ipv6 = self.ipv6addr + ':' + self.ipv6orport
         # if both entry and fallback have an ipv6 address, compare them
-        if entry['ipv6'] != self.ipv6addr + ':' + self.ipv6orport:
+        if entry['ipv6'] != ipv6:
+          logging.info('%s is not in the whitelist: fingerprint matches, ' +
+                       'but IPv6 (%s) does not match entry IPv6 (%s)',
+                       self._fpr, ipv6, entry['ipv6'])
           continue
       # if the fallback has an IPv6 address but the whitelist entry
       # doesn't, or vice versa, the whitelist entry doesn't match
-      elif entry.has_key('ipv6') and self.ipv6addr is None:
+      elif entry.has_key('ipv6') and not has_ipv6:
+        logging.info('%s is not in the whitelist: fingerprint matches, but ' +
+                     'it has no IPv6, and entry has IPv6 (%s)', self._fpr,
+                     entry['ipv6'])
+        logging.warning('Has %s lost its former IPv6 address %s?', self._fpr,
+                        entry['ipv6'])
         continue
-      elif not entry.has_key('ipv6') and self.ipv6addr is not None:
+      elif not entry.has_key('ipv6') and has_ipv6:
+        logging.info('%s is not in the whitelist: fingerprint matches, but ' +
+                     'it has IPv6 (%s), and entry has no IPv6', self._fpr,
+                     ipv6)
+        logging.warning('Has %s gained an IPv6 address %s?', self._fpr, ipv6)
         continue
       return True
     return False
@@ -773,34 +805,60 @@ class Candidate(object):
     for entry in relaylist:
       for key in entry:
         value = entry[key]
+        if key == 'id' and value == self._fpr:
+          logging.info('%s is in the blacklist: fingerprint matches',
+                       self._fpr)
+          return True
         if key == 'ipv4' and value == self.dirip:
           # if the dirport is present, check it too
           if entry.has_key('dirport'):
             if int(entry['dirport']) == self.dirport:
+              logging.info('%s is in the blacklist: IPv4 (%s) and ' +
+                           'DirPort (%d) match', self._fpr, self.dirip,
+                           self.dirport)
               return True
           # if the orport is present, check it too
           elif entry.has_key('orport'):
             if int(entry['orport']) == self.orport:
+              logging.info('%s is in the blacklist: IPv4 (%s) and ' +
+                           'ORPort (%d) match', self._fpr, self.dirip,
+                           self.orport)
               return True
           else:
+            logging.info('%s is in the blacklist: IPv4 (%s) matches, and ' +
+                         'entry has no DirPort or ORPort', self._fpr,
+                         self.dirip)
             return True
-        if key == 'id' and value == self._fpr:
-          return True
-        if (key == 'ipv6'
-            and self.ipv6addr is not None and self.ipv6orport is not None):
+        has_ipv6 = self.ipv6addr is not None and self.ipv6orport is not None
+        ipv6 = (self.ipv6addr + ':' + self.ipv6orport) if has_ipv6 else None
+        if (key == 'ipv6' and has_ipv6):
         # if both entry and fallback have an ipv6 address, compare them,
         # otherwise, disregard ipv6 addresses
-          if value == self.ipv6addr + ':' + self.ipv6orport:
+          if value == ipv6:
             # if the dirport is present, check it too
             if entry.has_key('dirport'):
               if int(entry['dirport']) == self.dirport:
+                logging.info('%s is in the blacklist: IPv6 (%s) and ' +
+                             'DirPort (%d) match', self._fpr, ipv6,
+                             self.dirport)
                 return True
-            # if the orport is present, check it too
-            elif entry.has_key('orport'):
-              if int(entry['orport']) == self.orport:
-                return True
+            # we've already checked the ORPort, it's part of entry['ipv6']
             else:
+              logging.info('%s is in the blacklist: IPv6 (%s) matches, and' +
+                           'entry has no DirPort', self._fpr, ipv6)
               return True
+        elif (key == 'ipv6' or has_ipv6):
+          # only log if the fingerprint matches but the IPv6 doesn't
+          if entry.has_key('id') and entry['id'] == self._fpr:
+            logging.info('%s skipping IPv6 blacklist comparison: relay ' +
+                         'has%s IPv6%s, but entry has%s IPv6%s', self._fpr,
+                         '' if has_ipv6 else ' no',
+                         (' (' + ipv6 + ')') if has_ipv6 else  '',
+                         '' if key == 'ipv6' else ' no',
+                         (' (' + value + ')') if key == 'ipv6' else '')
+            logging.warning('Has %s %s IPv6 address %s?', self._fpr,
+                            'gained an' if has_ipv6 else 'lost its former',
+                            ipv6 if has_ipv6 else value)
     return False
 
   def is_exit(self):
@@ -827,25 +885,33 @@ class Candidate(object):
   def fallback_consensus_dl_speed(dirip, dirport, nickname, max_time):
     downloader = DescriptorDownloader()
     start = datetime.datetime.utcnow()
+    # some directory mirrors respond to requests in ways that hang python
+    # sockets, which is why we long this line here
+    logging.info('Initiating consensus download from %s (%s:%d).', nickname,
+                 dirip, dirport)
     # there appears to be about 1 second of overhead when comparing stem's
     # internal trace time and the elapsed time calculated here
     downloader.get_consensus(endpoints = [(dirip, dirport)]).run()
     elapsed = (datetime.datetime.utcnow() - start).total_seconds()
     if elapsed > max_time:
       status = 'too slow'
+      level = logging.WARNING
     else:
       status = 'ok'
-    logging.debug(('Consensus download: %0.2fs %s from %s (%s:%d), '
-                   + 'max download time %0.2fs.') % (elapsed, status,
-                                                     nickname, dirip, dirport,
-                                                     max_time))
+      level = logging.DEBUG
+    logging.log(level, 'Consensus download: %0.1fs %s from %s (%s:%d), ' +
+                 'max download time %0.1fs.', elapsed, status, nickname,
+                 dirip, dirport, max_time)
     return elapsed
 
   def fallback_consensus_dl_check(self):
-    ipv4_speed = Candidate.fallback_consensus_dl_speed(self.dirip,
+    if PERFORM_IPV4_DIRPORT_CHECKS:
+      ipv4_speed = Candidate.fallback_consensus_dl_speed(self.dirip,
                                                 self.dirport,
                                                 self._data['nickname'],
                                                 CONSENSUS_DOWNLOAD_SPEED_MAX)
+    else:
+      ipv4_speed = None
     if self.ipv6addr is not None and PERFORM_IPV6_DIRPORT_CHECKS:
       # Clients assume the IPv6 DirPort is the same as the IPv4 DirPort
       ipv6_speed = Candidate.fallback_consensus_dl_speed(self.ipv6addr,
@@ -855,7 +921,8 @@ class Candidate(object):
     else:
       ipv6_speed = None
     # Now retry the relay if it took too long the first time
-    if (ipv4_speed > CONSENSUS_DOWNLOAD_SPEED_MAX
+    if (PERFORM_IPV4_DIRPORT_CHECKS
+        and ipv4_speed > CONSENSUS_DOWNLOAD_SPEED_MAX
         and CONSENSUS_DOWNLOAD_RETRY):
       ipv4_speed = Candidate.fallback_consensus_dl_speed(self.dirip,
                                                 self.dirport,
@@ -869,7 +936,8 @@ class Candidate(object):
                                                 self._data['nickname'],
                                                 CONSENSUS_DOWNLOAD_SPEED_MAX)
 
-    return (ipv4_speed <= CONSENSUS_DOWNLOAD_SPEED_MAX
+    return ((not PERFORM_IPV4_DIRPORT_CHECKS
+             or ipv4_speed <= CONSENSUS_DOWNLOAD_SPEED_MAX)
             and (not PERFORM_IPV6_DIRPORT_CHECKS
                  or ipv6_speed <= CONSENSUS_DOWNLOAD_SPEED_MAX))
 
@@ -1071,8 +1139,8 @@ class CandidateList(dict):
         if BLACKLIST_EXCLUDES_WHITELIST_ENTRIES:
           # exclude
           excluded_count += 1
-          logging.debug('Excluding %s: in both blacklist and whitelist.' %
-                        f._fpr)
+          logging.warning('Excluding %s: in both blacklist and whitelist.',
+                          f._fpr)
         else:
           # include
           filtered_fallbacks.append(f)
@@ -1082,8 +1150,7 @@ class CandidateList(dict):
       elif in_blacklist:
         # exclude
         excluded_count += 1
-        logging.debug('Excluding %s: in blacklist.' %
-                      f._fpr)
+        logging.debug('Excluding %s: in blacklist.', f._fpr)
       else:
         if INCLUDE_UNLISTED_ENTRIES:
           # include
@@ -1091,8 +1158,8 @@ class CandidateList(dict):
         else:
           # exclude
           excluded_count += 1
-          logging.debug('Excluding %s: in neither blacklist nor whitelist.' %
-                        f._fpr)
+          logging.info('Excluding %s: in neither blacklist nor whitelist.',
+                       f._fpr)
     self.fallbacks = filtered_fallbacks
     return excluded_count
 
@@ -1173,15 +1240,14 @@ class CandidateList(dict):
     # Integers don't need escaping in C comments
     fallback_count = len(self.fallbacks)
     if FALLBACK_PROPORTION_OF_GUARDS is None:
-      fallback_proportion = ''
+      fallback_proportion = ' (none)'
     else:
-      fallback_proportion = ' (%d * %f)'%(guard_count,
+      fallback_proportion = '%d (%d * %f)'%(target_count, guard_count,
                                           FALLBACK_PROPORTION_OF_GUARDS)
     s += 'Final Count:  %d (Eligible %d, Usable %d, Target %d%s'%(
             min(max_count, fallback_count),
             eligible_count,
             fallback_count,
-            target_count,
             fallback_proportion)
     if MAX_FALLBACK_COUNT is not None:
       s += ', Clamped to %d'%(MAX_FALLBACK_COUNT)
@@ -1242,6 +1308,16 @@ class CandidateList(dict):
         s += '#error ' + error_str
       else:
         s += '/* ' + error_str + ' */'
+    s += '\n'
+    if PERFORM_IPV4_DIRPORT_CHECKS or PERFORM_IPV6_DIRPORT_CHECKS:
+      s += '/* Checked %s%s%s DirPorts served a consensus within %.1fs. */'%(
+            'IPv4' if PERFORM_IPV4_DIRPORT_CHECKS else '',
+            ' and ' if (PERFORM_IPV4_DIRPORT_CHECKS
+                        and PERFORM_IPV6_DIRPORT_CHECKS) else '',
+            'IPv6' if PERFORM_IPV6_DIRPORT_CHECKS else '',
+            CONSENSUS_DOWNLOAD_SPEED_MAX)
+    else:
+      s += '/* Did not check IPv4 or IPv6 DirPort consensus downloads. */'
     return s
 
 ## Main Function
