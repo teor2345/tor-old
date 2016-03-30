@@ -98,3 +98,9 @@
 # Email sent directly to teor, verified using relay contact info
 217.12.199.208:80 orport=443 id=DF3AED4322B1824BF5539AE54B2D1B38E080FF05
 217.12.210.214:80 orport=443 id=943C0C6841C1E914B9FCA796C6846620A5AF9BC7
+
+# Email sent directly to teor, verified using relay contact info
+94.23.204.175:9030 orport=9001 id=5665A3904C89E22E971305EE8C1997BCA4123C69
+
+# https://twitter.com/binarytenshi/status/717952514327453697
+94.126.23.174:9030 orport=9001 id=6FC6F08270D565BE89B7C819DD8E2D487397C073
