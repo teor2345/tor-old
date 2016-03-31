@@ -147,8 +147,8 @@ MAX_WEIGHT_FRACTION = TARGET_MAX_WEIGHT_FRACTION * REWEIGHTING_FUDGE_FACTOR
 # If a single fallback's weight is too low, it's pointless adding it.
 # (Final weights may be slightly higher than this, due to low weight relays
 # being excluded.)
-# A relay weighted at 1 in 1000 fallbacks will see about 0.1% of clients.
-MIN_WEIGHT_FRACTION = 0.0 if OUTPUT_CANDIDATES else 1/1000.0
+# A relay weighted at 1 in 100 fallbacks will see about 1% of clients.
+MIN_WEIGHT_FRACTION = 1/1000.0 if OUTPUT_CANDIDATES else 1/100.0
 
 ## Other Configuration Parameters
 
