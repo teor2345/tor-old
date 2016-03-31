@@ -116,7 +116,8 @@ CONSENSUS_DOWNLOAD_RETRY = True
 
 # The target for these parameters is 20% of the guards in the network
 # This is around 200 as of October 2015
-FALLBACK_PROPORTION_OF_GUARDS = None if OUTPUT_CANDIDATES else 0.2
+_FB_POG = 0.2
+FALLBACK_PROPORTION_OF_GUARDS = None if OUTPUT_CANDIDATES else _FB_POG
 
 # Limit the number of fallbacks (eliminating lowest by weight)
 MAX_FALLBACK_COUNT = None if OUTPUT_CANDIDATES else 500
@@ -141,14 +142,13 @@ STRICT_FALLBACK_WEIGHTS = False
 # A relay weighted at 1 in 10 fallbacks will see about 10% of clients that
 # use the fallback directories. (The 9 directory authorities see a similar
 # proportion of clients.)
-TARGET_MAX_WEIGHT_FRACTION = 1/10.0
+TARGET_MAX_WEIGHT_FRACTION = 1.0/10.0
 REWEIGHTING_FUDGE_FACTOR = 0.8
 MAX_WEIGHT_FRACTION = TARGET_MAX_WEIGHT_FRACTION * REWEIGHTING_FUDGE_FACTOR
 # If a single fallback's weight is too low, it's pointless adding it.
-# (Final weights may be slightly higher than this, due to low weight relays
-# being excluded.)
-# A relay weighted at 1 in 1000 fallbacks will see about 0.1% of clients.
-MIN_WEIGHT_FRACTION = 0.0 if OUTPUT_CANDIDATES else 1/1000.0
+# We expect fallbacks to handle an extra 30 kilobytes per second of traffic
+# Make sure they support a thousand times that
+MIN_CONSENSUS_WEIGHT = 30000.0
 
 ## Other Configuration Parameters
 
@@ -739,6 +739,12 @@ class Candidate(object):
       logging.info('%s not a candidate: guard avg too low (%lf)',
                    self._fpr, self._guard)
       return False
+    if (MIN_CONSENSUS_WEIGHT is not None
+        and self.original_consensus_weight() < MIN_CONSENSUS_WEIGHT):
+      logging.info('%s not a candidate: consensus weight %.0f too low, must ' +
+                   'be at least %.0f', self._fpr,
+                   self.original_consensus_weight(), MIN_CONSENSUS_WEIGHT)
+      return False
     return True
 
   def is_in_whitelist(self, relaylist):
@@ -1217,14 +1223,6 @@ class CandidateList(dict):
         f._data['consensus_weight'] = max_acceptable_weight
     return relays_clamped
 
-  # Remove any fallbacks with weights lower than MIN_WEIGHT_FRACTION
-  # total_weight should be recalculated after calling this
-  def exclude_low_weight_fallbacks(self, total_weight):
-    self.fallbacks = filter(
-            lambda x:
-             x.fallback_weight_fraction(total_weight) >= MIN_WEIGHT_FRACTION,
-             self.fallbacks)
-
   def fallback_weight_total(self):
     return sum(f._data['consensus_weight'] for f in self.fallbacks)
 
@@ -1295,10 +1293,10 @@ class CandidateList(dict):
                                                 max_percent,
                                                 TARGET_MAX_WEIGHT_FRACTION*100)
     s += '\n'
-    s += 'Min Weight:   %d (%.3f%%) (Clamped to %.3f%%)'%(
+    s += 'Min Weight:   %d (%.3f%%) (Clamped to %.0f)'%(
                                                 min_weight,
                                                 min_percent,
-                                                MIN_WEIGHT_FRACTION*100)
+                                                MIN_CONSENSUS_WEIGHT)
     s += '\n'
     if eligible_count != fallback_count:
       s += 'Excluded:     %d (Clamped, Below Target, or Low Weight)'%(
@@ -1379,18 +1377,9 @@ def list_fallbacks():
 
   # When candidates are reweighted, total_weight decreases, and
   # the proportional weight of other candidates increases.
-  # Previously low-weight candidates might obtain sufficient proportional
-  # weights to be included.
   # Save the weight at which we reweighted fallbacks for the summary.
   pre_clamp_total_weight = total_weight
   relays_clamped = candidates.clamp_high_weight_fallbacks(total_weight)
-
-  # When candidates are excluded, total_weight decreases, and
-  # the proportional weight of other candidates increases.
-  # No new low weight candidates will be created during exclusions.
-  # However, high weight candidates may increase over the maximum proportion.
-  # This should not be an issue, except in pathological cases.
-  candidates.exclude_low_weight_fallbacks(total_weight)
   total_weight = candidates.fallback_weight_total()
 
   # check we haven't exceeded TARGET_MAX_WEIGHT_FRACTION
