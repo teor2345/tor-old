@@ -1367,7 +1367,11 @@ connection_listener_new(const struct sockaddr *listensockaddr,
     }
   }
 
-  if (type != CONN_TYPE_AP_LISTENER) {
+  /* Allow most connections to use IPv4 and IPv6, overriding their flags
+   * But don't override AP listener flags */
+  if (type != CONN_TYPE_AP_LISTENER && type != CONN_TYPE_AP_TRANS_LISTENER
+      && type != CONN_TYPE_AP_NATD_LISTENER
+      && type != CONN_TYPE_AP_DNS_LISTENER) {
     lis_conn->entry_cfg.ipv4_traffic = 1;
     lis_conn->entry_cfg.ipv6_traffic = 1;
     lis_conn->entry_cfg.prefer_ipv6 = 0;
