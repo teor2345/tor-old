@@ -707,6 +707,12 @@ class Candidate(object):
       self._badexit = self._avg_generic_history(badexit) / ONIONOO_SCALE_ONE
 
   def is_candidate(self):
+    must_be_running_now = (PERFORM_IPV4_DIRPORT_CHECKS
+                           or PERFORM_IPV6_DIRPORT_CHECKS)
+    if (must_be_running_now and not self.is_running()):
+      logging.info('%s not a candidate: not running now, unable to check ' +
+                   'DirPort consensus download', self._fpr)
+      return False
     if (self._data['last_changed_address_or_port'] >
         self.CUTOFF_ADDRESS_AND_PORT_STABLE):
       logging.info('%s not a candidate: changed address/port recently (%s)',
@@ -866,6 +872,9 @@ class Candidate(object):
 
   def is_guard(self):
     return 'Guard' in self._data['flags']
+
+  def is_running(self):
+    return 'Running' in self._data['flags']
 
   def fallback_weight_fraction(self, total_weight):
     return float(self._data['consensus_weight']) / total_weight
