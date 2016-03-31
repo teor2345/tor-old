@@ -1475,6 +1475,50 @@ connection_ap_handshake_rewrite_and_attach(entry_connection_t *conn,
     }
 #endif
 
+    /* socks->address is a non-onion hostname or IP address
+     * If we can't do DNS requests, and:
+     * - if we can't use either IP address family, refuse the connection;
+     * - if we have a hostname that's not an IP, refuse the connection;
+     * - if we have an IP address, but we can't use that address family,
+     *   refuse the connection.
+     * If we can do DNS requests, and we can use at least one address family,
+     * then we have to resolve the address first. Then we'll know if it
+     * resolves to a usable address family. */
+    if (!conn->entry_cfg.dns_request) {
+      if (!conn->entry_cfg.ipv4_traffic && !conn->entry_cfg.ipv6_traffic) {
+        log_warn(LD_APP, "Refusing to connect to non-hidden-service hostname "
+                 "or IP address %s because Port has OnionTrafficOnly set (or "
+                 "NoDNSRequest, NoIPv4Traffic, and NoIPv6Traffic).",
+                 safe_str_client(socks->address));
+        connection_mark_unattached_ap(conn, END_STREAM_REASON_ENTRYPOLICY);
+        return -1;
+      } else {
+        /* Check if we have an IP address, and whether we can use it */
+        tor_addr_t dummy_addr;
+        int family = tor_addr_parse(&dummy_addr, socks->address);
+        /* family will be -1 for a non-onion hostname that's not an IP */
+        if (family == -1) {
+          log_warn(LD_APP, "Refusing to connect to non-hidden-service "
+                   "hostname %s because Port has NoDNSRequest set.",
+                   safe_str_client(socks->address));
+          connection_mark_unattached_ap(conn, END_STREAM_REASON_ENTRYPOLICY);
+          return -1;
+        } else if (family == AF_INET && !conn->entry_cfg.ipv4_traffic) {
+          log_warn(LD_APP, "Refusing to connect to IPv4 address %s because "
+                   "Port has NoIPv4Traffic set.",
+                   safe_str_client(socks->address));
+          connection_mark_unattached_ap(conn, END_STREAM_REASON_ENTRYPOLICY);
+          return -1;
+        } else if (family == AF_INET6 && !conn->entry_cfg.ipv6_traffic) {
+          log_warn(LD_APP, "Refusing to connect to IPv6 address %s because "
+                   "Port has NoIPv6Traffic set.",
+                   safe_str_client(socks->address));
+          connection_mark_unattached_ap(conn, END_STREAM_REASON_ENTRYPOLICY);
+          return -1;
+        }
+      }
+    }
+
     /* See if this is a hostname lookup that we can answer immediately.
      * (For example, an attempt to look up the IP address for an IP address.)
      */
