@@ -1154,12 +1154,12 @@ class CandidateList(dict):
     return '/* Whitelist & blacklist excluded %d of %d candidates. */'%(
                                                 excluded_count, initial_count)
 
-  # Remove any fallbacks in excess of MAX_FALLBACK_COUNT,
-  # starting with the lowest-weighted fallbacks
+  # Remove any fallbacks in excess of max_count,
+  # starting with the lowest-weighted fallbacks,
+  # assuming the list is already sorted by weight
   # this changes total weight
-  def exclude_excess_fallbacks(self):
-    if MAX_FALLBACK_COUNT is not None:
-      self.fallbacks = self.fallbacks[:MAX_FALLBACK_COUNT]
+  def exclude_excess_fallbacks(self, max_count):
+    self.fallbacks = self.fallbacks[:max_count]
 
   def fallback_min_weight(self):
     if len(self.fallbacks) > 0:
@@ -1176,63 +1176,56 @@ class CandidateList(dict):
   def summarise_fallbacks(self, eligible_count, guard_count, target_count,
                           max_count):
     # Report:
-    #  the number of fallback directories (with min & max limits);
-    #    #error if below minimum count
+    #  whether we checked consensus download times
+    #  the number of fallback directories (and limits/exclusions, if relevant)
     #  min & max fallback weights
-    # Multiline C comment with #error if things go bad
-    s = '/*'
-    s += '\n'
-    s += 'Fallback Directory Summary'
-    s += '\n'
-    # Integers don't need escaping in C comments
-    fallback_count = len(self.fallbacks)
-    if FALLBACK_PROPORTION_OF_GUARDS is None:
-      fallback_proportion = ' (none)'
-    else:
-      fallback_proportion = '%d (%d * %f)'%(target_count, guard_count,
-                                          FALLBACK_PROPORTION_OF_GUARDS)
-    s += 'Final Count:  %d (Eligible %d, Target %d%s'%(
-            min(max_count, fallback_count),
-            eligible_count,
-            fallback_count,
-            fallback_proportion)
-    if MAX_FALLBACK_COUNT is not None:
-      s += ', Clamped to %d'%(MAX_FALLBACK_COUNT)
-    s += ')\n'
-    if fallback_count < MIN_FALLBACK_COUNT:
-      s += '*/'
-      s += '\n'
-      # We must have a minimum number of fallbacks so they are always
-      # reachable, and are in diverse locations
-      s += '#error Fallback Count %d is too low. '%(fallback_count)
-      s += 'Must be at least %d for diversity. '%(MIN_FALLBACK_COUNT)
-      s += 'Try adding entries to the whitelist, '
-      s += 'or setting INCLUDE_UNLISTED_ENTRIES = True.'
-      s += '\n'
-      s += '/*'
-      s += '\n'
-    min_fb = self.fallback_min_weight()
-    min_weight = min_fb._data['consensus_weight']
-    max_fb = self.fallback_max_weight()
-    max_weight = max_fb._data['consensus_weight']
-    s += 'Max Weight:   %d'%(max_weight)
-    s += '\n'
-    s += 'Min Weight:   %d'%(min_weight)
-    s += '\n'
-    if eligible_count != fallback_count:
-      s += 'Excluded:     %d (Eligible Count Exceeded Target Count)'%(
-                                              eligible_count - fallback_count)
-      s += '\n'
-    s += '*/'
+    #  #error if below minimum count
     if PERFORM_IPV4_DIRPORT_CHECKS or PERFORM_IPV6_DIRPORT_CHECKS:
-      s += '/* Checked %s%s%s DirPorts served a consensus within %.1fs. */'%(
+      s = '/* Checked %s%s%s DirPorts served a consensus within %.1fs. */'%(
             'IPv4' if PERFORM_IPV4_DIRPORT_CHECKS else '',
             ' and ' if (PERFORM_IPV4_DIRPORT_CHECKS
                         and PERFORM_IPV6_DIRPORT_CHECKS) else '',
             'IPv6' if PERFORM_IPV6_DIRPORT_CHECKS else '',
             CONSENSUS_DOWNLOAD_SPEED_MAX)
     else:
-      s += '/* Did not check IPv4 or IPv6 DirPort consensus downloads. */'
+      s = '/* Did not check IPv4 or IPv6 DirPort consensus downloads. */'
+    s += '\n'
+    # Multiline C comment with #error if things go bad
+    s += '/*'
+    s += '\n'
+    # Integers don't need escaping in C comments
+    fallback_count = len(self.fallbacks)
+    if FALLBACK_PROPORTION_OF_GUARDS is None:
+      fallback_proportion = ''
+    else:
+      fallback_proportion = ', Target %d (%d * %f)'%(target_count, guard_count,
+                                                 FALLBACK_PROPORTION_OF_GUARDS)
+    s += 'Final Count: %d (Eligible %d%s'%(fallback_count,
+                                           eligible_count,
+                                           fallback_proportion)
+    if MAX_FALLBACK_COUNT is not None:
+      s += ', Clamped to %d'%(MAX_FALLBACK_COUNT)
+    s += ')\n'
+    if eligible_count != fallback_count:
+      s += 'Excluded:     %d (Eligible Count Exceeded Target Count)'%(
+                                              eligible_count - fallback_count)
+      s += '\n'
+    min_fb = self.fallback_min_weight()
+    min_weight = min_fb._data['consensus_weight']
+    max_fb = self.fallback_max_weight()
+    max_weight = max_fb._data['consensus_weight']
+    s += 'Consensus Weight Range: %d - %d'%(min_weight, max_weight)
+    s += '\n'
+    s += '*/'
+    if fallback_count < MIN_FALLBACK_COUNT:
+      # We must have a minimum number of fallbacks so they are always
+      # reachable, and are in diverse locations
+      s += '\n'
+      s += '#error Fallback Count %d is too low. '%(fallback_count)
+      s += 'Must be at least %d for diversity. '%(MIN_FALLBACK_COUNT)
+      s += 'Try adding entries to the whitelist, '
+      s += 'or setting INCLUDE_UNLISTED_ENTRIES = True.'
+      s += '\n'
     return s
 
 ## Main Function
@@ -1255,7 +1248,7 @@ def list_fallbacks():
   # - the target fallback count (FALLBACK_PROPORTION_OF_GUARDS * guard count)
   # - the maximum fallback count (MAX_FALLBACK_COUNT)
   if MAX_FALLBACK_COUNT is None:
-    max_count = guard_count
+    max_count = target_count
   else:
     max_count = min(target_count, MAX_FALLBACK_COUNT)
 
@@ -1272,7 +1265,7 @@ def list_fallbacks():
   #  print x.fallbackdir_line(True)
 
   # exclude low-weight fallbacks if we have more than we want
-  candidates.exclude_excess_fallbacks()
+  candidates.exclude_excess_fallbacks(max_count)
 
   if len(candidates.fallbacks) > 0:
     print candidates.summarise_fallbacks(eligible_count, guard_count,
@@ -1283,7 +1276,7 @@ def list_fallbacks():
   for s in fetch_source_list():
     print describe_fetch_source(s)
 
-  for x in candidates.fallbacks[:max_count]:
+  for x in candidates.fallbacks:
     dl_speed_ok = x.fallback_consensus_dl_check()
     print x.fallbackdir_line(dl_speed_ok)
     #print json.dumps(candidates[x]._data, sort_keys=True, indent=4,
