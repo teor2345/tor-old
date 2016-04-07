@@ -26,6 +26,7 @@ import hashlib
 import dateutil.parser
 # bson_lazy provides bson
 #from bson import json_util
+import copy
 
 from stem.descriptor.remote import DescriptorDownloader
 
@@ -51,6 +52,11 @@ PERFORM_IPV4_DIRPORT_CHECKS = False if OUTPUT_CANDIDATES else True
 # So it's best left at False until #18394 is implemented
 # Don't check ~1000 candidates when OUTPUT_CANDIDATES is True
 PERFORM_IPV6_DIRPORT_CHECKS = False if OUTPUT_CANDIDATES else False
+
+# Output matching ContactInfo in fallbacks list or the blacklist?
+# Useful if you're trying to contact operators
+CONTACT_COUNT = True if OUTPUT_CANDIDATES else False
+CONTACT_BLACKLIST_COUNT = True if OUTPUT_CANDIDATES else False
 
 ## OnionOO Settings
 
@@ -942,11 +948,12 @@ class Candidate(object):
                                                 CONSENSUS_DOWNLOAD_SPEED_MAX)
     return ((not ipv4_failed) and (not ipv6_failed))
 
-  def fallbackdir_line(self, dl_speed_ok):
+  def fallbackdir_line(self, dl_speed_ok, fallbacks, prefilter_fallbacks):
     # /*
     # nickname
     # flags
     # [contact]
+    # [identical contact counts]
     # */
     # "address:dirport orport=port id=fingerprint"
     # "[ipv6=addr:orport]"
@@ -962,6 +969,22 @@ class Candidate(object):
     s += '\n'
     if self._data['contact'] is not None:
       s += cleanse_c_multiline_comment(self._data['contact'])
+      if CONTACT_COUNT or CONTACT_BLACKLIST_COUNT:
+        fallback_count = len([f for f in fallbacks
+                              if f._data['contact'] == self._data['contact']])
+        if fallback_count > 1:
+          s += '\n'
+          s += '%d identical contacts listed' % (fallback_count)
+      if CONTACT_BLACKLIST_COUNT:
+        prefilter_count = len([f for f in prefilter_fallbacks
+                               if f._data['contact'] == self._data['contact']])
+        filter_count = prefilter_count - fallback_count
+        if filter_count > 0:
+          if fallback_count > 1:
+            s += ' '
+          else:
+            s += '\n'
+          s += '%d blacklisted' % (filter_count)
       s += '\n'
     s += '*/'
     s += '\n'
@@ -1253,6 +1276,7 @@ def list_fallbacks():
     max_count = min(target_count, MAX_FALLBACK_COUNT)
 
   candidates.compute_fallbacks()
+  prefilter_fallbacks = copy.copy(candidates.fallbacks)
 
   # filter with the whitelist and blacklist
   initial_count = len(candidates.fallbacks)
@@ -1278,7 +1302,8 @@ def list_fallbacks():
 
   for x in candidates.fallbacks:
     dl_speed_ok = x.fallback_consensus_dl_check()
-    print x.fallbackdir_line(dl_speed_ok)
+    print x.fallbackdir_line(dl_speed_ok, candidates.fallbacks,
+                             prefilter_fallbacks)
     #print json.dumps(candidates[x]._data, sort_keys=True, indent=4,
     #                  separators=(',', ': '), default=json_util.default)
 
