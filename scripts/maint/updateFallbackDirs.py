@@ -129,8 +129,9 @@ CONSENSUS_DOWNLOAD_RETRY = True
 _FB_POG = 0.2
 FALLBACK_PROPORTION_OF_GUARDS = None if OUTPUT_CANDIDATES else _FB_POG
 
+# We want exactly 100 fallbacks for the initial release
 # Limit the number of fallbacks (eliminating lowest by weight)
-MAX_FALLBACK_COUNT = None if OUTPUT_CANDIDATES else 500
+MAX_FALLBACK_COUNT = None if OUTPUT_CANDIDATES else 100
 # Emit a C #error if the number of fallbacks is below
 MIN_FALLBACK_COUNT = 100
 
@@ -1177,13 +1178,6 @@ class CandidateList(dict):
     return '/* Whitelist & blacklist excluded %d of %d candidates. */'%(
                                                 excluded_count, initial_count)
 
-  # Remove any fallbacks in excess of max_count,
-  # starting with the lowest-weighted fallbacks,
-  # assuming the list is already sorted by weight
-  # this changes total weight
-  def exclude_excess_fallbacks(self, max_count):
-    self.fallbacks = self.fallbacks[:max_count]
-
   def fallback_min_weight(self):
     if len(self.fallbacks) > 0:
       return self.fallbacks[-1]
@@ -1287,9 +1281,8 @@ def list_fallbacks():
   # print the raw fallback list
   #for x in candidates.fallbacks:
   #  print x.fallbackdir_line(True)
-
-  # exclude low-weight fallbacks if we have more than we want
-  candidates.exclude_excess_fallbacks(max_count)
+  #  print json.dumps(candidates[x]._data, sort_keys=True, indent=4,
+  #                   separators=(',', ': '), default=json_util.default)
 
   if len(candidates.fallbacks) > 0:
     print candidates.summarise_fallbacks(eligible_count, guard_count,
@@ -1300,12 +1293,17 @@ def list_fallbacks():
   for s in fetch_source_list():
     print describe_fetch_source(s)
 
+  active_count = 0
   for x in candidates.fallbacks:
     dl_speed_ok = x.fallback_consensus_dl_check()
     print x.fallbackdir_line(dl_speed_ok, candidates.fallbacks,
                              prefilter_fallbacks)
-    #print json.dumps(candidates[x]._data, sort_keys=True, indent=4,
-    #                  separators=(',', ': '), default=json_util.default)
+    if dl_speed_ok:
+      # this fallback is included in the list
+      active_count += 1
+      if active_count >= max_count:
+        # we have enough fallbacks
+        break
 
 if __name__ == "__main__":
   list_fallbacks()
