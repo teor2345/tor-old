@@ -53,6 +53,9 @@ PERFORM_IPV4_DIRPORT_CHECKS = False if OUTPUT_CANDIDATES else True
 # Don't check ~1000 candidates when OUTPUT_CANDIDATES is True
 PERFORM_IPV6_DIRPORT_CHECKS = False if OUTPUT_CANDIDATES else False
 
+# Output fallback name, flags, and ContactInfo in a C comment?
+OUTPUT_COMMENTS = True if OUTPUT_CANDIDATES else False
+
 # Output matching ContactInfo in fallbacks list or the blacklist?
 # Useful if you're trying to contact operators
 CONTACT_COUNT = True if OUTPUT_CANDIDATES else False
@@ -931,8 +934,9 @@ class Candidate(object):
   def is_running(self):
     return 'Running' in self._data['flags']
 
+  # report how long it takes to download a consensus from dirip:dirport
   @staticmethod
-  def fallback_consensus_dl_speed(dirip, dirport, nickname, max_time):
+  def fallback_consensus_download_speed(dirip, dirport, nickname, max_time):
     download_failed = False
     downloader = DescriptorDownloader()
     start = datetime.datetime.utcnow()
@@ -968,47 +972,56 @@ class Candidate(object):
                  dirip, dirport, max_time)
     return download_failed
 
-  def fallback_consensus_dl_check(self):
+  # does this fallback download the consensus fast enough?
+  def check_fallback_download_consensus(self):
     # include the relay if we're not doing a check, or we can't check (IPv6)
     ipv4_failed = False
     ipv6_failed = False
     if PERFORM_IPV4_DIRPORT_CHECKS:
-      ipv4_failed = Candidate.fallback_consensus_dl_speed(self.dirip,
+      ipv4_failed = Candidate.fallback_consensus_download_speed(self.dirip,
                                                 self.dirport,
                                                 self._data['nickname'],
                                                 CONSENSUS_DOWNLOAD_SPEED_MAX)
     if self.ipv6addr is not None and PERFORM_IPV6_DIRPORT_CHECKS:
       # Clients assume the IPv6 DirPort is the same as the IPv4 DirPort
-      ipv6_failed = Candidate.fallback_consensus_dl_speed(self.ipv6addr,
-                                                self.dirport,
-                                                self._data['nickname'],
-                                                CONSENSUS_DOWNLOAD_SPEED_MAX)
-    # Now retry the relay if it took too long the first time
-    if (PERFORM_IPV4_DIRPORT_CHECKS and ipv4_failed
-        and CONSENSUS_DOWNLOAD_RETRY):
-      ipv4_failed = Candidate.fallback_consensus_dl_speed(self.dirip,
-                                                self.dirport,
-                                                self._data['nickname'],
-                                                CONSENSUS_DOWNLOAD_SPEED_MAX)
-    if (self.ipv6addr is not None and PERFORM_IPV6_DIRPORT_CHECKS
-        and ipv6_failed and CONSENSUS_DOWNLOAD_RETRY):
-      ipv6_failed = Candidate.fallback_consensus_dl_speed(self.ipv6addr,
+      ipv6_failed = Candidate.fallback_consensus_download_speed(self.ipv6addr,
                                                 self.dirport,
                                                 self._data['nickname'],
                                                 CONSENSUS_DOWNLOAD_SPEED_MAX)
     return ((not ipv4_failed) and (not ipv6_failed))
 
-  def fallbackdir_line(self, dl_speed_ok, fallbacks, prefilter_fallbacks):
+  # record whether this fallback passed the download check in _data
+  def set_fallback_download_consensus(self):
+    self._data['download_consensus'] = self.check_fallback_download_consensus()
+
+  # did this fallback pass the download check?
+  def get_fallback_download_consensus(self):
+    # if we're not performing checks, return True
+    if not PERFORM_IPV4_DIRPORT_CHECKS and not PERFORM_IPV6_DIRPORT_CHECKS:
+      return True
+    # if we are performing checks, but haven't done one, return False
+    if not self._data.has_key('download_consensus'):
+      return False
+    return self._data['download_consensus']
+
+  # output an optional header comment and info for this fallback
+  # set_fallback_download_consensus before calling this
+  def fallbackdir_line(self, fallbacks, prefilter_fallbacks):
+    if OUTPUT_COMMENTS:
+      self.fallbackdir_comment(fallbacks, prefilter_fallbacks)
+    # if the download speed is ok, output a C string
+    # if it's not, but we OUTPUT_COMMENTS, output a commented-out C string
+    if dl_speed_ok or OUTPUT_COMMENTS:
+      self.fallbackdir_info(self.get_fallback_download_consensus())
+
+  # output a header comment for this fallback
+  def fallbackdir_comment(self, fallbacks, prefilter_fallbacks):
     # /*
     # nickname
     # flags
     # [contact]
     # [identical contact counts]
     # */
-    # "address:dirport orport=port id=fingerprint"
-    # "[ipv6=addr:orport]"
-    # "weight=FALLBACK_OUTPUT_WEIGHT",
-    #
     # Multiline C comment
     s = '/*'
     s += '\n'
@@ -1038,9 +1051,25 @@ class Candidate(object):
       s += '\n'
     s += '*/'
     s += '\n'
+
+  # output the fallback info C string for this fallback
+  # this is the text that would go after FallbackDir in a torrc
+  # if this relay failed the download test and we OUTPUT_COMMENTS,
+  # comment-out the returned string
+  def fallbackdir_info(self, dl_speed_ok):
+    # "address:dirport orport=port id=fingerprint"
+    # "[ipv6=addr:orport]"
+    # "weight=FALLBACK_OUTPUT_WEIGHT",
+    #
+    # Do we want a C string, or a commented-out string?
+    c_string = dl_speed_ok
+    comment_string = not dl_speed_ok and OUTPUT_COMMENTS
+    # If we don't want either kind of string, bail
+    if not c_string and not comment_string:
+      return ''
     # Comment out the fallback directory entry if it's too slow
     # See the debug output for which address and port is failing
-    if not dl_speed_ok:
+    if comment_string:
       s += '/* Consensus download failed or was too slow:\n'
     # Multi-Line C string with trailing comma (part of a string list)
     # This makes it easier to diff the file, and remove IPv6 lines using grep
@@ -1055,7 +1084,7 @@ class Candidate(object):
             cleanse_c_string(self.ipv6addr), cleanse_c_string(self.ipv6orport))
       s += '\n'
     s += '" weight=%d",'%(FALLBACK_OUTPUT_WEIGHT)
-    if not dl_speed_ok:
+    if comment_string:
       s += '\n'
       s += '*/'
     return s
@@ -1131,9 +1160,15 @@ class CandidateList(dict):
 
   # sort fallbacks by their measured bandwidth, highest to lowest
   # calculate_measured_bandwidth before calling this
+  # this is useful for reviewing candidates in priority order
   def sort_fallbacks_by_measured_bandwidth(self):
     self.fallbacks.sort(key=lambda x: self[x].self._data['measured_bandwidth'],
                         reverse=True)
+
+  # sort fallbacks by their fingerprint, lowest to highest
+  # this is useful for stable diffs of fallback lists
+  def sort_fallbacks_by_fingerprint(self):
+    self.fallbacks.sort(key=lambda x: self[x].self._fpr)
 
   @staticmethod
   def load_relaylist(file_name):
@@ -1299,6 +1334,19 @@ class CandidateList(dict):
     else:
       return None
 
+  # perform download checks on each fallback candidate
+  # stop after max_count successful downloads
+  def perform_download_consensus_checks(self, max_count):
+    dl_ok_count = 0
+    for f in self.fallbacks:
+      f.set_fallback_download_consensus()
+      if f.get_fallback_download_consensus:
+        # this fallback downloaded a consensus ok
+        dl_ok_count += 1
+        if dl_ok_count >= max_count:
+          # we have enough fallbacks
+          return
+
   def summarise_fallbacks(self, eligible_count, guard_count, target_count,
                           max_count):
     # Report:
@@ -1411,17 +1459,21 @@ def list_fallbacks():
   for s in fetch_source_list():
     print describe_fetch_source(s)
 
-  active_count = 0
+  # check if each candidate can serve a consensus
+  candidates.perform_download_consensus_checks(max_count)
+
+  # limit to max_count candidates, choosing higher bandwidth relays first
+  candidates.fallbacks = candidates.fallbacks[:max_count]
+
+  # if we're outputting the final fallback list, sort by fingerprint
+  # this makes diffs much more stable
+  # otherwise, leave sorted by bandwidth, which allows operators to be
+  # contacted in priority order
+  if not OUTPUT_CANDIDATES:
+    candidates.sort_fallbacks_by_fingerprint()
+
   for x in candidates.fallbacks:
-    dl_speed_ok = x.fallback_consensus_dl_check()
-    print x.fallbackdir_line(dl_speed_ok, candidates.fallbacks,
-                             prefilter_fallbacks)
-    if dl_speed_ok:
-      # this fallback is included in the list
-      active_count += 1
-      if active_count >= max_count:
-        # we have enough fallbacks
-        break
+    print x.fallbackdir_line(candidates.fallbacks, prefilter_fallbacks)
 
 if __name__ == "__main__":
   list_fallbacks()
