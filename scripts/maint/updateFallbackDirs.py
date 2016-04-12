@@ -1462,9 +1462,6 @@ def list_fallbacks():
   # check if each candidate can serve a consensus
   candidates.perform_download_consensus_checks(max_count)
 
-  # limit to max_count candidates, choosing higher bandwidth relays first
-  candidates.fallbacks = candidates.fallbacks[:max_count]
-
   # if we're outputting the final fallback list, sort by fingerprint
   # this makes diffs much more stable
   # otherwise, leave sorted by bandwidth, which allows operators to be
