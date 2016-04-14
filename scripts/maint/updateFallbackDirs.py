@@ -27,6 +27,7 @@ import dateutil.parser
 # bson_lazy provides bson
 #from bson import json_util
 import copy
+import ipaddress
 
 from stem.descriptor.remote import DescriptorDownloader
 
@@ -468,6 +469,9 @@ class Candidate(object):
       # relays without advertised bandwdith have it calculated from their
       # consensus weight
       details['advertised_bandwidth'] = 0
+    if (not 'effective_family' in details
+        or details['effective_family'] is None):
+      details['effective_family'] = []
     details['last_changed_address_or_port'] = parse_ts(
                                       details['last_changed_address_or_port'])
     self._data = details
@@ -939,6 +943,80 @@ class Candidate(object):
   def has_ipv6(self):
     return self.ipv6addr is not None and self.ipv6orport is not None
 
+  # are ip_a and ip_b in the same netblock?
+  # mask_bits is the size of the netblock
+  # takes both IPv4 and IPv6 addresses
+  # the versions of ip_a and ip_b must be the same
+  # the mask must be valid for the IP version
+  @staticmethod
+  def netblocks_equal(ip_a, ip_b, mask_bits):
+    a = ipaddress.ip_address(ip_a)
+    b = ipaddress.ip_address(ip_b)
+    if a.version != b.version:
+      raise Exception('Mismatching IP versions in %s and %s'%(ip_a, ip_b))
+    if mask_bits > a.max_prefixlen:
+      logging.warning('Bad IP mask %d for %s and %s'%(mask_bits, ip_a, ip_b))
+      mask_bits = a.max_prefixlen
+    if mask_bits < 0:
+      logging.warning('Bad IP mask %d for %s and %s'%(mask_bits, ip_a, ip_b))
+      mask_bits = 0
+    a_net = ipaddress.ip_network((a, mask_bits), strict=False)
+    return b in a_net
+
+  # is this fallback's IPv4 address (dirip) in the same netblock as other's
+  # IPv4 address?
+  # mask_bits is the size of the netblock
+  def ipv4_netblocks_equal(self, other, mask_bits):
+    return Candidate.netblocks_equal(self.dirip, other.dirip, mask_bits)
+
+  # is this fallback's IPv6 address (ipv6addr) in the same netblock as
+  # other's IPv6 address?
+  # Returns False if either fallback has no IPv6 address
+  # mask_bits is the size of the netblock
+  def ipv6_netblocks_equal(self, other, mask_bits):
+    if not self.has_ipv6() or not other.has_ipv6():
+      return False
+    return Candidate.netblocks_equal(self.ipv6addr, other.ipv6addr, mask_bits)
+
+  # is this fallback's IPv4 DirPort the same as other's IPv4 DirPort?
+  def dirport_equal(self, other):
+    return self.dirport == other.dirport
+
+  # is this fallback's IPv4 ORPort the same as other's IPv4 ORPort?
+  def ipv4_orport_equal(self, other):
+    return self.orport == other.orport
+
+  # is this fallback's IPv6 ORPort the same as other's IPv6 ORPort?
+  # Returns False if either fallback has no IPv6 address
+  def ipv6_orport_equal(self, other):
+    if not self.has_ipv6() or not other.has_ipv6():
+      return False
+    return self.ipv6orport == other.ipv6orport
+
+  # does this fallback have the same DirPort, IPv4 ORPort, or
+  # IPv6 ORPort as other?
+  # Ignores IPv6 ORPort if either fallback has no IPv6 address
+  def port_equal(self, other):
+    return (self.dirport_equal(other) or self.ipv4_orport_equal(other)
+            or self.ipv6_orport_equal(other))
+
+  # return a list containing IPv4 ORPort, DirPort, and IPv6 ORPort (if present)
+  def port_list(self):
+    ports = [self.dirport, self.orport]
+    if self.has_ipv6() and not self.ipv6orport in ports:
+      ports.append(self.ipv6orport)
+    return ports
+
+  # does this fallback share a port with other, regardless of whether the
+  # port types match?
+  # For example, if self's IPv4 ORPort is 80 and other's DirPort is 80,
+  # return True
+  def port_shared(self, other):
+    for p in self.port_list():
+      if p in other.port_list():
+        return True
+    return False
+
   # report how long it takes to download a consensus from dirip:dirport
   @staticmethod
   def fallback_consensus_download_speed(dirip, dirport, nickname, max_time):
@@ -1126,7 +1204,7 @@ class CandidateList(dict):
     d = fetch('details',
         fields=('fingerprint,nickname,contact,last_changed_address_or_port,' +
                 'consensus_weight,advertised_bandwidth,or_addresses,' +
-                'dir_address,recommended_version,flags'))
+                'dir_address,recommended_version,flags,effective_family'))
     logging.debug('Loading details document done.')
 
     if not 'relays' in d: raise Exception("No relays found in document.")
@@ -1341,6 +1419,91 @@ class CandidateList(dict):
     else:
       return None
 
+  # does exclusion_list contain attribute?
+  # if so, return False
+  # if not, return True
+  # if attribute is None or the empty string, always return True
+  @staticmethod
+  def allow(attribute, exclusion_list):
+    if attribute is None or attribute == '':
+      return True
+    else if attribute in exclusion_list:
+      return False
+    else:
+      return True
+
+  # make sure there is only one fallback per IPv4 address, and per IPv6 address
+  # there is only one IPv4 address on each fallback: the IPv4 DirPort address
+  # (we choose the IPv4 ORPort which is on the same IPv4 as the DirPort)
+  # there is at most one IPv6 address on each fallback: the IPv6 ORPort address
+  # we try to match the IPv4 ORPort, but will use any IPv6 address if needed
+  # (clients assume the IPv6 DirPort is the same as the IPv4 DirPort, but
+  # typically only use the IPv6 ORPort)
+  # if there is no IPv6 address, only the IPv4 address is checked
+  # return the number of candidates we excluded
+  def limit_fallbacks_same_ip(self):
+    ip_limit_fallbacks = []
+    ip_list = []
+    for f in self.fallbacks:
+      if (CandidateList.allow(f.dirip, ip_list)
+          and CandidateList.allow(f.ipv6addr, ip_list)):
+        ip_limit_fallbacks.append(f)
+        ip_list.append(f.dirip)
+        if f.has_ipv6():
+          ip_list.append(f.ipv6addr)
+      else if not CandidateList.allow(f.dirip, ip_list):
+        logging.debug('Eliminated %s: already have fallback on IPv4 %s'%(
+                                                          f._fpr, f.dirip))
+      else if f.has_ipv6() and not CandidateList.allow(f.ipv6addr, ip_list):
+        logging.debug('Eliminated %s: already have fallback on IPv6 %s'%(
+                                                          f._fpr, f.ipv6addr))
+    original_count = len(self.fallbacks)
+    self.fallbacks = ip_limit_fallbacks
+    return original_count - len(self.fallbacks)
+
+  # make sure there is only one fallback per ContactInfo
+  # if there is no ContactInfo, allow the fallback
+  # this check can be gamed by providing no ContactInfo, or by setting the
+  # ContactInfo to match another fallback
+  # However, given the likelihood that relays with the same ContactInfo will
+  # go down at similar times, its usefulness outweighs the risk
+  def limit_fallbacks_same_contact(self):
+    contact_limit_fallbacks = []
+    contact_list = []
+    for f in self.fallbacks:
+      if CandidateList.allow(f._data['contact'], contact_list):
+        contact_limit_fallbacks.append(f)
+        contact_list.append(f._data['contact'])
+      else:
+        logging.debug('Eliminated %s: already have fallback on ' +
+                      'ContactInfo %s'%(f._fpr, f._data['contact']))
+    original_count = len(self.fallbacks)
+    self.fallbacks = contact_limit_fallbacks
+    return original_count - len(self.fallbacks)
+
+  # make sure there is only one fallback per effective family
+  # if there is no family, allow the fallback
+  # this check can't be gamed, because we use effective family, which ensures
+  # mutual family declarations
+  # if any indirect families exist, the result depends on the order in which
+  # fallbacks are sorted in the list
+  def limit_fallbacks_same_family(self):
+    family_limit_fallbacks = []
+    fingerprint_list = []
+    for f in self.fallbacks:
+      if CandidateList.allow(f._fpr, fingerprint_list):
+        family_limit_fallbacks.append(f)
+        fingerprint_list.append(f._fpr)
+        fingerprint_list.extend(f._data['effective_family'])
+      else:
+        # technically, we already have a fallback with this fallback in its
+        # effective family
+        logging.debug('Eliminated %s: already have fallback in effective ' +
+                      'family'%(f._fpr))
+    original_count = len(self.fallbacks)
+    self.fallbacks = family_limit_fallbacks
+    return original_count - len(self.fallbacks)
+
   # try a download check on each fallback candidate in order
   # stop after max_count successful downloads
   # but don't remove any candidates from the array
@@ -1361,6 +1524,7 @@ class CandidateList(dict):
   # - eliminate failed candidates
   # - if there are more than max_count candidates, eliminate lowest bandwidth
   # - if there are fewer than max_count candidates, leave only successful
+  # Return the number of fallbacks that failed the consensus check
   def perform_download_consensus_checks(self, max_count):
     self.sort_fallbacks_by_measured_bandwidth()
     self.try_download_consensus_checks(max_count)
@@ -1370,12 +1534,236 @@ class CandidateList(dict):
       self.try_download_consensus_checks(max_count)
     # now we have at least max_count successful candidates,
     # or we've tried them all
+    original_count = len(self.fallbacks)
     self.fallbacks = filter(lambda x: x.get_fallback_download_consensus(),
                             self.fallbacks)
+    failed_count = original_count - len(self.fallbacks)
     self.fallbacks = self.fallbacks[:max_count]
+    return failed_count
 
-  def summarise_fallbacks(self, eligible_count, guard_count, target_count,
-                          max_count):
+  # return a string that describes a/b as a percentage
+  @staticmethod
+  def describe_percentage(a, b):
+    return '%d/%d = %.0f%%'%(a, b, (a*100.0)/b)
+
+  # return a dictionary of lists of fallbacks by IPv4 netblock
+  # the dictionary is keyed by the fingerprint of an arbitrary fallback
+  # in each netblock
+  # mask_bits is the size of the netblock
+  def fallbacks_by_ipv4_netblock(self, mask_bits):
+    netblocks = {}
+    for f in self.fallbacks:
+      found_netblock = False
+      for b in netblocks.keys():
+        # we found an existing netblock containing this fallback
+        if f.ipv4_netblocks_equal(self[b]):
+          # add it to the list
+          netblocks[b].append(f)
+          found_netblock = True
+          break
+      # make a new netblock based on this fallback's fingerprint
+      if not found_netblock:
+        netblocks[f._fpr] = [f]
+
+  # return a dictionary of lists of fallbacks by IPv6 netblock
+  # where mask_bits is the size of the netblock
+  def fallbacks_by_ipv6_netblock(self, mask_bits):
+    netblocks = {}
+    for f in self.fallbacks:
+      # skip fallbacks without IPv6 addresses
+      if not f.has_ipv6():
+        continue
+      found_netblock = False
+      for b in netblocks.keys():
+        # we found an existing netblock containing this fallback
+        if f.ipv6_netblocks_equal(self[b]):
+          # add it to the list
+          netblocks[b].append(f)
+          found_netblock = True
+          break
+      # make a new netblock based on this fallback's fingerprint
+      if not found_netblock:
+        netblocks[f._fpr] = [f]
+
+  # log a message about the proportion of fallbacks in each IPv4 netblock,
+  # where mask_bits is the size of the netblock
+  def describe_fallback_ipv4_netblock_mask(self, mask_bits):
+    fallback_count = len(self.fallbacks)
+    shared_netblock_fallback_count = 0
+    most_frequent_netblock = None
+    netblocks = self.fallbacks_by_ipv4_netblock(mask_bits)
+    for b in netblocks.keys():
+      if len(netblocks[b]) > 1:
+        # how many fallbacks are in a netblock with other fallbacks?
+        shared_netblock_fallback_count += len(netblocks[b])
+        # what's the netblock with the most fallbacks?
+        if (most_frequent_netblock is None
+            or len(netblocks[b]) > len(netblocks[most_frequent_netblock]):
+          most_frequent_netblock = b
+        logging.debug('Fallback IPv4 addresses in the same /%d:'%(mask_bits))
+        for f in netblocks[b]:
+          logging.debug('%s - %s', f.dirip, f._fpr)
+    if most_frequent_netblock is not None:
+      logging.warning('There are %d fallbacks in the IPv4 /%d containing %s'%(
+                                      len(netblocks[most_frequent_netblock]),
+                                      mask_bits,
+                                      self[most_frequent_netblock].dirip))
+    if shared_netblock_fallback_count > 0:
+      logging.warning(('%s of fallbacks are in an IPv4 /%d with other ' +
+                       'fallbacks')%(CandidateList.describe_percentage(
+                                                shared_netblock_fallback_count,
+                                                fallback_count),
+                                     mask_bits))
+
+  # log a message about the proportion of fallbacks in each IPv6 netblock,
+  # where mask_bits is the size of the netblock
+  def describe_fallback_ipv6_netblock_mask(self, mask_bits):
+    fallback_count = len(self.fallbacks_with_ipv6())
+    shared_netblock_fallback_count = 0
+    most_frequent_netblock = None
+    netblocks = self.fallbacks_by_ipv6_netblock(mask_bits)
+    for b in netblocks.keys():
+      if len(netblocks[b]) > 1:
+        # how many fallbacks are in a netblock with other fallbacks?
+        shared_netblock_fallback_count += len(netblocks[b])
+        # what's the netblock with the most fallbacks?
+        if (most_frequent_netblock is None
+            or len(netblocks[b]) > len(netblocks[most_frequent_netblock]):
+          most_frequent_netblock = b
+        logging.debug('Fallback IPv6 addresses in the same /%d:'%(mask_bits))
+        for f in netblocks[b]:
+          logging.debug('%s - %s', f.ipv6addr, f._fpr)
+    if most_frequent_netblock is not None:
+      logging.warning('There are %d fallbacks in the IPv6 /%d containing %s'%(
+                                      len(netblocks[most_frequent_netblock]),
+                                      mask_bits,
+                                      self[most_frequent_netblock].ipv6addr))
+    if shared_netblock_fallback_count > 0:
+      logging.warning(('%s of fallbacks are in an IPv6 /%d with other ' +
+                       'fallbacks')%(CandidateList.describe_percentage(
+                                                shared_netblock_fallback_count,
+                                                fallback_count),
+                                     mask_bits))
+
+  # log a message about the proportion of fallbacks in each IPv4 /8, /16,
+  # and /24
+  def describe_fallback_ipv4_netblocks(self):
+   self.describe_fallback_ipv4_netblock_mask(8)
+   self.describe_fallback_ipv4_netblock_mask(16)
+   self.describe_fallback_ipv4_netblock_mask(24)
+
+  # log a message about the proportion of fallbacks in each IPv6 /12 (RIR),
+  # /23 (smaller RIR blocks), /32 (LIR), /48 (Customer), and /64 (Host)
+  # https://www.iana.org/assignments/ipv6-unicast-address-assignments/
+  def describe_fallback_ipv6_netblocks(self):
+    self.describe_fallback_ipv6_netblock_mask(12)
+    self.describe_fallback_ipv6_netblock_mask(23)
+    self.describe_fallback_ipv6_netblock_mask(32)
+    self.describe_fallback_ipv6_netblock_mask(48)
+    self.describe_fallback_ipv6_netblock_mask(64)
+
+  # log a message about the proportion of fallbacks in each IPv4 and IPv6
+  # netblock
+  def describe_fallback_netblocks(self):
+    self.describe_fallback_ipv4_netblocks()
+    self.describe_fallback_ipv6_netblocks()
+
+  # return a list of fallbacks which are on the IPv4 ORPort port
+  def fallbacks_on_ipv4_orport(self, port):
+    return filter(lambda x: x.orport == port, self.fallbacks)
+
+  # return a list of fallbacks which are on the IPv6 ORPort port
+  def fallbacks_on_ipv6_orport(self, port):
+    return filter(lambda x: x.has_ipv6() and x.ipv6orport == port,
+                  self.fallbacks)
+
+  # return a list of fallbacks which are on the DirPort port
+  def fallbacks_on_dirport(self, port):
+    return filter(lambda x: x.dirport == port, self.fallbacks)
+
+  # log a message about the proportion of fallbacks on IPv4 ORPort port
+  # and return that count
+  def describe_fallback_ipv4_orport(self, port):
+    port_count = len(self.fallbacks_on_ipv4_orport(port))
+    fallback_count = len(self.fallbacks)
+    logging.warning('%s of fallbacks are on IPv4 ORPort %d'%(
+                    CandidateList.describe_percentage(port_count,
+                                                      fallback_count),
+                    port))
+    return port_count
+
+  # log a message about the proportion of IPv6 fallbacks on IPv6 ORPort port
+  # and return that count
+  def describe_fallback_ipv6_orport(self, port):
+    port_count = len(self.fallbacks_on_ipv6_orport(port))
+    fallback_count = len(self.fallbacks_with_ipv6())
+    logging.warning('%s of IPv6 fallbacks are on IPv6 ORPort %d'%(
+                    CandidateList.describe_percentage(port_count,
+                                                      fallback_count),
+                    port))
+    return port_count
+
+  # log a message about the proportion of fallbacks on DirPort port
+  # and return that count
+  def describe_fallback_ipv4_orport(self, port):
+    port_count = len(self.fallbacks_on_dirport(port))
+    fallback_count = len(self.fallbacks)
+    logging.warning('%s of fallbacks are on DirPort %d'%(
+                    CandidateList.describe_percentage(port_count,
+                                                      fallback_count),
+                    port))
+    return port_count
+
+  # log a message about the proportion of fallbacks on each dirport,
+  # each IPv4 orport, and each IPv6 orport
+  def describe_fallback_ports(self):
+    fallback_count = len(self.fallbacks)
+    ipv4_or_count = fallback_count
+    ipv4_or_count -= self.describe_fallback_ipv4_orport(443)
+    ipv4_or_count -= self.describe_fallback_ipv4_orport(9001)
+    logging.warning('%s of fallbacks are on other IPv4 ORPorts'%(
+                    CandidateList.describe_percentage(ipv4_or_count,
+                                                      fallback_count)
+    ipv6_fallback_count = len(self.fallbacks_with_ipv6())
+    ipv6_or_count = ipv6_fallback_count
+    ipv6_or_count -= self.describe_fallback_ipv6_orport(443)
+    ipv6_or_count -= self.describe_fallback_ipv6_orport(9001)
+    logging.warning('%s of IPv6 fallbacks are on other IPv6 ORPorts'%(
+                    CandidateList.describe_percentage(ipv6_or_count,
+                    ipv6_fallback_count)
+    dir_count = fallback_count
+    dir_count -= self.describe_fallback_dirport(80)
+    dir_count -= self.describe_fallback_dirport(9030)
+    logging.warning('%s of fallbacks are on other DirPorts'%(
+                    CandidateList.describe_percentage(dir_count,
+                                                      fallback_count)
+
+  # return a list of fallbacks which have the Exit flag
+  def fallbacks_with_exit(self):
+    return filter(lambda x: x.is_exit(), self.fallbacks)
+
+  # log a message about the proportion of fallbacks with an Exit flag
+  def describe_fallback_exit_flag(self):
+    exit_falback_count = len(self.fallbacks_with_exit())
+    fallback_count = len(self.fallbacks)
+    logging.warning('%s of fallbacks have the Exit flag'%(
+                    CandidateList.describe_percentage(exit_falback_count,
+                                                      fallback_count))
+
+  # return a list of fallbacks which have an IPv6 address
+  def fallbacks_with_ipv6(self):
+    return filter(lambda x: x.has_ipv6(), self.fallbacks)
+
+  # log a message about the proportion of fallbacks on IPv6
+  def describe_fallback_ip_family(self):
+    ipv6_falback_count = len(self.fallbacks_with_ipv6())
+    fallback_count = len(self.fallbacks)
+    logging.warning('%s of fallbacks are on IPv6'%(
+                    CandidateList.describe_percentage(ipv6_falback_count,
+                                                      fallback_count))
+
+  def summarise_fallbacks(self, eligible_count, operator_count, failed_count,
+                          guard_count, target_count):
     # Report:
     #  whether we checked consensus download times
     #  the number of fallback directories (and limits/exclusions, if relevant)
@@ -1401,15 +1789,20 @@ class CandidateList(dict):
     else:
       fallback_proportion = ', Target %d (%d * %f)'%(target_count, guard_count,
                                                  FALLBACK_PROPORTION_OF_GUARDS)
-    s += 'Final Count: %d (Eligible %d%s'%(fallback_count,
-                                           eligible_count,
-                                           fallback_proportion)
+    s += 'Final Count: %d (Eligible %d, Eliminated %d%s'%(fallback_count,
+                                                eligible_count,
+                                                operator_count + failed_count,
+                                                fallback_proportion)
     if MAX_FALLBACK_COUNT is not None:
-      s += ', Clamped to %d'%(MAX_FALLBACK_COUNT)
+      s += ', Max %d'%(MAX_FALLBACK_COUNT)
     s += ')\n'
     if eligible_count != fallback_count:
-      s += 'Excluded:     %d (Eligible Count Exceeded Target Count)'%(
-                                              eligible_count - fallback_count)
+      excess_to_target_or_max = (eligible_count - operator_count - failed_count
+                                 - fallback_count)
+      s += 'Excluded: %d (Same Operator %d, Failed Download %d, Excess %d)'%(
+                                                      operator_count,
+                                                      failed_count,
+                                                      excess_to_target_or_max)
       s += '\n'
     min_fb = self.fallback_min()
     min_bw = min_fb._data['measured_bandwidth']
@@ -1474,17 +1867,40 @@ def list_fallbacks():
   #  print json.dumps(candidates[x]._data, sort_keys=True, indent=4,
   #                   separators=(',', ': '), default=json_util.default)
 
+  # impose mandatory conditions here, like one per contact, family, IP
+  # in measured bandwidth order
+  candidates.sort_fallbacks_by_measured_bandwidth()
+  operator_count = 0
+  operator_count += candidates.limit_fallbacks_same_ip()
+  operator_count += candidates.limit_fallbacks_same_contact()
+  operator_count += candidates.limit_fallbacks_same_family()
+
+  # check if each candidate can serve a consensus
+  # there's a small risk we've eliminated relays from the same operator that
+  # can serve a consensus, in favour of one that can't
+  # but given it takes up to 15 seconds to check each consensus download,
+  # the risk is worth it
+  failed_count = candidates.perform_download_consensus_checks(max_count)
+
+  # analyse and log interesting diversity metrics
+  # like netblock, ports, exit, IPv4-only
+  # (we can't easily analyse AS, and it's hard to accurately analyse country)
+  candidates.describe_fallback_ip_family()
+  candidates.describe_fallback_netblocks()
+  candidates.describe_fallback_ports()
+  candidates.describe_fallback_exit_flag()
+
+  # output C comments summarising the fallback selection process
   if len(candidates.fallbacks) > 0:
-    print candidates.summarise_fallbacks(eligible_count, guard_count,
-                                         target_count, max_count)
+    print candidates.summarise_fallbacks(eligible_count, operator_count,
+                                         failed_count, guard_count,
+                                         target_count)
   else:
     print '/* No Fallbacks met criteria */'
 
+  # output C comments specifying the OnionOO data used to create the list
   for s in fetch_source_list():
     print describe_fetch_source(s)
-
-  # check if each candidate can serve a consensus
-  candidates.perform_download_consensus_checks(max_count)
 
   # if we're outputting the final fallback list, sort by fingerprint
   # this makes diffs much more stable
