@@ -480,7 +480,7 @@ class Candidate(object):
     if self.orport is None:
       raise Exception("Failed to get an orport for %s."%(self._fpr,))
     self._compute_ipv6addr()
-    if self.ipv6addr is None:
+    if not self.has_ipv6():
       logging.debug("Failed to get an ipv6 address for %s."%(self._fpr,))
 
   def _stable_sort_or_addresses(self):
@@ -804,8 +804,7 @@ class Candidate(object):
                      'ORPort (%d) does not match entry ORPort (%d)',
                      self._fpr, self.orport, int(entry['orport']))
         continue
-      has_ipv6 = self.ipv6addr is not None and self.ipv6orport is not None
-      if (entry.has_key('ipv6') and has_ipv6):
+      if entry.has_key('ipv6') and self.has_ipv6():
         ipv6 = self.ipv6addr + ':' + self.ipv6orport
         # if both entry and fallback have an ipv6 address, compare them
         if entry['ipv6'] != ipv6:
@@ -815,14 +814,14 @@ class Candidate(object):
           continue
       # if the fallback has an IPv6 address but the whitelist entry
       # doesn't, or vice versa, the whitelist entry doesn't match
-      elif entry.has_key('ipv6') and not has_ipv6:
+      elif entry.has_key('ipv6') and not self.has_ipv6():
         logging.info('%s is not in the whitelist: fingerprint matches, but ' +
                      'it has no IPv6, and entry has IPv6 (%s)', self._fpr,
                      entry['ipv6'])
         logging.warning('Has %s lost its former IPv6 address %s?', self._fpr,
                         entry['ipv6'])
         continue
-      elif not entry.has_key('ipv6') and has_ipv6:
+      elif not entry.has_key('ipv6') and self.has_ipv6():
         logging.info('%s is not in the whitelist: fingerprint matches, but ' +
                      'it has IPv6 (%s), and entry has no IPv6', self._fpr,
                      ipv6)
@@ -870,9 +869,10 @@ class Candidate(object):
                          'entry has no DirPort or ORPort', self._fpr,
                          self.dirip)
             return True
-        has_ipv6 = self.ipv6addr is not None and self.ipv6orport is not None
-        ipv6 = (self.ipv6addr + ':' + self.ipv6orport) if has_ipv6 else None
-        if (key == 'ipv6' and has_ipv6):
+        ipv6 = None
+        if self.has_ipv6():
+          ipv6 = self.ipv6addr + ':' + self.ipv6orport
+        if (key == 'ipv6' and self.has_ipv6()):
         # if both entry and fallback have an ipv6 address, compare them,
         # otherwise, disregard ipv6 addresses
           if value == ipv6:
@@ -888,18 +888,18 @@ class Candidate(object):
               logging.info('%s is in the blacklist: IPv6 (%s) matches, and' +
                            'entry has no DirPort', self._fpr, ipv6)
               return True
-        elif (key == 'ipv6' or has_ipv6):
+        elif (key == 'ipv6' or self.has_ipv6()):
           # only log if the fingerprint matches but the IPv6 doesn't
           if entry.has_key('id') and entry['id'] == self._fpr:
             logging.info('%s skipping IPv6 blacklist comparison: relay ' +
                          'has%s IPv6%s, but entry has%s IPv6%s', self._fpr,
-                         '' if has_ipv6 else ' no',
-                         (' (' + ipv6 + ')') if has_ipv6 else  '',
+                         '' if self.has_ipv6() else ' no',
+                         (' (' + ipv6 + ')') if self.has_ipv6() else  '',
                          '' if key == 'ipv6' else ' no',
                          (' (' + value + ')') if key == 'ipv6' else '')
             logging.warning('Has %s %s IPv6 address %s?', self._fpr,
-                            'gained an' if has_ipv6 else 'lost its former',
-                            ipv6 if has_ipv6 else value)
+                        'gained an' if self.has_ipv6() else 'lost its former',
+                        ipv6 if self.has_ipv6() else value)
     return False
 
   def cw_to_bw_factor(self):
@@ -934,6 +934,10 @@ class Candidate(object):
 
   def is_running(self):
     return 'Running' in self._data['flags']
+
+  # does this fallback have an IPv6 address and orport?
+  def has_ipv6(self):
+    return self.ipv6addr is not None and self.ipv6orport is not None
 
   # report how long it takes to download a consensus from dirip:dirport
   @staticmethod
@@ -983,7 +987,7 @@ class Candidate(object):
                                                 self.dirport,
                                                 self._data['nickname'],
                                                 CONSENSUS_DOWNLOAD_SPEED_MAX)
-    if self.ipv6addr is not None and PERFORM_IPV6_DIRPORT_CHECKS:
+    if self.has_ipv6() and PERFORM_IPV6_DIRPORT_CHECKS:
       # Clients assume the IPv6 DirPort is the same as the IPv4 DirPort
       ipv6_failed = Candidate.fallback_consensus_download_speed(self.ipv6addr,
                                                 self.dirport,
@@ -1082,7 +1086,7 @@ class Candidate(object):
             self.orport,
             cleanse_c_string(self._fpr))
     s += '\n'
-    if self.ipv6addr is not None:
+    if self.has_ipv6():
       s += '" ipv6=%s:%s"'%(
             cleanse_c_string(self.ipv6addr), cleanse_c_string(self.ipv6orport))
       s += '\n'
