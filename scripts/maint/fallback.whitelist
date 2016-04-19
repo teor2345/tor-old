@@ -731,3 +731,6 @@
 
 # Email sent directly to teor, verified using relay contact info
 92.222.38.67:80 orport=443 id=DED6892FF89DBD737BA689698A171B2392EB3E82
+
+# Email sent directly to teor, verified using relay contact info
+212.47.228.115:9030 orport=443 id=BCA017ACDA48330D02BB70716639ED565493E36E
