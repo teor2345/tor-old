@@ -744,3 +744,6 @@
 # Email sent directly to teor, verified using relay contact info
 # pending address change
 #69.162.139.9:9030 orport=9001 id=4791FC0692EAB60DF2BCCAFF940B95B74E7654F6
+
+# Email sent directly to teor, verified using relay contact info
+213.239.217.18:1338 orport=1337 id=C37BC191AC389179674578C3E6944E925FE186C2 ipv6=[2a01:4f8:a0:746a:101:1:1:1]:1337
