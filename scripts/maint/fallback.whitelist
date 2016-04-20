@@ -734,3 +734,13 @@
 
 # Email sent directly to teor, verified using relay contact info
 212.47.228.115:9030 orport=443 id=BCA017ACDA48330D02BB70716639ED565493E36E
+
+# Email sent directly to teor, verified using relay contact info
+185.100.84.175:80 orport=443 id=39B59AF4FE54FAD8C5085FA9C15FDF23087250DB
+
+# Email sent directly to teor, verified using relay contact info
+166.70.207.2:9030 orport=9001 id=E3DB2E354B883B59E8DC56B3E7A353DDFD457812
+
+# Email sent directly to teor, verified using relay contact info
+# pending address change
+#69.162.139.9:9030 orport=9001 id=4791FC0692EAB60DF2BCCAFF940B95B74E7654F6
