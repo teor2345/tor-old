@@ -44,7 +44,17 @@ new_fake_channel(void)
 {
   channel_t *chan = tor_malloc_zero(sizeof(channel_t));
   channel_init(chan);
+  chan->cmux = circuitmux_alloc();
   return chan;
+}
+
+static void
+free_fake_channel(channel_t *chan)
+{
+  if (chan && chan->cmux)
+    tor_free(chan->cmux);
+  if (chan)
+    tor_free(chan);
 }
 
 static struct {
@@ -834,9 +844,6 @@ test_loose_circuit_establish_circuit_attached(void *arg)
   tt_assert(ch1);
   tt_assert(ch2);
   tt_assert(ch3);
-  ch1->cmux = tor_malloc(1);
-  ch2->cmux = tor_malloc(1);
-  ch3->cmux = tor_malloc(1);
 
   /* Set up the first circuit */
   loose_circ1 = loose_circuit_establish_circuit(circ_id, ch1, entry,
@@ -927,15 +934,10 @@ test_loose_circuit_establish_circuit_attached(void *arg)
     circuit_free(LOOSE_TO_CIRCUIT(loose_circ1));
   if (loose_circ2)
     circuit_free(LOOSE_TO_CIRCUIT(loose_circ2));
-  if (ch1)
-    tor_free(ch1->cmux);
-  if (ch2)
-    tor_free(ch2->cmux);
-  if (ch3)
-    tor_free(ch3->cmux);
-  tor_free(ch1);
-  tor_free(ch2);
-  tor_free(ch3);
+  free_fake_channel(ch1);
+  free_fake_channel(ch2);
+  free_fake_channel(ch3);
+
   UNMOCK(circuitmux_attach_circuit);
   UNMOCK(circuitmux_detach_circuit);
   UNMOCK(choose_good_entry_server);
@@ -975,8 +977,6 @@ test_loose_circuit_establish_circuit_attached_multihop(void *arg)
 
   tt_assert(ch1);
   tt_assert(ch2);
-  ch1->cmux = tor_malloc(1);
-  ch2->cmux = tor_malloc(1);
 
   /* Set up a two hop loose circuit. */
   loose_circ1 = loose_circuit_establish_circuit(circ_id, ch1, entry,
@@ -1001,12 +1001,9 @@ test_loose_circuit_establish_circuit_attached_multihop(void *arg)
  done:
   if (loose_circ1)
     circuit_free(LOOSE_TO_CIRCUIT(loose_circ1));
-  if (ch1)
-    tor_free(ch1->cmux);
-  if (ch2)
-    tor_free(ch2->cmux);
-  tor_free(ch1);
-  tor_free(ch2);
+  free_fake_channel(ch1);
+  free_fake_channel(ch2);
+
   UNMOCK(circuitmux_attach_circuit);
   UNMOCK(circuitmux_detach_circuit);
   UNMOCK(choose_good_entry_server);
@@ -1140,9 +1137,7 @@ test_loose_circuit_handle_first_hop(void *arg)
  done:
   if (loose_circ)
     circuit_free(LOOSE_TO_CIRCUIT(loose_circ));
-  if (p_chan)
-    tor_free(p_chan->cmux);
-  tor_free(p_chan);
+  free_fake_channel(p_chan);
   UNMOCK(circuitmux_attach_circuit);
   UNMOCK(circuitmux_detach_circuit);
   UNMOCK(choose_good_entry_server);
@@ -1204,9 +1199,8 @@ test_loose_circuit_answer_create_cell(void *arg)
  done:
   if (loose_circ)
     circuit_free(LOOSE_TO_CIRCUIT(loose_circ));
-  if (p_chan)
-    tor_free(p_chan->cmux);
-  tor_free(p_chan);
+  free_fake_channel(p_chan);
+
   UNMOCK(circuitmux_attach_circuit);
   UNMOCK(circuitmux_detach_circuit);
   UNMOCK(choose_good_entry_server);
@@ -1272,8 +1266,8 @@ test_loose_circuit_send_create_cell(void *arg)
  done:
   if (loose_circ)
     circuit_free(LOOSE_TO_CIRCUIT(loose_circ));
-  tor_free(p_chan);
-  tor_free(n_chan);
+  free_fake_channel(p_chan);
+  free_fake_channel(n_chan);
   UNMOCK(circuitmux_attach_circuit);
   UNMOCK(circuitmux_detach_circuit);
   UNMOCK(choose_good_entry_server);
@@ -1342,9 +1336,8 @@ test_loose_circuit_finish_handshake(void *arg)
  done:
   if (loose_circ)
     circuit_free(LOOSE_TO_CIRCUIT(loose_circ));
-  if (p_chan)
-    tor_free(p_chan->cmux);
-  tor_free(p_chan);
+  free_fake_channel(p_chan);
+
   UNMOCK(circuitmux_attach_circuit);
   UNMOCK(circuitmux_detach_circuit);
   UNMOCK(choose_good_entry_server);
@@ -1402,9 +1395,7 @@ test_loose_circuit_process_created_cell(void *arg)
  done:
   if (loose_circ)
     circuit_free(LOOSE_TO_CIRCUIT(loose_circ));
-  if (p_chan)
-    tor_free(p_chan->cmux);
-  tor_free(p_chan);
+  free_fake_channel(p_chan);
   UNMOCK(circuitmux_attach_circuit);
   UNMOCK(circuitmux_detach_circuit);
   UNMOCK(choose_good_entry_server);
@@ -1450,9 +1441,7 @@ test_loose_circuit_process_created_cell_bad_created_cell(void *arg)
  done:
   if (loose_circ)
     circuit_free(LOOSE_TO_CIRCUIT(loose_circ));
-  if (p_chan)
-    tor_free(p_chan->cmux);
-  tor_free(p_chan);
+  free_fake_channel(p_chan);
   UNMOCK(circuitmux_attach_circuit);
   UNMOCK(circuitmux_detach_circuit);
   UNMOCK(choose_good_entry_server);
@@ -1494,9 +1483,7 @@ test_loose_circuit_has_opened(void *arg)
  done:
   if (loose_circ)
     circuit_free(LOOSE_TO_CIRCUIT(loose_circ));
-  if (p_chan)
-    tor_free(p_chan->cmux);
-  tor_free(p_chan);
+  free_fake_channel(p_chan);
   UNMOCK(circuitmux_attach_circuit);
   UNMOCK(circuitmux_detach_circuit);
   UNMOCK(choose_good_entry_server);
@@ -1536,9 +1523,7 @@ test_loose_circuit_extend_no_cpath_next(void *arg)
  done:
   if (loose_circ)
     circuit_free(LOOSE_TO_CIRCUIT(loose_circ));
-  if (p_chan)
-    tor_free(p_chan->cmux);
-  tor_free(p_chan);
+  free_fake_channel(p_chan);
   UNMOCK(circuitmux_attach_circuit);
   UNMOCK(circuitmux_detach_circuit);
   UNMOCK(choose_good_entry_server);
@@ -1602,9 +1587,7 @@ test_loose_circuit_extend_multihop(void *arg)
  done:
   if (loose_circ)
     circuit_free(LOOSE_TO_CIRCUIT(loose_circ));
-  if (ch1)
-    tor_free(ch1->cmux);
-  tor_free(ch1);
+  free_fake_channel(ch1);
   UNMOCK(circuitmux_attach_circuit);
   UNMOCK(circuitmux_detach_circuit);
   UNMOCK(choose_good_entry_server);
@@ -1675,9 +1658,7 @@ test_loose_circuit_extend_to_next_hop(void *arg)
  done:
   if (loose_circ)
     circuit_free(LOOSE_TO_CIRCUIT(loose_circ));
-  if (ch1)
-    tor_free(ch1->cmux);
-  tor_free(ch1);
+  free_fake_channel(ch1);
   UNMOCK(circuitmux_attach_circuit);
   UNMOCK(circuitmux_detach_circuit);
   UNMOCK(choose_good_entry_server);
@@ -1718,7 +1699,6 @@ test_loose_circuit_process_relay_cell(void *arg)
   memset(&cdm, 0, sizeof(cdm));
 
   tt_assert(ch1);
-  ch1->cmux = tor_malloc(1);
 
   /* Create a loose circuit, set its desired path length to 2, and populate
    * its cpath. */
@@ -1844,9 +1824,7 @@ test_loose_circuit_process_relay_cell(void *arg)
  done:
   if (loose_circ)
     circuit_free(LOOSE_TO_CIRCUIT(loose_circ));
-  if (ch1)
-    tor_free(ch1->cmux);
-  tor_free(ch1);
+  free_fake_channel(ch1);
   UNMOCK(circuitmux_attach_circuit);
   UNMOCK(circuitmux_detach_circuit);
   UNMOCK(choose_good_entry_server);
@@ -1894,9 +1872,7 @@ test_loose_circuit_send_next_onion_skin(void *arg)
  done:
   if (loose_circ)
     circuit_free(LOOSE_TO_CIRCUIT(loose_circ));
-  if (p_chan)
-    tor_free(p_chan->cmux);
-  tor_free(p_chan);
+  free_fake_channel(p_chan);
   UNMOCK(circuitmux_attach_circuit);
   UNMOCK(circuitmux_detach_circuit);
   UNMOCK(choose_good_entry_server);
