@@ -395,7 +395,65 @@ test_loose_can_complete_circuits(void *arg)
 }
 
 /**
- * Calling loose_circuit_free() with NULL log a warning and do nothing.
+ * Calling loose_circuit_init() should initialise a new loose_circuit_t.
+ */
+static void
+test_loose_circuit_init(void *arg)
+{
+  loose_or_circuit_t *loose_circ;
+  circid_t circ_id = NULL;
+  channel_t *p_chan = new_fake_channel();
+
+  (void)arg;
+
+  loose_circuits_are_possible = 1;
+  loose_circ = loose_or_circuit_init(circ_id, p_chan, CIRCUIT_PURPOSE_OR, 0);
+
+  tt_assert(loose_circ);
+  tt_assert(LOOSE_TO_CIRCUIT(loose_circ)->state == CIRCUIT_STATE_CHAN_WAIT);
+  tt_assert(LOOSE_TO_OR_CIRCUIT(loose_circ)->p_chan);
+
+ done:
+  if (loose_circ)
+    circuit_free(LOOSE_TO_CIRCUIT(loose_circ));
+  free_fake_channel(p_chan);
+}
+
+/**
+ * Test casting between loose_circuit_t and other circuit types.
+ */
+static void
+test_loose_circuit_casts(void *arg)
+{
+  loose_or_circuit_t *loose_circ;
+  or_circuit_t *or_circ;
+  circuit_t *circ;
+  circid_t circ_id = NULL;
+  channel_t *p_chan = new_fake_channel();
+
+  (void)arg;
+
+  loose_circuits_are_possible = 1;
+  loose_circ = loose_or_circuit_init(circ_id, p_chan, CIRCUIT_PURPOSE_OR, 0);
+
+  tt_assert(loose_circ);
+
+  or_circ = LOOSE_TO_OR_CIRCUIT(loose_circ);
+  tt_assert(or_circ);
+  tt_ptr_op(OR_TO_LOOSE_CIRCUIT(or_circ), OP_EQ, loose_circ);
+
+  circ = LOOSE_TO_CIRCUIT(loose_circ);
+  tt_assert(circ);
+  tt_ptr_op(TO_LOOSE_CIRCUIT(circ), OP_EQ, loose_circ);
+
+ done:
+  if (loose_circ)
+    circuit_free(LOOSE_TO_CIRCUIT(loose_circ));
+  free_fake_channel(p_chan);
+}
+
+/**
+ * Calling loose_circuit_free() with NULL should log a warning and do nothing.
  */
 static void
 test_loose_circuit_free(void *arg)
@@ -1889,6 +1947,8 @@ test_loose_circuit_send_next_onion_skin(void *arg)
 
 struct testcase_t loose_tests[] = {
   TEST_LOOSE(can_complete_circuits, 0),
+  TEST_LOOSE(circuit_init, 0),
+  TEST_LOOSE(circuit_casts, 0),
   TEST_LOOSE(circuit_free, 0),
   TEST_LOOSE(circuit_log_path, TT_FORK),
   TEST_LOOSE(circuit_extend_cpath_multihop, TT_FORK),
