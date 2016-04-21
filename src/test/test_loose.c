@@ -1700,6 +1700,9 @@ test_loose_circuit_extend_to_next_hop(void *arg)
   result = loose_circuit_send_create_cell(loose_circ);
   tt_int_op(result, OP_EQ, 0);
 
+  /* Fake the path state being open. */
+  loose_circ->cpath->state = CPATH_STATE_OPEN;
+
   /* Now extend it. */
   result = loose_circuit_extend_to_next_hop(loose_circ);
   tt_int_op(result, OP_EQ, 0);
