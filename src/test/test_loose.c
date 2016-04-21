@@ -1821,6 +1821,8 @@ test_loose_circuit_process_relay_cell(void *arg)
   hop->b_crypto = crypto_cipher_new(NULL);
   hop->f_crypto = crypto_cipher_new(NULL);
 
+  LOOSE_TO_OR_CIRCUIT(loose_circ)->n_digest = crypto_digest_new();
+  LOOSE_TO_OR_CIRCUIT(loose_circ)->p_digest = crypto_digest_new();
   LOOSE_TO_OR_CIRCUIT(loose_circ)->n_crypto = crypto_cipher_new(NULL);
   LOOSE_TO_OR_CIRCUIT(loose_circ)->p_crypto = crypto_cipher_new(NULL);
 
