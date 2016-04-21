@@ -100,6 +100,7 @@ circuitmux_detach_mock(circuitmux_t *cmux, circuit_t *circ)
 static int
 mock_loose_circuit_send_next_onion_skin_success(loose_or_circuit_t *loose_circ)
 {
+  (void)loose_circ;
   return 0;
 }
 
@@ -110,6 +111,7 @@ mock_loose_circuit_send_next_onion_skin_success(loose_or_circuit_t *loose_circ)
 static int
 mock_loose_circuit_send_next_onion_skin_failure(loose_or_circuit_t *loose_circ)
 {
+  (void)loose_circ;
   return -END_CIRC_REASON_INTERNAL;
 }
 
@@ -169,7 +171,7 @@ mock_choose_good_middle_server_null(uint8_t purpose,
                                     crypt_path_t *head, int cur_len)
 
 {
-  (void)purpose; (void)state; return choice;
+  (void)purpose; (void)state; (void)head; (void)cur_len; return choice;
 }
 
 /**
@@ -1418,6 +1420,8 @@ test_loose_circuit_process_created_cell_bad_created_cell(void *arg)
   extend_info_t *entry = NULL;
   created_cell_t created;
   int result;
+
+  (void)arg;
 
   loose_circuits_are_possible = 1;
   MOCK(circuitmux_attach_circuit, circuitmux_attach_mock);
