@@ -1246,9 +1246,6 @@ decide_to_advertise_dirport(const or_options_t *options, uint16_t dir_port)
     return dir_port;
   if (net_is_disabled())
     return 0;
-  /* redundant - if DirPort is unreachable, we don't publish a descriptor */
-  if (!check_whether_dirport_reachable())
-    return 0;
   if (!router_get_advertised_dir_port(options, dir_port))
     return 0;
 
@@ -1278,9 +1275,6 @@ decide_to_advertise_begindir(const or_options_t *options,
   if (authdir_mode(options)) /* always publish */
     return 1;
   if (net_is_disabled())
-    return 0;
-  /* redundant - if ORPort is unreachable, we don't publish a descriptor */
-  if (!check_whether_orport_reachable())
     return 0;
   if (!router_get_advertised_or_port(options))
     return 0;
