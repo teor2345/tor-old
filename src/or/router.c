@@ -1084,7 +1084,8 @@ router_reset_reachability(void)
  *   - the network is disabled.
  * Otherwise, return 0.
  */
-static int router_reachability_checks_disabled(const or_options_t *options)
+static int
+router_reachability_checks_disabled(const or_options_t *options)
 {
   return options->AssumeReachable ||
          net_is_disabled();
