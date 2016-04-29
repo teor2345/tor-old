@@ -1674,10 +1674,12 @@ static int router_has_non_preferred_address_impl(int prefer_ipv6,
 /* Does status have a valid non-preferred ORPort or DirPort address?
  * (And, therefore, we should try this relay again if we need to fall back
  * to non-preferred ORPorts or DirPorts.)
+ * If must_have_or is true, only check the ORPort address.
  */
 static int
 router_has_non_preferred_address(const or_options_t *options,
-                                 const routerstatus_t *status)
+                                 const routerstatus_t *status,
+                                 int must_have_or)
 {
   /* OR addresses and ports */
   const int prefer_ipv6_or = fascist_firewall_prefer_ipv6_orport(options);
@@ -1687,6 +1689,11 @@ router_has_non_preferred_address(const or_options_t *options,
                                                           status->or_port,
                                                           &status->ipv6_addr,
                                                           status->ipv6_orport);
+
+  /* If we know we must have an ORPort, bail out early */
+  if (must_have_or) {
+    return has_non_preferred_or;
+  }
 
   /* Dir addresses and ports */
   const int prefer_ipv6_dir = fascist_firewall_prefer_ipv6_dirport(options);
@@ -1803,7 +1810,8 @@ router_pick_directory_server_impl(dirinfo_type_t type, int flags,
                                         try_ip_pref)))
       smartlist_add(is_trusted ? trusted_direct :
                     is_overloaded ? overloaded_direct : direct, (void*)node);
-    else if (try_ip_pref && router_has_non_preferred_address(options, status))
+    else if (try_ip_pref && router_has_non_preferred_address(options, status,
+                                                             must_have_or))
       ++n_not_preferred;
   } SMARTLIST_FOREACH_END(node);
 
@@ -1951,7 +1959,8 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
                                                   try_ip_pref)))
         smartlist_add(is_overloaded ? overloaded_direct : direct, (void*)d);
       else if (try_ip_pref && router_has_non_preferred_address(options,
-                                                            &d->fake_status))
+                                                            &d->fake_status,
+                                                            must_have_or))
         ++n_not_preferred;
     }
   SMARTLIST_FOREACH_END(d);
