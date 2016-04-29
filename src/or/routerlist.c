@@ -1681,7 +1681,7 @@ static int router_has_non_preferred_address_impl(int prefer_ipv6,
  * Use router_has_non_preferred_address_node() or
  * router_has_non_preferred_address_rs() rather than calling this directly.
  */
-static int
+STATIC int
 router_has_non_preferred_address(const or_options_t *options,
                                  const routerstatus_t *status,
                                  int prefer_ipv6_or)

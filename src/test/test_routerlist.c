@@ -445,8 +445,91 @@ test_routerlist_router_is_already_dir_fetching(void *arg)
   UNMOCK(connection_get_by_type_addr_port_purpose);
 }
 
+#define TEST_IPV6_ADDR_STR "[1002::4567]"
+#define TEST_IPV4_OR_PORT  1234
+#define TEST_IPV6_OR_PORT  61234
+
+static void test_router_has_non_preferred_address(void *arg)
+{
+  or_options_t *options = get_options_mutable();
+  tor_addr_port_t ipv4_or_ap, ipv6_or_ap;
+  routerstatus_t rs4, rs6, rs46;
+  int r;
+
+  (void)arg;
+
+  memset(&rs4, 0, sizeof(routerstatus_t));
+  memset(&rs6, 0, sizeof(routerstatus_t));
+  memset(&rs46, 0, sizeof(routerstatus_t));
+
+  tor_addr_parse(&ipv4_or_ap.addr, TEST_ADDR_STR);
+  rs4.addr = tor_addr_to_ipv4h(&ipv4_or_ap.addr);
+  rs46.addr = tor_addr_to_ipv4h(&ipv4_or_ap.addr);
+  rs4.or_port = TEST_IPV4_OR_PORT;
+  rs46.or_port = TEST_IPV4_OR_PORT;
+
+  tor_addr_parse(&ipv6_or_ap.addr, TEST_IPV6_ADDR_STR);
+  tor_addr_copy(&rs6.ipv6_addr, &ipv6_or_ap.addr);
+  tor_addr_copy(&rs46.ipv6_addr, &ipv6_or_ap.addr);
+  rs6.ipv6_orport = TEST_IPV6_OR_PORT;
+  rs46.ipv6_orport = TEST_IPV6_OR_PORT;
+
+  rs4.dir_port = TEST_DIR_PORT;
+  rs6.dir_port = TEST_DIR_PORT;
+  rs46.dir_port = TEST_DIR_PORT;
+
+  //options->PreferIPv6Dir = 1; //XXX
+  options->ClientUseIPv6 = 1;
+  options->ClientUseIPv4 = 0;
+
+  /* We have IPv4 but prefer IPv6 */
+  r = router_has_non_preferred_address(options, &rs4, 1);
+  tt_int_op(r, OP_EQ, 1);
+  r = router_has_non_preferred_address(options, &rs4, 0);
+  tt_int_op(r, OP_EQ, 1);
+
+  /* We have IPv6 and prefer IPv6 */
+  r = router_has_non_preferred_address(options, &rs6, 1);
+  tt_int_op(r, OP_EQ, 0);
+  r = router_has_non_preferred_address(options, &rs6, 0);
+  tt_int_op(r, OP_EQ, 0);
+
+  /* We have both and prefer IPv6 */
+  r = router_has_non_preferred_address(options, &rs46, 1);
+  tt_int_op(r, OP_EQ, 1);
+  r = router_has_non_preferred_address(options, &rs46, 0);
+  tt_int_op(r, OP_EQ, 1);
+
+  options->ClientUseIPv6 = 0;
+  options->ClientUseIPv4 = 1;
+
+  /* We have IPv4 and prefer IPv4 */
+  r = router_has_non_preferred_address(options, &rs4, 1);
+  tt_int_op(r, OP_EQ, 0);
+  r = router_has_non_preferred_address(options, &rs4, 0);
+  tt_int_op(r, OP_EQ, 0);
+
+  /* We have IPv6 but prefer IPv4 */
+  r = router_has_non_preferred_address(options, &rs6, 1);
+  tt_int_op(r, OP_EQ, 1);
+  r = router_has_non_preferred_address(options, &rs6, 0);
+  tt_int_op(r, OP_EQ, 1);
+
+  /* We have both but prefer IPv4 */
+  r = router_has_non_preferred_address(options, &rs46, 1);
+  tt_int_op(r, OP_EQ, 1);
+  r = router_has_non_preferred_address(options, &rs46, 0);
+  tt_int_op(r, OP_EQ, 1);
+
+ done:
+  return;
+}
+
 #undef TEST_ADDR_STR
 #undef TEST_DIR_PORT
+#undef TEST_IPV6_ADDR_STR
+#undef TEST_IPV4_OR_PORT
+#undef TEST_IPV6_OR_PORT
 
 #define NODE(name, flags) \
   { #name, test_routerlist_##name, (flags), NULL, NULL }
@@ -458,6 +541,7 @@ struct testcase_t routerlist_tests[] = {
   NODE(launch_descriptor_downloads, 0),
   NODE(router_is_already_dir_fetching, TT_FORK),
   ROUTER(pick_directory_server_impl, TT_FORK),
+  ROUTER(has_non_preferred_address, TT_FORK),
   END_OF_TESTCASES
 };
 

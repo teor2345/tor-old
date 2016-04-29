@@ -229,6 +229,9 @@ STATIC int choose_array_element_by_weight(const u64_dbl_t *entries,
                                           int n_entries);
 STATIC void scale_array_elements_to_u64(u64_dbl_t *entries, int n_entries,
                                         uint64_t *total_out);
+STATIC int router_has_non_preferred_address(const or_options_t *options,
+                                            const routerstatus_t *status,
+                                            int must_have_or);
 STATIC const routerstatus_t *router_pick_directory_server_impl(
                                            dirinfo_type_t auth, int flags,
                                            int *n_busy_out);
