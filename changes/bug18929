@@ -1,0 +1,5 @@
+  o Major bugfixes (IPv4 bridges):
+    - Make directory node selection for IPv4 bridge clients more
+      reliable.
+      Resolves #18929, bugfix on #17840 in 0.2.8.1-alpha.
+      Patch by "teor".
