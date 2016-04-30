@@ -55,8 +55,8 @@
 144.76.14.145:110 orport=143 id=14419131033443AE6E21DA82B0D307F7CAE42BDB ipv6=[2a01:4f8:190:9490::dead]:443
 
 # https://lists.torproject.org/pipermail/tor-relays/2015-December/008379.html
-# changed to 91.121.84.137? Awaiting operator confirmation
-#85.25.138.93:9030 orport=4029 id=6DE61A6F72C1E5418A66BFED80DFB63E4C77668F
+# Email sent directly to teor, verified using relay contact info
+91.121.84.137:4951 orport=4051 id=6DE61A6F72C1E5418A66BFED80DFB63E4C77668F
 
 # https://lists.torproject.org/pipermail/tor-relays/2015-December/008380.html
 5.175.233.86:80 orport=443 id=5525D0429BFE5DC4F1B0E9DE47A4CFA169661E33
