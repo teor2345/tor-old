@@ -1650,6 +1650,7 @@ router_skip_dir_reachability(const or_options_t *options, int try_ip_pref)
 }
 
 /* Does status have a valid non-preferred address?
+ * Like router_has_non_preferred_address, but takes addresses.
  * Based on the IPv6 preference prefer_ipv6, host-order IPv4 address
  * ipv4h_addr, IPv4 port ipv4_port, IPv6 address ipv6_addr, and IPv6 port
  * ipv6_port.
@@ -1674,16 +1675,26 @@ static int router_has_non_preferred_address_impl(int prefer_ipv6,
 /* Does status have a valid non-preferred ORPort or DirPort address?
  * (And, therefore, we should try this relay again if we need to fall back
  * to non-preferred ORPorts or DirPorts.)
+ * prefer_ipv6_or is the non-specific IPv6 preference if a node is
+ * available, or the overall IPv6 preference otherwise.
  * If must_have_or is true, only check the ORPort address.
+ *
+ * Use router_has_non_preferred_address_node() or
+ * router_has_non_preferred_address_rs() rather than calling this directly.
  */
 static int
 router_has_non_preferred_address(const or_options_t *options,
                                  const routerstatus_t *status,
+                                 int prefer_ipv6_or,
                                  int must_have_or)
 {
+  if (!status) {
+    log_warn(LD_BUG, "Missing status");
+    return 0;
+  }
+
   /* OR addresses and ports */
-  const int prefer_ipv6_or = fascist_firewall_prefer_ipv6_orport(options);
-  int has_non_preferred_or = router_has_non_preferred_address_impl(
+  const int has_non_preferred_or = router_has_non_preferred_address_impl(
                                                           prefer_ipv6_or,
                                                           status->addr,
                                                           status->or_port,
@@ -1695,10 +1706,12 @@ router_has_non_preferred_address(const or_options_t *options,
     return has_non_preferred_or;
   }
 
-  /* Dir addresses and ports */
+  /* Dir addresses and ports
+   * Bridge clients don't ever use the DirPort, so their per-node
+   * IPv6 preferences are irrelevant here */
   const int prefer_ipv6_dir = fascist_firewall_prefer_ipv6_dirport(options);
   /* Assume IPv4 and IPv6 dirports are the same */
-  int has_non_preferred_dir = router_has_non_preferred_address_impl(
+  const int has_non_preferred_dir = router_has_non_preferred_address_impl(
                                                           prefer_ipv6_dir,
                                                           status->addr,
                                                           status->dir_port,
@@ -1706,6 +1719,58 @@ router_has_non_preferred_address(const or_options_t *options,
                                                           status->dir_port);
 
   return has_non_preferred_or || has_non_preferred_dir;
+}
+
+/* Does node have a valid non-preferred ORPort or DirPort address?
+ * Like router_has_non_preferred_address(), but takes a node.
+ */
+static int
+router_has_non_preferred_address_node(const or_options_t *options,
+                                      const node_t *node,
+                                      int must_have_or)
+{
+  if (!node || !node->rs) {
+    log_warn(LD_BUG, "Missing node or node->rs");
+    return 0;
+  }
+
+  const int prefer_ipv6_or = node_ipv6_or_preferred(node);
+
+  /* The cast silences pedantic "const routerstatus_t const *" warnings in
+   * some compilers */
+  return router_has_non_preferred_address(options,
+                                          (const routerstatus_t *)&node->rs,
+                                          prefer_ipv6_or,
+                                          must_have_or);
+}
+
+/* Does node have a valid non-preferred ORPort or DirPort address?
+ * Like router_has_non_preferred_address(), but takes a status and does
+ * an IP preference lookup, including checking for a node, and using
+ * an node-specific IP preference if available.
+ */
+static int
+router_has_non_preferred_address_rs(const or_options_t *options,
+                                    const routerstatus_t *status,
+                                    int must_have_or)
+{
+  if (!status) {
+    log_warn(LD_BUG, "Missing status");
+    return 0;
+  }
+
+  /* Start with the generic IPv6 preference*/
+  int prefer_ipv6_or = fascist_firewall_prefer_ipv6_orport(options);
+
+  /* Use the bridge client node-specific IPv6 preference, if there is a node
+   * for status */
+  const node_t *node = node_get_by_id(status->identity_digest);
+  if (node) {
+    prefer_ipv6_or = node_ipv6_or_preferred(node);
+  }
+
+  return router_has_non_preferred_address(options, status, prefer_ipv6_or,
+                                          must_have_or);
 }
 
 /** Pick a random running valid directory server/mirror from our
@@ -1810,8 +1875,9 @@ router_pick_directory_server_impl(dirinfo_type_t type, int flags,
                                           try_ip_pref)))
       smartlist_add(is_trusted ? trusted_direct :
                     is_overloaded ? overloaded_direct : direct, (void*)node);
-    else if (try_ip_pref && router_has_non_preferred_address(options, status,
-                                                             must_have_or))
+    else if (try_ip_pref && router_has_non_preferred_address_node(options,
+                                                                node,
+                                                                must_have_or))
       ++n_not_preferred;
   } SMARTLIST_FOREACH_END(node);
 
@@ -1958,7 +2024,7 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
                fascist_firewall_allows_dir_server(d, FIREWALL_DIR_CONNECTION,
                                                   try_ip_pref)))
         smartlist_add(is_overloaded ? overloaded_direct : direct, (void*)d);
-      else if (try_ip_pref && router_has_non_preferred_address(options,
+      else if (try_ip_pref && router_has_non_preferred_address_rs(options,
                                                             &d->fake_status,
                                                             must_have_or))
         ++n_not_preferred;
