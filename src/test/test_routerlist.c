@@ -449,7 +449,7 @@ test_routerlist_router_is_already_dir_fetching(void *arg)
 #define TEST_IPV4_OR_PORT  1234
 #define TEST_IPV6_OR_PORT  61234
 
-static void test_router_has_non_preferred_address(void *arg)
+static void test_router_has_non_preferred_address_rs(void *arg)
 {
   or_options_t *options = get_options_mutable();
   tor_addr_port_t ipv4_or_ap, ipv6_or_ap;
@@ -483,42 +483,42 @@ static void test_router_has_non_preferred_address(void *arg)
   options->ClientUseIPv4 = 0;
 
   /* We have IPv4 but prefer IPv6 */
-  r = router_has_non_preferred_address(options, &rs4, 1);
+  r = router_has_non_preferred_address_rs(options, &rs4, 1);
   tt_int_op(r, OP_EQ, 1);
-  r = router_has_non_preferred_address(options, &rs4, 0);
+  r = router_has_non_preferred_address_rs(options, &rs4, 0);
   tt_int_op(r, OP_EQ, 1);
 
   /* We have IPv6 and prefer IPv6 */
-  r = router_has_non_preferred_address(options, &rs6, 1);
+  r = router_has_non_preferred_address_rs(options, &rs6, 1);
   tt_int_op(r, OP_EQ, 0);
-  r = router_has_non_preferred_address(options, &rs6, 0);
+  r = router_has_non_preferred_address_rs(options, &rs6, 0);
   tt_int_op(r, OP_EQ, 0);
 
   /* We have both and prefer IPv6 */
-  r = router_has_non_preferred_address(options, &rs46, 1);
+  r = router_has_non_preferred_address_rs(options, &rs46, 1);
   tt_int_op(r, OP_EQ, 1);
-  r = router_has_non_preferred_address(options, &rs46, 0);
+  r = router_has_non_preferred_address_rs(options, &rs46, 0);
   tt_int_op(r, OP_EQ, 1);
 
   options->ClientUseIPv6 = 0;
   options->ClientUseIPv4 = 1;
 
   /* We have IPv4 and prefer IPv4 */
-  r = router_has_non_preferred_address(options, &rs4, 1);
+  r = router_has_non_preferred_address_rs(options, &rs4, 1);
   tt_int_op(r, OP_EQ, 0);
-  r = router_has_non_preferred_address(options, &rs4, 0);
+  r = router_has_non_preferred_address_rs(options, &rs4, 0);
   tt_int_op(r, OP_EQ, 0);
 
   /* We have IPv6 but prefer IPv4 */
-  r = router_has_non_preferred_address(options, &rs6, 1);
+  r = router_has_non_preferred_address_rs(options, &rs6, 1);
   tt_int_op(r, OP_EQ, 1);
-  r = router_has_non_preferred_address(options, &rs6, 0);
+  r = router_has_non_preferred_address_rs(options, &rs6, 0);
   tt_int_op(r, OP_EQ, 1);
 
   /* We have both but prefer IPv4 */
-  r = router_has_non_preferred_address(options, &rs46, 1);
+  r = router_has_non_preferred_address_rs(options, &rs46, 1);
   tt_int_op(r, OP_EQ, 1);
-  r = router_has_non_preferred_address(options, &rs46, 0);
+  r = router_has_non_preferred_address_rs(options, &rs46, 0);
   tt_int_op(r, OP_EQ, 1);
 
  done:
@@ -541,7 +541,7 @@ struct testcase_t routerlist_tests[] = {
   NODE(launch_descriptor_downloads, 0),
   NODE(router_is_already_dir_fetching, TT_FORK),
   ROUTER(pick_directory_server_impl, TT_FORK),
-  ROUTER(has_non_preferred_address, TT_FORK),
+  ROUTER(has_non_preferred_address_rs, TT_FORK),
   END_OF_TESTCASES
 };
 
