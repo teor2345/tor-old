@@ -286,7 +286,7 @@ trusted_dirs_reload_certs(void)
     return 0;
   r = trusted_dirs_load_certs_from_string(
         contents,
-        TRUSTED_DIRS_CERTS_SRC_FROM_STORE, 1);
+        TRUSTED_DIRS_CERTS_SRC_FROM_STORE, 1, NULL);
   tor_free(contents);
   return r;
 }
@@ -316,11 +316,15 @@ already_have_cert(authority_cert_t *cert)
  * or TRUSTED_DIRS_CERTS_SRC_DL_BY_ID_SK_DIGEST.  If <b>flush</b> is true, we
  * need to flush any changed certificates to disk now.  Return 0 on success,
  * -1 if any certs fail to parse.
+ *
+ * If source_dir is non-NULL, it's the identity digest for a directory that
+ * we've just successfully retrieved certificates from, so try it first to
+ * fetch any missing certificates.
  */
 
 int
 trusted_dirs_load_certs_from_string(const char *contents, int source,
-                                    int flush)
+                                    int flush, const char *source_dir)
 {
   dir_server_t *ds;
   const char *s, *eos;
@@ -430,7 +434,7 @@ trusted_dirs_load_certs_from_string(const char *contents, int source,
 
   /* call this even if failure_code is <0, since some certs might have
    * succeeded. */
-  networkstatus_note_certs_arrived();
+  networkstatus_note_certs_arrived(source_dir);
 
   return failure_code;
 }
@@ -719,8 +723,8 @@ authority_cert_dl_looks_uncertain(const char *id_digest)
  * already have.
  *
  * If dir_hint is non-NULL, it's the identity digest for a directory that
- * we've just successfully retrieved a consensus from, so try it first to
- * fetch any missing certificates.
+ * we've just successfully retrieved a consensus or certificates from, so try
+ * it first to fetch any missing certificates.
  **/
 void
 authority_certs_fetch_missing(networkstatus_t *status, time_t now,
