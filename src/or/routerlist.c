@@ -1649,6 +1649,119 @@ router_skip_dir_reachability(const or_options_t *options, int try_ip_pref)
   return server_mode(options) || (!try_ip_pref && !firewall_is_fascist_dir());
 }
 
+/* Does status have a valid non-preferred address?
+ * Like router_has_non_preferred_address, but takes addresses.
+ * Based on the IPv6 preference prefer_ipv6, host-order IPv4 address
+ * ipv4h_addr, IPv4 port ipv4_port, IPv6 address ipv6_addr, and IPv6 port
+ * ipv6_port.
+ * Works for both ORPorts and DirPorts.
+ */
+static int router_has_non_preferred_address_impl(int prefer_ipv6,
+                                                 uint32_t ipv4h_addr,
+                                                 uint16_t ipv4_port,
+                                                 const tor_addr_t *ipv6_addr,
+                                                 uint16_t ipv6_port)
+{
+  /* Just check address validity, rather than checking the firewall settings,
+   * we'll to a full check if we need to retry with non-preferred addresses */
+  const int has_ipv4 = tor_addr_port_is_valid_ipv4h(ipv4h_addr, ipv4_port,
+                                                       0);
+  const int has_ipv6 = tor_addr_port_is_valid(ipv6_addr, ipv6_port, 0);
+
+  /* Return 1 if we have an address family that is *not* preferred */
+  return prefer_ipv6 ? has_ipv4 : has_ipv6;
+}
+
+/* Does status have a valid non-preferred ORPort or DirPort address?
+ * (And, therefore, we should try this relay again if we need to fall back
+ * to non-preferred ORPorts or DirPorts.)
+ * prefer_ipv6_or is the non-specific IPv6 preference if a node is
+ * available, or the overall IPv6 preference otherwise.
+ *
+ * Use router_has_non_preferred_address_node() or
+ * router_has_non_preferred_address_rs() rather than calling this directly.
+ */
+static int
+router_has_non_preferred_address(const or_options_t *options,
+                                 const routerstatus_t *status,
+                                 int prefer_ipv6_or)
+{
+  if (!status) {
+    log_warn(LD_BUG, "Missing status");
+    return 0;
+  }
+
+  /* OR addresses and ports */
+  const int has_non_preferred_or = router_has_non_preferred_address_impl(
+                                                          prefer_ipv6_or,
+                                                          status->addr,
+                                                          status->or_port,
+                                                          &status->ipv6_addr,
+                                                          status->ipv6_orport);
+
+  /* Dir addresses and ports
+   * Bridge clients don't ever use the DirPort, so their per-node
+   * IPv6 preferences are irrelevant here */
+  const int prefer_ipv6_dir = fascist_firewall_prefer_ipv6_dirport(options);
+  /* Assume IPv4 and IPv6 dirports are the same */
+  const int has_non_preferred_dir = router_has_non_preferred_address_impl(
+                                                          prefer_ipv6_dir,
+                                                          status->addr,
+                                                          status->dir_port,
+                                                          &status->ipv6_addr,
+                                                          status->dir_port);
+
+  return has_non_preferred_or || has_non_preferred_dir;
+}
+
+/* Does node have a valid non-preferred ORPort or DirPort address?
+ * Like router_has_non_preferred_address(), but takes a node.
+ */
+static int
+router_has_non_preferred_address_node(const or_options_t *options,
+                                      const node_t *node)
+{
+  if (!node || !node->rs) {
+    log_warn(LD_BUG, "Missing node or node->rs");
+    return 0;
+  }
+
+  const int prefer_ipv6_or = node_ipv6_or_preferred(node);
+
+  /* The cast silences pedantic "const routerstatus_t const *" warnings in
+   * some compilers */
+  return router_has_non_preferred_address(options,
+                                          (const routerstatus_t *)&node->rs,
+                                          prefer_ipv6_or);
+}
+
+/* Does node have a valid non-preferred ORPort or DirPort address?
+ * Like router_has_non_preferred_address(), but takes a status and does
+ * an IP preference lookup, including checking for a node, and using
+ * an node-specific IP preference if available.
+ */
+STATIC int
+router_has_non_preferred_address_rs(const or_options_t *options,
+                                    const routerstatus_t *status)
+{
+  if (!status) {
+    log_warn(LD_BUG, "Missing status");
+    return 0;
+  }
+
+  /* Start with the generic IPv6 preference*/
+  int prefer_ipv6_or = fascist_firewall_prefer_ipv6_orport(options);
+
+  /* Use the bridge client node-specific IPv6 preference, if there is a node
+   * for status */
+  const node_t *node = node_get_by_id(status->identity_digest);
+  if (node) {
+    prefer_ipv6_or = node_ipv6_or_preferred(node);
+  }
+
+  return router_has_non_preferred_address(options, status, prefer_ipv6_or);
+}
+
 /** Pick a random running valid directory server/mirror from our
  * routerlist.  Arguments are as for router_pick_directory_server(), except:
  *
@@ -1751,7 +1864,8 @@ router_pick_directory_server_impl(dirinfo_type_t type, int flags,
                                         try_ip_pref)))
       smartlist_add(is_trusted ? trusted_direct :
                     is_overloaded ? overloaded_direct : direct, (void*)node);
-    else if (!tor_addr_is_null(&status->ipv6_addr))
+    else if (try_ip_pref && router_has_non_preferred_address_node(options,
+                                                                  node))
       ++n_not_preferred;
   } SMARTLIST_FOREACH_END(node);
 
@@ -1898,7 +2012,8 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
                fascist_firewall_allows_dir_server(d, FIREWALL_DIR_CONNECTION,
                                                   try_ip_pref)))
         smartlist_add(is_overloaded ? overloaded_direct : direct, (void*)d);
-      else if (!tor_addr_is_null(&d->ipv6_addr))
+      else if (try_ip_pref && router_has_non_preferred_address_rs(options,
+                                                            &d->fake_status))
         ++n_not_preferred;
     }
   SMARTLIST_FOREACH_END(d);
