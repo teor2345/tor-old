@@ -37,7 +37,8 @@ authority_cert_t *authority_cert_get_by_digests(const char *id_digest,
                                                 const char *sk_digest);
 void authority_cert_get_all(smartlist_t *certs_out);
 void authority_cert_dl_failed(const char *id_digest,
-                              const char *signing_key_digest, int status);
+                              const char *signing_key_digest, int status,
+                              download_want_authority_t want_auth);
 void authority_certs_fetch_missing(networkstatus_t *status, time_t now);
 int router_reload_router_list(void);
 int authority_cert_dl_looks_uncertain(const char *id_digest);

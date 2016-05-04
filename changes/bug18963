@@ -1,0 +1,4 @@
+  o Minor bugfix (bootstrap):
+    - When downloading authority certificates, try both fallback directories
+      and authorities. May result in duplicate certificate downloads.
+      Resolves ticket 18963; fix on #4483 0.2.8.1-alpha.

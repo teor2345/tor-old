@@ -917,10 +917,17 @@ connection_dir_download_cert_failed(dir_connection_t *conn, int status)
   const char *fp_pfx = "fp/";
   const char *fpsk_pfx = "fp-sk/";
   smartlist_t *failed;
+  download_want_authority_t want_auth = DL_WANT_ANY_DIRSERVER;
   tor_assert(conn->base_.purpose == DIR_PURPOSE_FETCH_CERTIFICATE);
 
   if (!conn->requested_resource)
     return;
+
+  /* Find out whether we tried an authority or a fallback directory */
+  if (router_digest_is_trusted_dir(conn->identity_digest)) {
+    want_auth = DL_WANT_AUTHORITY;
+  }
+
   failed = smartlist_new();
   /*
    * We have two cases download by fingerprint (resource starts
@@ -934,7 +941,7 @@ connection_dir_download_cert_failed(dir_connection_t *conn, int status)
                                          failed, NULL, DSR_HEX);
     SMARTLIST_FOREACH_BEGIN(failed, char *, cp) {
       /* Null signing key digest indicates download by fp only */
-      authority_cert_dl_failed(cp, NULL, status);
+      authority_cert_dl_failed(cp, NULL, status, want_auth);
       tor_free(cp);
     } SMARTLIST_FOREACH_END(cp);
   } else if (!strcmpstart(conn->requested_resource, fpsk_pfx)) {
@@ -942,7 +949,7 @@ connection_dir_download_cert_failed(dir_connection_t *conn, int status)
     dir_split_resource_into_fingerprint_pairs(conn->requested_resource +
                                               strlen(fpsk_pfx), failed);
     SMARTLIST_FOREACH_BEGIN(failed, fp_pair_t *, cp) {
-      authority_cert_dl_failed(cp->first, cp->second, status);
+      authority_cert_dl_failed(cp->first, cp->second, status, want_auth);
       tor_free(cp);
     } SMARTLIST_FOREACH_END(cp);
   } else {
