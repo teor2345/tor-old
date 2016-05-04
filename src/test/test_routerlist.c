@@ -483,30 +483,42 @@ static void test_router_has_non_preferred_address_rs(void *arg)
   options->ClientUseIPv4 = 0;
 
   /* We have IPv4 but prefer IPv6 */
-  r = router_has_non_preferred_address_rs(options, &rs4);
+  r = router_has_non_preferred_address_rs(options, &rs4, 1);
+  tt_int_op(r, OP_EQ, 1);
+  r = router_has_non_preferred_address_rs(options, &rs4, 0);
   tt_int_op(r, OP_EQ, 1);
 
   /* We have IPv6 and prefer IPv6 */
-  r = router_has_non_preferred_address_rs(options, &rs6);
+  r = router_has_non_preferred_address_rs(options, &rs6, 1);
+  tt_int_op(r, OP_EQ, 0);
+  r = router_has_non_preferred_address_rs(options, &rs6, 0);
   tt_int_op(r, OP_EQ, 0);
 
   /* We have both and prefer IPv6 */
-  r = router_has_non_preferred_address_rs(options, &rs46);
+  r = router_has_non_preferred_address_rs(options, &rs46, 1);
+  tt_int_op(r, OP_EQ, 1);
+  r = router_has_non_preferred_address_rs(options, &rs46, 0);
   tt_int_op(r, OP_EQ, 1);
 
   options->ClientUseIPv6 = 0;
   options->ClientUseIPv4 = 1;
 
   /* We have IPv4 and prefer IPv4 */
-  r = router_has_non_preferred_address_rs(options, &rs4);
+  r = router_has_non_preferred_address_rs(options, &rs4, 1);
+  tt_int_op(r, OP_EQ, 0);
+  r = router_has_non_preferred_address_rs(options, &rs4, 0);
   tt_int_op(r, OP_EQ, 0);
 
   /* We have IPv6 but prefer IPv4 */
-  r = router_has_non_preferred_address_rs(options, &rs6);
+  r = router_has_non_preferred_address_rs(options, &rs6, 1);
+  tt_int_op(r, OP_EQ, 1);
+  r = router_has_non_preferred_address_rs(options, &rs6, 0);
   tt_int_op(r, OP_EQ, 1);
 
   /* We have both but prefer IPv4 */
-  r = router_has_non_preferred_address_rs(options, &rs46);
+  r = router_has_non_preferred_address_rs(options, &rs46, 1);
+  tt_int_op(r, OP_EQ, 1);
+  r = router_has_non_preferred_address_rs(options, &rs46, 0);
   tt_int_op(r, OP_EQ, 1);
 
  done:
