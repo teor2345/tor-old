@@ -717,9 +717,14 @@ authority_cert_dl_looks_uncertain(const char *id_digest)
  * <b>status</b>.  Additionally, try to have a non-expired certificate for
  * every V3 authority in trusted_dir_servers.  Don't fetch certificates we
  * already have.
+ *
+ * If dir_hint is non-NULL, it's the identity digest for a directory that
+ * we've just successfully retrieved a consensus from, so try it first to
+ * fetch any missing certificates.
  **/
 void
-authority_certs_fetch_missing(networkstatus_t *status, time_t now)
+authority_certs_fetch_missing(networkstatus_t *status, time_t now,
+                              const char *dir_hint)
 {
   /*
    * The pending_id digestmap tracks pending certificate downloads by
@@ -883,6 +888,28 @@ authority_certs_fetch_missing(networkstatus_t *status, time_t now)
     } SMARTLIST_FOREACH_END(voter);
   }
 
+  /* Look up the routerstatus for the dir_hint  */
+  const routerstatus_t *rs = NULL;
+
+  if (dir_hint) {
+    /* First try the consensus routerstatus, then the fallback
+     * routerstatus */
+    const routerstatus_t *rs = router_get_consensus_status_by_id(dir_hint);
+    if (!rs) {
+      /* This will also find authorities */
+      const dir_server_t *ds = router_get_fallback_dirserver_by_digest(
+                                                                       dir_hint);
+      if (ds) {
+        rs = &ds->fake_status;
+      }
+    }
+
+    if (!rs) {
+      log_warn(LD_BUG, "Directory %s delivered a consensus, but a "
+               "routerstatus could not be found for it.", dir_hint);
+    }
+  }
+
   /* Do downloads by identity digest */
   if (smartlist_len(missing_id_digests) > 0) {
     int need_plus = 0;
@@ -911,14 +938,29 @@ authority_certs_fetch_missing(networkstatus_t *status, time_t now)
     } SMARTLIST_FOREACH_END(d);
 
     if (smartlist_len(fps) > 1) {
-      static int want_auth = 1;
       resource = smartlist_join_strings(fps, "", 0, NULL);
-      directory_get_from_dirserver(DIR_PURPOSE_FETCH_CERTIFICATE, 0,
-                                   resource, PDS_RETRY_IF_NO_SERVERS,
-                                   want_auth ? DL_WANT_AUTHORITY
-                                             : DL_WANT_ANY_DIRSERVER);
-      /* on failure, swap between using fallbacks and authorities */
-      want_auth = !want_auth;
+
+      /* If we've just downloaded a consensus from a directory, re-use that
+       * directory */
+      if (rs) {
+        /* Certificate fetches are one-hop, unless AllDirActionsPrivate is 1 */
+        int get_via_tor = get_options()->AllDirActionsPrivate;
+        const dir_indirection_t indirection = get_via_tor ? DIRIND_ANONYMOUS
+                                                          : DIRIND_ONEHOP;
+        directory_initiate_command_routerstatus(rs,
+                                                DIR_PURPOSE_FETCH_CERTIFICATE,
+                                                0, indirection, resource, NULL,
+                                                0, 0);
+      } else {
+        /* Otherwise, pick a random directory mirror */
+        static int want_auth = 1;
+        directory_get_from_dirserver(DIR_PURPOSE_FETCH_CERTIFICATE, 0,
+                                     resource, PDS_RETRY_IF_NO_SERVERS,
+                                     want_auth ? DL_WANT_AUTHORITY
+                                               : DL_WANT_ANY_DIRSERVER);
+        /* on failure, swap between using fallbacks and authorities */
+        want_auth = !want_auth;
+      }
       tor_free(resource);
     }
     /* else we didn't add any: they were all pending */
@@ -960,14 +1002,28 @@ authority_certs_fetch_missing(networkstatus_t *status, time_t now)
     } SMARTLIST_FOREACH_END(d);
 
     if (smartlist_len(fp_pairs) > 1) {
-      static int want_auth = 1;
       resource = smartlist_join_strings(fp_pairs, "", 0, NULL);
-      directory_get_from_dirserver(DIR_PURPOSE_FETCH_CERTIFICATE, 0,
+
+      /* If we've just downloaded a consensus from a directory, re-use that
+       * directory */
+      if (rs) {
+        /* Certificate fetches are one-hop, unless AllDirActionsPrivate is 1 */
+        int get_via_tor = get_options()->AllDirActionsPrivate;
+        const dir_indirection_t indirection = get_via_tor ? DIRIND_ANONYMOUS
+                                                          : DIRIND_ONEHOP;
+        directory_initiate_command_routerstatus(rs,
+                                                DIR_PURPOSE_FETCH_CERTIFICATE,
+                                                0, indirection, resource, NULL,
+                                                0, 0);
+      } else {
+        static int want_auth = 1;
+        directory_get_from_dirserver(DIR_PURPOSE_FETCH_CERTIFICATE, 0,
                                    resource, PDS_RETRY_IF_NO_SERVERS,
                                    want_auth ? DL_WANT_AUTHORITY
                                              : DL_WANT_ANY_DIRSERVER);
-      /* on failure, swap between using fallbacks and authorities */
-      want_auth = !want_auth;
+        /* on failure, swap between using fallbacks and authorities */
+        want_auth = !want_auth;
+      }
       tor_free(resource);
     }
     /* else they were all pending */
