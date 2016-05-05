@@ -895,14 +895,23 @@ authority_certs_fetch_missing(networkstatus_t *status, time_t now,
   /* Look up the routerstatus for the dir_hint  */
   const routerstatus_t *rs = NULL;
 
+  /* If we still need certificates, try the directory that just successfully
+   * served us a consensus or certificates.
+   * As soon as the directory fails to provide additional certificates, we try
+   * another, randomly selected directory. This avoids continual retries.
+   * (We only ever have one outstanding request per certificate.)
+   *
+   * Bridge clients won't find their bridges using this hint, so they will
+   * fall back to using directory_get_from_dirserver, which selects a bridge.
+   */
   if (dir_hint) {
     /* First try the consensus routerstatus, then the fallback
      * routerstatus */
-    const routerstatus_t *rs = router_get_consensus_status_by_id(dir_hint);
+    rs = router_get_consensus_status_by_id(dir_hint);
     if (!rs) {
       /* This will also find authorities */
       const dir_server_t *ds = router_get_fallback_dirserver_by_digest(
-                                                                       dir_hint);
+                                                                    dir_hint);
       if (ds) {
         rs = &ds->fake_status;
       }
