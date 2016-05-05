@@ -330,6 +330,7 @@ trusted_dirs_load_certs_from_string(const char *contents, int source,
   const char *s, *eos;
   int failure_code = 0;
   int from_store = (source == TRUSTED_DIRS_CERTS_SRC_FROM_STORE);
+  int added_trusted_cert = 0;
 
   for (s = contents; *s; s = eos) {
     authority_cert_t *cert = authority_cert_parse_from_string(s, &eos);
@@ -389,6 +390,7 @@ trusted_dirs_load_certs_from_string(const char *contents, int source,
     }
 
     if (ds) {
+      added_trusted_cert = 1;
       log_info(LD_DIR, "Adding %s certificate for directory authority %s with "
                "signing key %s", from_store ? "cached" : "downloaded",
                ds->nickname, hex_str(cert->signing_key_digest,DIGEST_LEN));
@@ -433,9 +435,15 @@ trusted_dirs_load_certs_from_string(const char *contents, int source,
     trusted_dirs_flush_certs_to_disk();
 
   /* call this even if failure_code is <0, since some certs might have
-   * succeeded, but only pass source_dir if there were no failures.
-   * This avoids retrying a directory that's serving bad certificates. */
-  networkstatus_note_certs_arrived((failure_code < 0) ? NULL : source_dir);
+   * succeeded, but only pass source_dir if there were no failures,
+   * and at least one more authority certificate was added to the store.
+   * This avoids retrying a directory that's serving bad or entirely duplicate
+   * certificates. */
+  if (failure_code == 0 && added_trusted_cert) {
+    networkstatus_note_certs_arrived(source_dir);
+  } else {
+    networkstatus_note_certs_arrived(NULL);
+  }
 
   return failure_code;
 }
