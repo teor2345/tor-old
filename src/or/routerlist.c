@@ -433,8 +433,9 @@ trusted_dirs_load_certs_from_string(const char *contents, int source,
     trusted_dirs_flush_certs_to_disk();
 
   /* call this even if failure_code is <0, since some certs might have
-   * succeeded. */
-  networkstatus_note_certs_arrived(source_dir);
+   * succeeded, but only pass source_dir if there were no failures.
+   * This avoids retrying a directory that's serving bad certificates. */
+  networkstatus_note_certs_arrived((failure_code < 0) ? NULL : source_dir);
 
   return failure_code;
 }
