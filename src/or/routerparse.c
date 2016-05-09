@@ -496,8 +496,8 @@ static token_rule_t networkstatus_consensus_token_table[] = {
   T01("consensus-method",    K_CONSENSUS_METHOD,    EQ(1),   NO_OBJ),
   T01("params",                K_PARAMS,           ARGS,        NO_OBJ ),
 
-  T0N("shared-rand-previous-value", K_PREVIOUS_SRV, EQ(2),   NO_OBJ ),
-  T0N("shared-rand-current-value",  K_CURRENT_SRV,  EQ(2),   NO_OBJ ),
+  T01("shared-rand-previous-value", K_PREVIOUS_SRV, EQ(2),   NO_OBJ ),
+  T01("shared-rand-current-value",  K_CURRENT_SRV,  EQ(2),   NO_OBJ ),
 
   END_OF_TABLE
 };
