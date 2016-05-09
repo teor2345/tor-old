@@ -226,6 +226,7 @@ commit_add_to_state(sr_commit_t *commit, sr_state_t *state)
     log_warn(LD_DIR, "SR: Commit from %s exists in our state while "
                      "adding it: '%s'", sr_commit_get_rsa_fpr(commit),
                      commit->encoded_commit);
+    sr_commit_free(saved_commit);
   }
 }
 
