@@ -208,7 +208,8 @@ get_sr_protocol_phase(time_t valid_after)
 
 /* Add the given <b>commit</b> to <b>state</b>. It MUST be a valid commit
  * and there shouldn't be a commit from the same authority in the state
- * already else verification hasn't been done prior. */
+ * already else verification hasn't been done prior. This takes ownership of
+ * the commit once in our state. */
 static void
 commit_add_to_state(sr_commit_t *commit, sr_state_t *state)
 {
