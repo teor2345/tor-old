@@ -775,8 +775,9 @@ smartlist_get_most_frequent_srv(const smartlist_t *sl, int *count_out)
 
 /* Using a list of <b>votes</b>, return the SRV object from them that has
  * been voted by the majority of dirauths. If <b>current</b> is set, we look
- * for the current SRV value else the previous one. NULL is returned if no
- * appropriate value could be found. */
+ * for the current SRV value else the previous one. The returned pointer is
+ * an object located inside a vote. NULL is returned if no appropriate value
+ * could be found. */
 STATIC sr_srv_t *
 get_majority_srv_from_votes(const smartlist_t *votes, int current)
 {
