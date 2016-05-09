@@ -300,7 +300,7 @@ disk_state_new(time_t now)
 
   new_state->magic_ = SR_DISK_STATE_MAGIC;
   new_state->Version = SR_PROTO_VERSION;
-  new_state->TorVersion = get_version();
+  new_state->TorVersion = tor_strdup(get_version());
   new_state->ValidUntil = get_state_valid_until_time(now);
   new_state->ValidAfter = now;
 
@@ -574,7 +574,7 @@ disk_state_reset(void)
   config_free_lines(sr_disk_state->ExtraLines);
   memset(sr_disk_state, 0, sizeof(*sr_disk_state));
   sr_disk_state->magic_ = SR_DISK_STATE_MAGIC;
-  sr_disk_state->TorVersion = get_version();
+  sr_disk_state->TorVersion = tor_strdup(get_version());
 }
 
 /* Update our disk state based on our global SR state. */
