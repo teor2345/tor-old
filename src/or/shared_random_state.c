@@ -462,13 +462,16 @@ static int
 disk_state_parse_sr_values(sr_state_t *state,
                            const sr_disk_state_t *disk_state)
 {
+  /* Only one value per type (current or previous) is allowed so we keep
+   * track of it with these flag. */
+  unsigned int seen_previous = 0, seen_current = 0;
   config_line_t *line;
+  sr_srv_t *srv = NULL;
 
   tor_assert(state);
   tor_assert(disk_state);
 
   for (line = disk_state->SharedRandValues; line; line = line->next) {
-    sr_srv_t *srv = NULL;
     if (line->value == NULL) {
       continue;
     }
@@ -476,13 +479,22 @@ disk_state_parse_sr_values(sr_state_t *state,
     if (disk_state_parse_srv(line->value, srv) < 0) {
       log_warn(LD_BUG, "SR: Broken current SRV line in state %s",
                escaped(line->value));
-      tor_free(srv);
-      return -1;
+      goto bad;
     }
     if (!strcasecmp(line->key, dstate_prev_srv_key)) {
+      if (seen_previous) {
+        log_warn(LD_DIR, "SR: Second previous SRV value seen. Bad state");
+        goto bad;
+      }
       state->previous_srv = srv;
+      seen_previous = 1;
     } else if (!strcasecmp(line->key, dstate_cur_srv_key)) {
+      if (seen_current) {
+        log_warn(LD_DIR, "SR: Second current SRV value seen. Bad state");
+        goto bad;
+      }
       state->current_srv = srv;
+      seen_current = 1;
     } else {
       /* Unknown key. Ignoring. */
       tor_free(srv);
@@ -490,6 +502,9 @@ disk_state_parse_sr_values(sr_state_t *state,
   }
 
   return 0;
+ bad:
+  tor_free(srv);
+  return -1;
 }
 
 /* Parse the given disk state and set a newly allocated state. On success,
