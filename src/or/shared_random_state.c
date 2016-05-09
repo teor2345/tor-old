@@ -680,6 +680,7 @@ disk_state_load_from_disk_impl(const char *fname)
       goto error;
     }
     if (config_get_lines(content, &lines, 0) < 0) {
+      config_free_lines(lines);
       goto error;
     }
     config_assign(&state_format, disk_state, lines, 0, 0, &errmsg);
