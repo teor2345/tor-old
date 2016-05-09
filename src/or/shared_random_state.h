@@ -78,7 +78,7 @@ typedef struct sr_disk_state_t {
   /* Version of the protocol. */
   int Version;
   /* Version of our running tor. */
-  const char *TorVersion;
+  char *TorVersion;
   /* Creation time of this state */
   time_t ValidAfter;
   /* State valid until? */
