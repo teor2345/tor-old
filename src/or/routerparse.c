@@ -2857,11 +2857,11 @@ static int
 extract_shared_random_commits(networkstatus_t *ns, smartlist_t *tokens)
 {
   int retval = -1;
-  char rsa_identity_fpr[FINGERPRINT_LEN + 1];
   smartlist_t *chunks = NULL;
 
   tor_assert(ns);
   tor_assert(tokens);
+  tor_assert(ns->type == NS_TYPE_VOTE);
 
   ns->sr_info.commits = smartlist_new();
 
@@ -2871,12 +2871,6 @@ extract_shared_random_commits(networkstatus_t *ns, smartlist_t *tokens)
      in the SR protocol. Don't treat it as an error. */
   if (commits == NULL) {
     goto end;
-  }
-
-  /* Get the RSA identity fingerprint of this voter */
-  crypto_pk_t *rsa_identity_key = ns->cert->identity_key;
-  if (crypto_pk_get_fingerprint(rsa_identity_key, rsa_identity_fpr, 0) < 0) {
-    goto err;
   }
 
   /* To parse a commit, it needs to be ordered like so:
