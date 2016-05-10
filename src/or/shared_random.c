@@ -1065,6 +1065,15 @@ sr_parse_commit(const smartlist_t *args)
              rsa_identity_fpr);
     goto error;
   }
+  /* Let's make sure, for extra safety, that this fingerprint is known to
+   * us. Even though this comes from a vote, doesn't hurt to be
+   * extracareful. */
+  if (trusteddirserver_get_by_v3_auth_digest(rsa_identity_fpr) == NULL) {
+    log_warn(LD_DIR, "SR: Fingerprint %s is not from a recognized "
+                     "authority. Discarding commit.",
+             rsa_identity_fpr);
+    goto error;
+  }
 
   /* Allocate commit since we have a valid identity now. */
   commit = commit_new(digest);
