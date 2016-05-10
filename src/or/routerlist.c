@@ -911,7 +911,7 @@ authority_certs_fetch_missing(networkstatus_t *status, time_t now)
     } SMARTLIST_FOREACH_END(d);
 
     if (smartlist_len(fps) > 1) {
-      static int want_auth = 1;
+      static int want_auth = 0;
       resource = smartlist_join_strings(fps, "", 0, NULL);
       directory_get_from_dirserver(DIR_PURPOSE_FETCH_CERTIFICATE, 0,
                                    resource, PDS_RETRY_IF_NO_SERVERS,
@@ -960,7 +960,7 @@ authority_certs_fetch_missing(networkstatus_t *status, time_t now)
     } SMARTLIST_FOREACH_END(d);
 
     if (smartlist_len(fp_pairs) > 1) {
-      static int want_auth = 1;
+      static int want_auth = 0;
       resource = smartlist_join_strings(fp_pairs, "", 0, NULL);
       directory_get_from_dirserver(DIR_PURPOSE_FETCH_CERTIFICATE, 0,
                                    resource, PDS_RETRY_IF_NO_SERVERS,
