@@ -666,8 +666,14 @@ disk_state_load_from_disk_impl(const char *fname)
   sr_state_t *parsed_state = NULL;
   sr_disk_state_t *disk_state = NULL;
 
-  switch (file_status(fname)) {
-  case FN_FILE:
+  /* Read content of file so we can parse it. */
+  if ((content = read_file_to_str(fname, 0, NULL)) == NULL) {
+    log_warn(LD_FS, "SR: Unable to read SR state file %s",
+             escaped(fname));
+    ret = -errno;
+    goto error;
+  }
+
   {
     config_line_t *lines = NULL;
     char *errmsg = NULL;
@@ -693,23 +699,6 @@ disk_state_load_from_disk_impl(const char *fname)
       tor_free(errmsg);
       goto error;
     }
-    /* Success, we have populated our disk_state, break and we'll validate
-     * it now before returning it. */
-    break;
-  }
-  case FN_NOENT:
-  case FN_EMPTY:
-    /* Not found or empty, consider this an error which will indicate the
-     * caller to save the state to disk. */
-    ret = -ENOENT;
-    goto error;
-  case FN_ERROR:
-  case FN_DIR:
-  default:
-    log_warn(LD_FS, "SR: State file %s not a file? Failing.",
-             escaped(fname));
-    ret = -EINVAL;
-    goto error;
   }
 
   /* So far so good, we've loaded our state file into our disk state. Let's
