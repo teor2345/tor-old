@@ -407,7 +407,9 @@ disk_state_parse_commits(sr_state_t *state,
     }
     commit = sr_parse_commit(args);
     if (commit == NULL) {
-      goto error;
+      /* Ignore badly formed commit. It could also be a authority
+       * fingerprint that we don't know about so it shouldn't be used. */
+      continue;
     }
     /* We consider parseable commit from our disk state to be valid because
      * they need to be in the first place to get in there. */
