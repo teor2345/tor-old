@@ -1407,6 +1407,10 @@ trusteddirserver_get_by_v3_auth_digest(const char *digest)
 
   SMARTLIST_FOREACH(trusted_dir_servers, dir_server_t *, ds,
      {
+       //int ret = tor_memeq(ds->v3_identity_digest, digest, DIGEST_LEN);
+       //log_warn(LD_DIR, "SR: EQ? : %d", ret);
+       //log_warn(LD_DIR, "SR: v3ident : '%s'", hex_str(ds->v3_identity_digest, DIGEST_LEN));
+       //log_warn(LD_DIR, "SR: digest:   '%s'", hex_str(digest, DIGEST_LEN));
        if (tor_memeq(ds->v3_identity_digest, digest, DIGEST_LEN) &&
            (ds->type & V3_DIRINFO))
          return ds;
