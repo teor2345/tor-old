@@ -60,7 +60,7 @@ disk_state_validate_cb(void *old_state, void *state, void *default_state,
 
 /* Array of variables that are saved to disk as a persistent state. */
 static config_var_t state_vars[] = {
-  V(Version,                    INT, "1"),
+  V(Version,                    INT, "0"),
   V(TorVersion,                 STRING, NULL),
   V(ValidUntil,                 ISOTIME, NULL),
   V(ValidAfter,                 ISOTIME, NULL),
@@ -331,8 +331,9 @@ disk_state_validate(const sr_disk_state_t *state)
 
   tor_assert(state);
 
-  /* Do we support the protocol version in the state? */
-  if (state->Version > SR_PROTO_VERSION) {
+  /* Do we support the protocol version in the state or is it 0 meaning
+   * Version wasn't found in the state file or bad anyway ? */
+  if (state->Version == 0 || state->Version > SR_PROTO_VERSION) {
     goto invalid;
   }
 
