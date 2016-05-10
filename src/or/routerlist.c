@@ -151,7 +151,8 @@ get_n_authorities(dirinfo_type_t type)
 /** Initialise schedule, want_authority, and increment on in the download
  * status dlstatus, then call download_status_reset() on it.
  * It is safe to call this function or download_status_reset() multiple times
- * on dlstatus, nothing will change after the first time. */
+ * on a new dlstatus. But it should *not* be called after a dlstatus has been
+ * used to count download attempts or failures. */
 static void
 download_status_cert_init(download_status_t *dlstatus)
 {
