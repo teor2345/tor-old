@@ -62,8 +62,8 @@ disk_state_validate_cb(void *old_state, void *state, void *default_state,
 static config_var_t state_vars[] = {
   V(Version,                    INT, "0"),
   V(TorVersion,                 STRING, NULL),
-  V(ValidUntil,                 ISOTIME, NULL),
   V(ValidAfter,                 ISOTIME, NULL),
+  V(ValidUntil,                 ISOTIME, NULL),
 
   V(Commit,                     LINELIST, NULL),
 
