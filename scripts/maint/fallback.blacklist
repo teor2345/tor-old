@@ -192,3 +192,6 @@
 
 # Email sent directly to teor, verified using relay contact info
 78.193.40.205:8080 orport=8443 id=C91450840E75AC1B654A3096744338A573A239C6
+
+# Email sent directly to teor, verified using relay contact info
+37.187.22.172:9030 orport=9035 id=335E4117BD9A4966403C2AFA31CFDD1BC13BD46A
