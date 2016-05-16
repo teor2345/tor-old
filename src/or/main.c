@@ -2454,7 +2454,7 @@ do_main_loop(void)
   }
 
   /* Setup shared random protocol subsystem. */
-  if (authdir_mode(get_options())) {
+  if (authdir_mode_publishes_statuses(get_options())) {
     if (sr_init(1) < 0) {
       return -1;
     }
