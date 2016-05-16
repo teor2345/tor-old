@@ -1274,29 +1274,39 @@ sr_act_post_consensus(const networkstatus_t *consensus)
     return;
   }
 
-  /* Start by freeing the current SRVs since the SRVs we believed during
-   * voting do not really matter. Now that all the votes are in, we use the
-   * majority's opinion on which are the active SRVs. */
-  sr_state_clean_srvs();
+  /* Update our state with the valid_after time of the next consensus so
+   * once the next voting period start we are ready to receive votes. */
+  time_t interval_starts = get_voting_schedule(get_options(), time(NULL),
+                                               LOG_NOTICE)->interval_starts;
 
   /* Set the majority voted SRVs in our state even if both are NULL. It
    * doesn't matter this is what the majority has decided. */
   if (consensus) {
+    /* Start by freeing the current SRVs since the SRVs we believed during
+     * voting do not really matter. Now that all the votes are in, we use the
+     * majority's opinion on which are the active SRVs. */
+    sr_state_clean_srvs();
+    /* Reset the fresh flag of the SRV so we know that from now on we don't
+     * have a new SRV to vote for. We just used the one from the consensus
+     * decided by the majority. */
+    sr_state_unset_fresh_srv();
+
+    /* Set the SR values from the given consensus. */
     sr_state_set_previous_srv(srv_dup(consensus->sr_info.previous_srv));
     sr_state_set_current_srv(srv_dup(consensus->sr_info.current_srv));
+
   }
 
-  /* Reset the fresh flag of the SRV so we know that from now on we don't
-   * have a new SRV to vote for thus no need for super majority. */
-  sr_state_unset_fresh_srv();
-
-  /* Update our state with the valid_after time of the next consensus so
-   * once the next voting period start we are ready to receive votes. */
-  if (consensus) {
-    time_t next_consensus_valid_after =
-      get_next_valid_after_time(consensus->valid_after);
-    sr_state_update(next_consensus_valid_after);
+  { /* XXX: Debugging */
+    char tbuf[ISO_TIME_LEN + 1];
+    if (consensus) {
+      format_iso_time(tbuf, consensus->valid_after);
+      log_warn(LD_DIR, "SR: Consensus valid-after: %s", tbuf);
+    }
+    format_iso_time(tbuf, interval_starts);
+    log_warn(LD_DIR, "SR: Next valid after: %s", tbuf);
   }
+  sr_state_update(interval_starts);
 }
 
 /* Initialize shared random subsystem. This MUST be called early in the boot

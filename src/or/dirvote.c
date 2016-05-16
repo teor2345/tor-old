@@ -2667,6 +2667,9 @@ dirvote_act(const or_options_t *options, time_t now)
     dirvote_publish_consensus();
     dirvote_clear_votes(0);
     voting_schedule.have_published_consensus = 1;
+    /* Update our shared random state with the consensus just published. */
+    sr_act_post_consensus(
+                networkstatus_get_latest_consensus_by_flavor(FLAV_NS));
     /* XXXX We will want to try again later if we haven't got enough
      * signatures yet.  Implement this if it turns out to ever happen. */
     dirvote_recalculate_timing(options, now);

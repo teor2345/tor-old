@@ -1033,6 +1033,10 @@ networkstatus_consensus_download_failed(int status_code, const char *flavname)
     download_status_failed(&consensus_dl_status[flav], status_code);
     /* Retry immediately, if appropriate. */
     update_consensus_networkstatus_downloads(time(NULL));
+    if (authdir_mode_v3(get_options())) {
+      /* Update our SR state with no consensus. */
+      //sr_act_post_consensus(NULL);
+    }
   }
 }
 
@@ -1796,13 +1800,6 @@ networkstatus_set_current_consensus(const char *consensus,
   }
 
   router_dir_info_changed();
-
-  /* A new consensus has been set. Pass it to the shared random subsystem to
-   * update the SR state with its content. We only need to do this for one
-   * consensus flavor. */
-  if (flav == FLAV_NS && c != NULL) {
-    sr_act_post_consensus(c);
-  }
 
   result = 0;
  done:
