@@ -505,8 +505,9 @@ srv_to_ns_string(const sr_srv_t *srv, const char *key)
   tor_assert(key);
 
   sr_srv_encode(srv_hash_encoded, sizeof(srv_hash_encoded), srv);
-  tor_asprintf(&srv_str, "%s %d %s\n", key,
-               srv->num_reveals, srv_hash_encoded);
+  /* unsigned long is always bigger than or equal in size to uint32_t */
+  tor_asprintf(&srv_str, "%s %lu %s\n", key,
+               (unsigned long)srv->num_reveals, srv_hash_encoded);
   log_debug(LD_DIR, "SR: Consensus SRV line: %s", srv_str);
   return srv_str;
 }
@@ -1024,7 +1025,8 @@ sr_srv_t *
 sr_parse_srv(const smartlist_t *args)
 {
   char *value;
-  int num_reveals, ok, ret;
+  uint32_t num_reveals;
+  int ok, ret;
   sr_srv_t *srv = NULL;
 
   tor_assert(args);
@@ -1034,8 +1036,8 @@ sr_parse_srv(const smartlist_t *args)
   }
 
   /* First argument is the number of reveal values */
-  num_reveals = (int)tor_parse_long(smartlist_get(args, 0),
-                               10, 0, INT32_MAX, &ok, NULL);
+  num_reveals = (uint32_t)tor_parse_ulong(smartlist_get(args, 0),
+                                          10, 0, UINT32_MAX, &ok, NULL);
   if (!ok) {
     goto end;
   }

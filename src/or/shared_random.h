@@ -62,7 +62,7 @@ typedef enum {
 /* A shared random value (SRV). */
 typedef struct sr_srv_t {
   /* The number of reveal values used to derive this SRV. */
-  int num_reveals;
+  uint32_t num_reveals;
   /* The actual value. This is the stored result of SHA3-256. */
   uint8_t value[DIGEST256_LEN];
 } sr_srv_t;
