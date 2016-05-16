@@ -1267,36 +1267,40 @@ sr_get_string_for_consensus(const smartlist_t *votes)
 void
 sr_act_post_consensus(const networkstatus_t *consensus)
 {
+  time_t interval_starts;
+  const or_options_t *options = get_options();
+
   /* Don't act if our state hasn't been initialized. We can be called during
    * boot time when loading consensus from disk which is prior to the
-   * initialization of the SR subsystem. */
-  if (!sr_state_is_initialized()) {
+   * initialization of the SR subsystem. We also should not be doing
+   * anything if we are _not_ a directory authority and if we are a bridge
+   * authority. */
+  if (!sr_state_is_initialized() || !authdir_mode_v3(options) ||
+      authdir_mode_bridge(options)) {
     return;
   }
 
-  /* Start by freeing the current SRVs since the SRVs we believed during
-   * voting do not really matter. Now that all the votes are in, we use the
-   * majority's opinion on which are the active SRVs. */
-  sr_state_clean_srvs();
-
   /* Set the majority voted SRVs in our state even if both are NULL. It
-   * doesn't matter this is what the majority has decided. */
+   * doesn't matter this is what the majority has decided. Obviously, we can
+   * only do that if we have a consensus. */
   if (consensus) {
+    /* Start by freeing the current SRVs since the SRVs we believed during
+     * voting do not really matter. Now that all the votes are in, we use the
+     * majority's opinion on which are the active SRVs. */
+    sr_state_clean_srvs();
+    /* Reset the fresh flag of the SRV so we know that from now on we don't
+     * have a new SRV to vote for. We just used the one from the consensus
+     * decided by the majority. */
+    sr_state_unset_fresh_srv();
+    /* Set the SR values from the given consensus. */
     sr_state_set_previous_srv(srv_dup(consensus->sr_info.previous_srv));
     sr_state_set_current_srv(srv_dup(consensus->sr_info.current_srv));
   }
 
-  /* Reset the fresh flag of the SRV so we know that from now on we don't
-   * have a new SRV to vote for thus no need for super majority. */
-  sr_state_unset_fresh_srv();
-
-  /* Update our state with the valid_after time of the next consensus so
-   * once the next voting period start we are ready to receive votes. */
-  if (consensus) {
-    time_t next_consensus_valid_after =
-      get_next_valid_after_time(consensus->valid_after);
-    sr_state_update(next_consensus_valid_after);
-  }
+  /* Update our internal state with the next voting interval starting time. */
+  interval_starts = get_voting_schedule(options, time(NULL),
+                                        LOG_NOTICE)->interval_starts;
+  sr_state_update(interval_starts);
 }
 
 /* Initialize shared random subsystem. This MUST be called early in the boot
