@@ -103,6 +103,7 @@
 static const char previous_srv_str[] = "shared-rand-previous-value";
 static const char current_srv_str[] = "shared-rand-current-value";
 static const char commit_ns_str[] = "shared-rand-commit";
+static const char sr_flag_ns_str[] = "shared-rand-participate";
 
 /* Return a heap allocated copy of the SRV <b>orig</b>. */
 STATIC sr_srv_t *
@@ -1205,8 +1206,7 @@ sr_get_string_for_vote(void)
   /* First line, put in the vote the participation flag. */
   {
     char *sr_flag_line;
-    static const char *sr_flag_key = "shared-rand-participate";
-    tor_asprintf(&sr_flag_line, "%s\n", sr_flag_key);
+    tor_asprintf(&sr_flag_line, "%s\n", sr_flag_ns_str);
     smartlist_add(chunks, sr_flag_line);
   }
 
