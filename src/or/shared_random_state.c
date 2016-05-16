@@ -397,6 +397,7 @@ disk_state_parse_commits(sr_state_t *state,
       tor_fragile_assert();
       continue;
     }
+    log_debug(LD_DIR, "About to parse commit line %s.", escaped(line->value));
     args = smartlist_new();
     smartlist_split_string(args, line->value, " ",
                            SPLIT_SKIP_SPACE|SPLIT_IGNORE_BLANK, 0);
