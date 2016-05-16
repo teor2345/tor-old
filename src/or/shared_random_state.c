@@ -587,7 +587,9 @@ disk_state_put_srv_line(const sr_srv_t *srv, config_line_t *line)
     return;
   }
   sr_srv_encode(encoded, srv);
-  tor_asprintf(&line->value, "%d %s", srv->num_reveals, encoded);
+  /* unsigned long is always bigger than or equal in size to uint32_t */
+  tor_asprintf(&line->value, "%lu %s", (unsigned long)srv->num_reveals,
+               encoded);
 }
 
 /* Reset disk state that is free allocated memory and zeroed the object. */
