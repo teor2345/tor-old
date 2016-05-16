@@ -866,7 +866,8 @@ sr_srv_encode(char *dst, const sr_srv_t *srv)
                       sizeof(srv->value), 0);
   /* Always expect the full length without the NULL byte. */
   tor_assert(ret == (sizeof(buf) - 1));
-  strlcpy(dst, buf, sizeof(buf));
+  /* Also copy the NULL byte: strlcpy copies (size - 1) bytes */
+  strlcpy(dst, buf, ret + 1);
 }
 
 /* Free a commit object. */
