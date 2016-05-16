@@ -406,19 +406,25 @@ get_srv_element_from_commit(const sr_commit_t *commit)
  *                   INT_8(version) | HASHED_REVEALS | previous_SRV)
  * This function cannot fail. */
 static sr_srv_t *
-generate_srv(const char *hashed_reveals, uint8_t reveal_num,
+generate_srv(const char *hashed_reveals, uint32_t reveal_num,
              const sr_srv_t *previous_srv)
 {
   char msg[DIGEST256_LEN + SR_SRV_MSG_LEN] = {0};
   size_t offset = 0;
   sr_srv_t *srv;
+  uint8_t truncated_reveal_num = reveal_num % UINT8_MAX;
 
   tor_assert(hashed_reveals);
+
+  if (reveal_num != truncated_reveal_num) {
+    log_info(LD_DIR, "SR: computing SRV with a large number of reveals %u, "
+             "truncating to %u for hash", reveal_num, truncated_reveal_num);
+  }
 
   /* Add the invariant token. */
   memcpy(msg, SR_SRV_TOKEN, SR_SRV_TOKEN_LEN);
   offset += SR_SRV_TOKEN_LEN;
-  set_uint8(msg + offset, reveal_num);
+  set_uint8(msg + offset, truncated_reveal_num);
   offset += 1;
   set_uint8(msg + offset, SR_PROTO_VERSION);
   offset += 1;
@@ -1001,8 +1007,8 @@ sr_compute_srv(void)
                          SR_DIGEST_ALG)) {
       goto end;
     }
-    tor_assert(reveal_num < UINT8_MAX);
-    current_srv = generate_srv(hashed_reveals, (uint8_t) reveal_num,
+    tor_assert(reveal_num <= UINT32_MAX);
+    current_srv = generate_srv(hashed_reveals, (uint32_t) reveal_num,
                                sr_state_get_previous_srv());
     sr_state_set_current_srv(current_srv);
     /* We have a fresh SRV, flag our state. */
