@@ -26,13 +26,6 @@
 # https://lists.torproject.org/pipermail/tor-relays/2015-December/008366.html
 5.39.88.19:9030 orport=9001 id=7CB8C31432A796731EA7B6BF4025548DFEB25E0C ipv6=[2001:41d0:8:9a13::1]:9050
 
-# https://lists.torproject.org/pipermail/tor-relays/2015-December/008367.html
-# Email sent directly to teor with intended DirPort settings
-88.198.38.226:22 orport=443 id=4B9E2C56FB42B891794FE2CD2FCAD08A320CC3BB ipv6=[2a01:4f8:a0:1351::2]:80
-213.239.210.204:22 orport=443 id=5BFDECCE9B4A23AE14EC767C5A2C1E10558B00B9 ipv6=[2a01:4f8:a0:9474::2]:80
-213.239.220.25:22 orport=443 id=BEE2317AE127EB681C5AE1551C1EA0630580638A ipv6=[2a01:4f8:a0:710c::2]:80
-85.10.201.38:22 orport=443 id=F6279A203C1950ACF592322A235647A05BFBCF91 ipv6=[2a01:4f8:a0:43cc::2]:80
-
 # https://lists.torproject.org/pipermail/tor-relays/2015-December/008370.html
 # https://lists.torproject.org/pipermail/tor-relays/2016-January/008517.html
 # https://lists.torproject.org/pipermail/tor-relays/2016-January/008555.html
