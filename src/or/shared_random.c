@@ -1280,6 +1280,9 @@ sr_act_post_consensus(const networkstatus_t *consensus)
    * The state will be replaced with the SRVs from the consensus. */
   if (sr_state_get_phase() == SR_PHASE_REVEAL) {
     sr_state_clean_srvs();
+    /* Reset the fresh flag of the SRV so we know that from now on we don't
+     * have a new SRV to vote for thus no need for super majority. */
+    sr_state_unset_fresh_srv();
   }
 
   /* Don't set SRVs unless there is a valid consensus. */
