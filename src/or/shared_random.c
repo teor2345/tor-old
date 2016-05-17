@@ -1080,7 +1080,7 @@ sr_parse_commit(const smartlist_t *args)
   /* First is the version number of the SR protocol which indicates at which
    * version that commit was created. */
   value = smartlist_get(args, 0);
-  version = (uint32_t) tor_parse_long(value, 10, 1, UINT32_MAX, NULL, NULL);
+  version = (uint32_t) tor_parse_ulong(value, 10, 1, UINT32_MAX, NULL, NULL);
   if (version < SR_PROTO_VERSION) {
     log_info(LD_DIR, "SR: Commit version %d (%s) is not supported.", version,
              escaped(value));
