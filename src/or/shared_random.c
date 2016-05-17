@@ -1274,21 +1274,30 @@ sr_act_post_consensus(const networkstatus_t *consensus)
     return;
   }
 
-  /* Start by freeing the current SRVs since the SRVs we believed during
-   * voting do not really matter. Now that all the votes are in, we use the
-   * majority's opinion on which are the active SRVs. */
-  sr_state_clean_srvs();
-
-  /* Set the majority voted SRVs in our state even if both are NULL. It
-   * doesn't matter this is what the majority has decided. */
-  if (consensus) {
-    sr_state_set_previous_srv(srv_dup(consensus->sr_info.previous_srv));
-    sr_state_set_current_srv(srv_dup(consensus->sr_info.current_srv));
+  /* If we can't agree on a SRV, try voting on it during each round in the
+   * following commit phase. Stop trying to vote on an SRV in the reveal
+   * phase, and just clean all previous state.
+   * The state will be replaced with the SRVs from the consensus. */
+  if (sr_state_get_phase() == SR_PHASE_REVEAL) {
+    sr_state_clean_srvs();
   }
 
-  /* Reset the fresh flag of the SRV so we know that from now on we don't
-   * have a new SRV to vote for thus no need for super majority. */
-  sr_state_unset_fresh_srv();
+  /* Don't set SRVs unless there is a valid consensus. */
+  if (consensus) {
+    /* Set the majority voted previous SRV in our state even if it is NULL.
+     * It doesn't matter this is what the majority has decided. */
+    sr_state_set_previous_srv(srv_dup(consensus->sr_info.previous_srv));
+
+    /* If the consensus had a non-NULL current SRV, set the majority voted
+     * current SRV in our state. If it is NULL, keep our idea of the SRV for
+     * future votes. */
+     if (consensus->sr_info.current_srv != NULL) {
+       sr_state_set_current_srv(srv_dup(consensus->sr_info.current_srv));
+       /* Reset the fresh flag of the SRV so we know that from now on we don't
+        * have a new SRV to vote for thus no need for super majority. */
+       sr_state_unset_fresh_srv();
+     }
+  }
 
   /* Update our state with the valid_after time of the next consensus so
    * once the next voting period start we are ready to receive votes. */
