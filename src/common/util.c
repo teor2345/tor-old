@@ -520,7 +520,7 @@ int64_t
 round_int64_to_next_multiple_of(int64_t number, int64_t divisor)
 {
   tor_assert(divisor > 0);
-  if (INT64_MAX - divisor + 1 < number)
+  if (INT64_MAX - divisor < number - 1)
     return INT64_MAX;
   if (number >= 0)
     number += divisor - 1;
