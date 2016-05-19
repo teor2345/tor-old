@@ -399,7 +399,6 @@ test_conn_get_linked_connection(connection_t *l_conn, uint8_t state)
   return NULL;
 }
 
-
 static struct testcase_setup_t test_conn_get_basic_st = {
   test_conn_get_basic_setup, test_conn_get_basic_teardown
 };
