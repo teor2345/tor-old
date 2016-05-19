@@ -834,7 +834,6 @@ test_conn_download_status(void *arg)
   tt_assert(connection_dir_count_by_purpose_and_resource(
                                                         TEST_CONN_RSRC_PURPOSE,
                                                         other_res) == 1);
-  tt_assert(networkstatus_consensus_is_bootstrapping(time(NULL)));
   conn4->base_.state = TEST_CONN_STATE;
 
  done:
