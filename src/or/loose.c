@@ -1027,12 +1027,9 @@ loose_circuit_relay_cell_incoming(loose_or_circuit_t *loose_circ,
   do {
     log_debug(LD_OR, "Decrypting a relay cell layer for loose circuit.");
     tor_assert(this_hop);
-    if (crypto_cipher_crypt_inplace(this_hop->b_crypto,
-                                    (char *)cell->payload,
-                                    CELL_PAYLOAD_SIZE) < 0) {
-      log_warn(LD_BUG, "Error decrypting relay cell payload! Closing.");
-      return -END_CIRC_REASON_INTERNAL;
-    }
+    crypto_cipher_crypt_inplace(this_hop->b_crypto,
+                                (char *)cell->payload,
+                                CELL_PAYLOAD_SIZE);
     /* We essentially treat every cell as "recognized".  That is, since this
      * is a loose-source routed circuit, we want to send relay cells not
      * intended for us *and* cells intended for us through our leaky pipe, no
@@ -1055,13 +1052,8 @@ loose_circuit_relay_cell_incoming(loose_or_circuit_t *loose_circ,
     return -END_CIRC_REASON_TORPROTOCOL;
 
   log_debug(LD_CIRC, "Encrypting layer towards OP.");
-  if (crypto_cipher_crypt_inplace(LOOSE_TO_OR_CIRCUIT(loose_circ)->p_crypto,
-                                  (char *)cell->payload,
-                                  CELL_PAYLOAD_SIZE) < 0) {
-    log_warn(LD_BUG, "Error encrypting relay cell payload to OP! Closing.");
-    return -END_CIRC_REASON_INTERNAL;
-  }
-
+  crypto_cipher_crypt_inplace(LOOSE_TO_OR_CIRCUIT(loose_circ)->p_crypto,
+                              (char *)cell->payload, CELL_PAYLOAD_SIZE);
   append_cell_to_circuit_queue(LOOSE_TO_CIRCUIT(loose_circ), chan,
                                cell, CELL_DIRECTION_IN, rh.stream_id);
   return 0;
@@ -1098,12 +1090,8 @@ loose_circuit_relay_cell_outgoing(loose_or_circuit_t *loose_circ,
 
   /* Decrypt the layer from the OP. */
   log_debug(LD_CIRC, "Decrypting layer from OP.");
-  if (crypto_cipher_crypt_inplace(LOOSE_TO_OR_CIRCUIT(loose_circ)->n_crypto,
-                                  (char *)cell->payload,
-                                  CELL_PAYLOAD_SIZE) < 0) {
-    log_warn(LD_BUG, "Error derypting relay cell payload from OP! Closing.");
-    return -END_CIRC_REASON_INTERNAL;
-  }
+  crypto_cipher_crypt_inplace(LOOSE_TO_OR_CIRCUIT(loose_circ)->n_crypto,
+                              (char *)cell->payload, CELL_PAYLOAD_SIZE);
 
   /* Set the circ_id to the one for the next hop. */
   cell->circ_id = LOOSE_TO_CIRCUIT(loose_circ)->n_circ_id;
@@ -1126,12 +1114,8 @@ loose_circuit_relay_cell_outgoing(loose_or_circuit_t *loose_circ,
   do {
     log_debug(LD_OR, "Encrypting relay cell layer for loose circuit.");
     tor_assert(this_hop);
-    if (crypto_cipher_crypt_inplace(this_hop->f_crypto,
-                                    (char *)cell->payload,
-                                    CELL_PAYLOAD_SIZE) < 0) {
-      log_warn(LD_BUG, "Error encrypting relay cell payload! Closing.");
-      return -END_CIRC_REASON_INTERNAL;
-    }
+    crypto_cipher_crypt_inplace(this_hop->f_crypto,
+                                (char *)cell->payload, CELL_PAYLOAD_SIZE);
     this_hop = this_hop->prev;
   } while (this_hop != loose_circ->cpath->prev);
 
