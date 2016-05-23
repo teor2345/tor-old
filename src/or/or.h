@@ -3455,22 +3455,22 @@ static inline const origin_circuit_t *CONST_TO_ORIGIN_CIRCUIT(
   tor_assert(x->magic == ORIGIN_CIRCUIT_MAGIC);
   return DOWNCAST(origin_circuit_t, x);
 }
-static INLINE loose_or_circuit_t *TO_LOOSE_CIRCUIT(circuit_t *x)
+static inline loose_or_circuit_t *TO_LOOSE_CIRCUIT(circuit_t *x)
 {
   tor_assert(x->magic == LOOSE_OR_CIRCUIT_MAGIC);
   return (loose_or_circuit_t *) SUBTYPE_P(x, loose_or_circuit_t, or_.base_);
 }
-static INLINE const loose_or_circuit_t *CONST_TO_LOOSE_CIRCUIT(const circuit_t *x)
+static inline const loose_or_circuit_t *CONST_TO_LOOSE_CIRCUIT(const circuit_t *x)
 {
   tor_assert(x->magic == LOOSE_OR_CIRCUIT_MAGIC);
   return (const loose_or_circuit_t *) SUBTYPE_P(x, loose_or_circuit_t, or_.base_);
 }
-static INLINE loose_or_circuit_t *OR_TO_LOOSE_CIRCUIT(or_circuit_t *x)
+static inline loose_or_circuit_t *OR_TO_LOOSE_CIRCUIT(or_circuit_t *x)
 {
   tor_assert(x->base_.magic == LOOSE_OR_CIRCUIT_MAGIC);
   return (loose_or_circuit_t *) SUBTYPE_P(x, loose_or_circuit_t, or_);
 }
-static INLINE const loose_or_circuit_t *CONST_OR_TO_LOOSE_CIRCUIT(const or_circuit_t *x)
+static inline const loose_or_circuit_t *CONST_OR_TO_LOOSE_CIRCUIT(const or_circuit_t *x)
 {
   tor_assert(x->base_.magic == LOOSE_OR_CIRCUIT_MAGIC);
   return (const loose_or_circuit_t *) SUBTYPE_P(x, loose_or_circuit_t, or_);
