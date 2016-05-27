@@ -70,6 +70,12 @@ typedef struct sr_state_t {
    * when deciding to put or not the SRV in the consensus. This is for now
    * an acceptable very rare edge case. */
   unsigned int is_srv_fresh:1;
+
+  /* This indicates if the state has been updated at least once. It's
+   * important because when we load the state from disk, the memory state
+   * must be updated to know about the next round. Once the update function
+   * is called, this is set once and for all. */
+  unsigned int first_updated:1;
 } sr_state_t;
 
 /* Persistent state of the protocol, as saved to disk. */

@@ -1076,8 +1076,13 @@ sr_state_update(time_t valid_after)
 
   tor_assert(sr_state);
 
-  /* Don't call this function twice in the same voting period. */
-  if (valid_after <= sr_state->valid_after) {
+  /* Don't call this function twice in the same voting period. We bypass the
+   * valid-after time check if it's the first time our state has been
+   * updated by this function. It happens when we load if from disk. For
+   * instance, if tor was stopped and restarted in the same hour, without
+   * this flag, we wouldn't update the state and thus we wouldn't be aware
+   * of the next phase. */
+  if (valid_after <= sr_state->valid_after && sr_state->first_updated) {
     log_info(LD_DIR, "SR: Asked to update state twice. Ignoring.");
     return;
   }
@@ -1118,6 +1123,10 @@ sr_state_update(time_t valid_after)
   } else {
     sr_state->n_reveal_rounds++;
   }
+
+  /* We've done it once, from now on, we are quiescent for the rest of the
+   * run time journey. */
+  sr_state->first_updated = 1;
 
   { /* Debugging. */
     char tbuf[ISO_TIME_LEN + 1];
