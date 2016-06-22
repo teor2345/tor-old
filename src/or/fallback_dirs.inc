@@ -140,7 +140,7 @@ URL: https:onionoo.torproject.orguptime?first_seen_days=7-&flag=V2Dir&type=relay
 " weight=10",
 "91.219.237.244:80 orport=443 id=92ECC9E0E2AF81BB954719B189AC362E254AD4A5"
 " weight=10",
-/* Fallback added in 0.2.8.2-alpha, but changed fingerprint before 0.2.8.4-rc
+/* Fallback was on 0.2.8.2-alpha list, but changed fingerprint before 0.2.8.5
 "46.101.102.71:80 orport=443 id=9504CB22EEB25D344DE63CB7A6F2C46F895C3686"
 " ipv6=[2a03:b0c0:3:d0::2ed:7001]:9050"
 " weight=10",
