@@ -13,6 +13,13 @@
 #   cat src/or/fallback_dirs.inc | grep \" | grep -v weight | tr -d '\n' | \
 #   sed 's/"" / /g' | sed 's/""/"/g' | tr \" '\n' | grep -v '^$' \
 #   > scripts/maint/fallback.whitelist
+#
+# When testing before a release, exclusions due to changed details will result
+# in a warning, but exclusions due to stability are only shown at info level.
+#
+# Add the number of selected, slow, and excluded relays, and compare that to
+# the number of hard-coded relays. If it's less, use info-level logs to find
+# out why each of the missing relays was excluded.
 
 # If a relay operator wants their relay to be a FallbackDir,
 # enter the following information here:
