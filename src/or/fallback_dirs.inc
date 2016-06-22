@@ -120,8 +120,10 @@ URL: https:onionoo.torproject.orguptime?first_seen_days=7-&flag=V2Dir&type=relay
 " weight=10",
 "192.87.28.82:9030 orport=9001 id=844AE9CAD04325E955E2BE1521563B79FE7094B7"
 " weight=10",
+/* Fallback was on 0.2.8.2-alpha list, but changed address before 0.2.8.5
 "84.219.173.60:9030 orport=443 id=855BC2DABE24C861CD887DB9B2E950424B49FC34"
 " weight=10",
+*/
 "163.172.138.22:80 orport=443 id=8664DC892540F3C789DB37008236C096C871734D"
 " weight=10",
 "185.96.88.29:80 orport=443 id=86C281AD135058238D7A337D546C902BE8505DDE"

@@ -31,9 +31,6 @@
 78.47.18.110:443 orport=80 id=F8D27B163B9247B232A2EEE68DD8B698695C28DE
 131.188.40.188:443 orport=80 id=EBE718E1A49EE229071702964F8DB1F318075FF8
 
-# https://lists.torproject.org/pipermail/tor-relays/2015-December/008363.html
-84.219.173.60:9030 orport=443 id=855BC2DABE24C861CD887DB9B2E950424B49FC34
-
 # https://lists.torproject.org/pipermail/tor-relays/2015-December/008365.html
 # Email sent directly to teor with fingerprint update
 81.7.17.171:80 orport=443 id=CFECDDCA990E3EF7B7EC958B22441386B6B8D820 ipv6=[2a02:180:1:1::517:11ab]:443
