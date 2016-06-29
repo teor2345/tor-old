@@ -1512,7 +1512,7 @@ tv_mdiff(const struct timeval *start, const struct timeval *end)
 
   /* Some compilers are smart enough to work out this is a no-op on L64 */
 #if SIZEOF_LONG < 8
-  if (udiff > (int64_t)LONG_MAX || udiff < (int64_t)LONG_MIN) {
+  if (mdiff > (int64_t)LONG_MAX || mdiff < (int64_t)LONG_MIN) {
     return LONG_MAX;
   }
 #endif
