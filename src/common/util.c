@@ -1387,50 +1387,68 @@ tor_escape_str_for_pt_args(const char *string, const char *chars_to_escape)
  * ===== */
 
 /** Return the number of microseconds elapsed between *start and *end.
+ * Returns LONG_MAX on overflow and underflow.
  */
 long
 tv_udiff(const struct timeval *start, const struct timeval *end)
 {
-  long udiff;
-  long secdiff = end->tv_sec - start->tv_sec;
+  /* Some BSDs have struct timeval.tv_sec 64-bit, but time_t (and long) 32-bit
+   */
+  int64_t udiff;
+  const int64_t secdiff = (int64_t)end->tv_sec - (int64_t)start->tv_sec;
 
   /* end->tv_usec - start->tv_usec can be up to 1 second */
-  if (labs(secdiff)+1 > LONG_MAX/1000000) {
+  int64_t llabs_secdiff = (secdiff >= 0 ? secdiff : (int64_t)(-secdiff));
+  if (llabs_secdiff+1 > (int64_t)LONG_MAX/1000000) {
     log_warn(LD_GENERAL, "comparing times on microsecond detail too far "
-             "apart: %ld seconds", secdiff);
+             "apart: " I64_FORMAT " seconds", I64_PRINTF_ARG(secdiff));
     return LONG_MAX;
   }
 
-  udiff = secdiff*1000000L + (end->tv_usec - start->tv_usec);
-  return udiff;
+  udiff = secdiff*1000000 + ((int64_t)end->tv_usec - (int64_t)start->tv_usec);
+
+  if (udiff > (int64_t)LONG_MAX || udiff < (int64_t)LONG_MIN) {
+    return LONG_MAX;
+  } else {
+    return (long)udiff;
+  }
 }
 
 /** Return the number of milliseconds elapsed between *start and *end.
+ * Returns LONG_MAX on overflow and underflow.
  */
 long
 tv_mdiff(const struct timeval *start, const struct timeval *end)
 {
-  long mdiff;
-  long secdiff = end->tv_sec - start->tv_sec;
+  /* Some BSDs have struct timeval.tv_sec 64-bit, but time_t (and long) 32-bit
+   */
+  int64_t mdiff;
+  const int64_t secdiff = (int64_t)end->tv_sec - (int64_t)start->tv_sec;
 
   /* end->tv_usec - start->tv_usec can be up to 1 second,
    * but the mdiff calculation adds another temporary second */
-  if (labs(secdiff)+2 > LONG_MAX/1000) {
+  const int64_t llabs_secdiff = (secdiff >= 0 ? secdiff : (int64_t)(-secdiff));
+  if (llabs_secdiff+2 > (int64_t)LONG_MAX/1000) {
     log_warn(LD_GENERAL, "comparing times on millisecond detail too far "
-             "apart: %ld seconds", secdiff);
+             "apart: " I64_FORMAT " seconds", I64_PRINTF_ARG(secdiff));
     return LONG_MAX;
   }
 
   /* Subtract and round */
-  mdiff = secdiff*1000L +
+  mdiff = secdiff*1000 +
       /* We add a million usec here to ensure that the result is positive,
        * so that the round-towards-zero behavior of the division will give
        * the right result for rounding to the nearest msec. Later we subtract
        * 1000 in order to get the correct result.
        */
-      ((long)end->tv_usec - (long)start->tv_usec + 500L + 1000000L) / 1000L
+      ((int64_t)end->tv_usec - (int64_t)start->tv_usec + 500 + 1000000) / 1000
       - 1000;
-  return mdiff;
+
+  if (mdiff > (int64_t)LONG_MAX || mdiff < (int64_t)LONG_MIN) {
+    return LONG_MAX;
+  } else {
+    return (long)mdiff;
+  }
 }
 
 /**
