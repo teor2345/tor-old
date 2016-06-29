@@ -413,9 +413,9 @@ test_util_time(void *arg)
   end.tv_usec = TOR_USEC_PER_SEC;
 
   tt_int_op(LONG_MAX, OP_EQ, tv_udiff(&start, &end));
-  tt_int_op(end.tv_sec*1000L, OP_EQ, tv_mdiff(&start, &end));
+  tt_int_op((end.tv_sec + 1)*1000L, OP_EQ, tv_mdiff(&start, &end));
   tt_int_op(LONG_MAX, OP_EQ, tv_udiff(&end, &start));
-  tt_int_op(-end.tv_sec*1000L, OP_EQ, tv_mdiff(&end, &start));
+  tt_int_op(-(end.tv_sec + 1)*1000L, OP_EQ, tv_mdiff(&end, &start));
 
   /* Overflows on comparison to zero */
 
