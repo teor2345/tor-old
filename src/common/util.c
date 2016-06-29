@@ -1386,6 +1386,8 @@ tor_escape_str_for_pt_args(const char *string, const char *chars_to_escape)
  * Time
  * ===== */
 
+#define TOR_USEC_PER_SEC 1000000
+
 /** Return the number of seconds elapsed between start->tv_sec and
  * end->tv_sec. Returns INT64_MAX on overflow and underflow.
  */
@@ -1397,10 +1399,13 @@ tv_secdiff_impl(const struct timeval *start, const struct timeval *end)
 
 /** Return the number of microseconds elapsed between start->tv_usec and
  * end->tv_usec. Returns INT64_MAX on overflow and underflow.
+ * start->tv_usec and end->tv_usec must be between 0 and TV_USEC_PER_SEC.
  */
 static int64_t
 tv_usecdiff_impl(const struct timeval *start, const struct timeval *end)
 {
+  /* we'll never get an overflow here, because we check that both usecs are
+   * between 0 and TV_USEC_PER_SEC */
   return (int64_t)end->tv_usec - (int64_t)start->tv_usec;
 }
 
@@ -1410,6 +1415,20 @@ tv_usecdiff_impl(const struct timeval *start, const struct timeval *end)
 long
 tv_udiff(const struct timeval *start, const struct timeval *end)
 {
+  if (start->tv_usec > TOR_USEC_PER_SEC || start->tv_usec < 0) {
+    log_warn(LD_GENERAL, "comparing times on microsecond detail with bad "
+             "start tv_usec: " I64_FORMAT " seconds",
+             I64_PRINTF_ARG(start->tv_usec));
+    return LONG_MAX;
+  }
+
+  if (end->tv_usec > TOR_USEC_PER_SEC || end->tv_usec < 0) {
+    log_warn(LD_GENERAL, "comparing times on microsecond detail with bad "
+             "end tv_usec: " I64_FORMAT " seconds",
+             I64_PRINTF_ARG(end->tv_usec));
+    return LONG_MAX;
+  }
+
   /* Some BSDs have struct timeval.tv_sec 64-bit, but time_t (and long) 32-bit
    */
   int64_t udiff;
@@ -1438,6 +1457,20 @@ tv_udiff(const struct timeval *start, const struct timeval *end)
 long
 tv_mdiff(const struct timeval *start, const struct timeval *end)
 {
+  if (start->tv_usec > TOR_USEC_PER_SEC || start->tv_usec < 0) {
+    log_warn(LD_GENERAL, "comparing times on microsecond detail with bad "
+             "start tv_usec: " I64_FORMAT " seconds",
+             I64_PRINTF_ARG(start->tv_usec));
+    return LONG_MAX;
+  }
+
+  if (end->tv_usec > TOR_USEC_PER_SEC || end->tv_usec < 0) {
+    log_warn(LD_GENERAL, "comparing times on microsecond detail with bad "
+             "end tv_usec: " I64_FORMAT " seconds",
+             I64_PRINTF_ARG(end->tv_usec));
+    return LONG_MAX;
+  }
+
   /* Some BSDs have struct timeval.tv_sec 64-bit, but time_t (and long) 32-bit
    */
   int64_t mdiff;
