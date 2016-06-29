@@ -1459,6 +1459,7 @@ tv_udiff(const struct timeval *start, const struct timeval *end)
 }
 
 /** Return the number of milliseconds elapsed between *start and *end.
+ * If the tv_usec difference is 500, rounds away from zero.
  * Returns LONG_MAX on overflow and underflow.
  */
 long
