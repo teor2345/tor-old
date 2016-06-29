@@ -1416,8 +1416,8 @@ tv_udiff(const struct timeval *start, const struct timeval *end)
   const int64_t secdiff = tv_secdiff_impl(start, end);
 
   /* end->tv_usec - start->tv_usec can be up to 1 second */
-  int64_t llabs_secdiff = (secdiff >= 0 ? secdiff : (int64_t)(-secdiff));
-  if (llabs_secdiff+1 > (int64_t)LONG_MAX/1000000) {
+  if (secdiff+1 > (int64_t)LONG_MAX/1000000 ||
+      secdiff   < (int64_t)LONG_MIN/1000000) {
     log_warn(LD_GENERAL, "comparing times on microsecond detail too far "
              "apart: " I64_FORMAT " seconds", I64_PRINTF_ARG(secdiff));
     return LONG_MAX;
@@ -1443,10 +1443,11 @@ tv_mdiff(const struct timeval *start, const struct timeval *end)
   int64_t mdiff;
   const int64_t secdiff = tv_secdiff_impl(start, end);
 
-  /* end->tv_usec - start->tv_usec can be up to 1 second,
-   * but the mdiff calculation adds another temporary second */
-  const int64_t llabs_secdiff = (secdiff >= 0 ? secdiff : (int64_t)(-secdiff));
-  if (llabs_secdiff+2 > (int64_t)LONG_MAX/1000) {
+  /* end->tv_usec - start->tv_usec can be up to 1 second, but the mdiff
+   * calculation can add another temporary second, depending on how the
+   * compiler does constant folding */
+  if (secdiff+2 > (int64_t)LONG_MAX/1000 ||
+      secdiff   < (int64_t)LONG_MIN/1000) {
     log_warn(LD_GENERAL, "comparing times on millisecond detail too far "
              "apart: " I64_FORMAT " seconds", I64_PRINTF_ARG(secdiff));
     return LONG_MAX;
