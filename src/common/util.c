@@ -1388,6 +1388,31 @@ tor_escape_str_for_pt_args(const char *string, const char *chars_to_escape)
 
 #define TOR_USEC_PER_SEC 1000000
 
+/** Return the difference between start->tv_sec and end->tv_sec.
+ * Returns INT64_MAX on overflow and underflow.
+ */
+static int64_t
+tv_secdiff_impl(const struct timeval *start, const struct timeval *end)
+{
+  const int64_t s = (int64_t)start->tv_sec;
+  const int64_t e = (int64_t)end->tv_sec;
+
+  /* This may not be the most efficient way of implemeting this check,
+   * but it's easy to see that it's correct and doesn't overflow */
+
+  if (s > 0 && e < INT64_MIN + s) {
+    /* s is positive: equivalent to e - s < INT64_MIN, but without any
+     * overflow */
+    return INT64_MAX;
+  } else if (s < 0 && e > INT64_MAX + s) {
+    /* s is negative: equivalent to e - s > INT64_MAX, but without any
+     * overflow */
+    return INT64_MAX;
+  }
+
+  return e - s;
+}
+
 /** Return the number of microseconds elapsed between *start and *end.
  * Returns LONG_MAX on overflow and underflow.
  */
@@ -1412,8 +1437,7 @@ tv_udiff(const struct timeval *start, const struct timeval *end)
   /* Some BSDs have struct timeval.tv_sec 64-bit, but time_t (and long) 32-bit
    */
   int64_t udiff;
-  /* this calculation can overflow/underflow */
-  const int64_t secdiff = (int64_t)end->tv_sec - (int64_t)start->tv_sec;
+  const int64_t secdiff = tv_secdiff_impl(start, end);
 
   /* end->tv_usec - start->tv_usec can be up to 1 second */
   if (secdiff > (int64_t)(LONG_MAX/1000000 - 1) ||
@@ -1458,8 +1482,7 @@ tv_mdiff(const struct timeval *start, const struct timeval *end)
   /* Some BSDs have struct timeval.tv_sec 64-bit, but time_t (and long) 32-bit
    */
   int64_t mdiff;
-  /* this calculation can overflow/underflow */
-  const int64_t secdiff = (int64_t)end->tv_sec - (int64_t)start->tv_sec;
+  const int64_t secdiff = tv_secdiff_impl(start, end);
 
   /* end->tv_usec - start->tv_usec can be up to 1 second, but the mdiff
    * calculation can add another temporary second, depending on how the
