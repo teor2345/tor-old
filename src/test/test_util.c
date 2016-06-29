@@ -376,26 +376,6 @@ test_util_time(void *arg)
   tt_int_op(-end.tv_sec*1000000L, OP_EQ, tv_udiff(&end, &start));
   tt_int_op(-end.tv_sec*1000L, OP_EQ, tv_mdiff(&end, &start));
 
-  start.tv_sec = 0;
-  start.tv_usec = 0;
-  end.tv_sec = LONG_MAX/1000 - 2;
-  end.tv_usec = 499;
-
-  tt_int_op(LONG_MAX, OP_EQ, tv_udiff(&start, &end));
-  tt_int_op(end.tv_sec*1000L, OP_EQ, tv_mdiff(&start, &end));
-  tt_int_op(LONG_MAX, OP_EQ, tv_udiff(&end, &start));
-  tt_int_op(-end.tv_sec*1000L, OP_EQ, tv_mdiff(&end, &start));
-
-  start.tv_sec = 0;
-  start.tv_usec = 0;
-  end.tv_sec = LONG_MAX/1000000 - 1;
-  end.tv_usec = 499;
-
-  tt_int_op(end.tv_sec*1000000L, OP_EQ, tv_udiff(&start, &end));
-  tt_int_op(end.tv_sec*1000L, OP_EQ, tv_mdiff(&start, &end));
-  tt_int_op(-end.tv_sec*1000000L, OP_EQ, tv_udiff(&end, &start));
-  tt_int_op(-end.tv_sec*1000L, OP_EQ, tv_mdiff(&end, &start));
-
   /* No comparisons work */
   start.tv_sec = 0;
   start.tv_usec = 0;
