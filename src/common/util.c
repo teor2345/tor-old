@@ -1386,6 +1386,24 @@ tor_escape_str_for_pt_args(const char *string, const char *chars_to_escape)
  * Time
  * ===== */
 
+/** Return the number of seconds elapsed between start->tv_sec and
+ * end->tv_sec. Returns INT64_MAX on overflow and underflow.
+ */
+static int64_t
+tv_secdiff_impl(const struct timeval *start, const struct timeval *end)
+{
+  return (int64_t)end->tv_sec - (int64_t)start->tv_sec;
+}
+
+/** Return the number of microseconds elapsed between start->tv_usec and
+ * end->tv_usec. Returns INT64_MAX on overflow and underflow.
+ */
+static int64_t
+tv_usecdiff_impl(const struct timeval *start, const struct timeval *end)
+{
+  return (int64_t)end->tv_usec - (int64_t)start->tv_usec;
+}
+
 /** Return the number of microseconds elapsed between *start and *end.
  * Returns LONG_MAX on overflow and underflow.
  */
@@ -1395,7 +1413,7 @@ tv_udiff(const struct timeval *start, const struct timeval *end)
   /* Some BSDs have struct timeval.tv_sec 64-bit, but time_t (and long) 32-bit
    */
   int64_t udiff;
-  const int64_t secdiff = (int64_t)end->tv_sec - (int64_t)start->tv_sec;
+  const int64_t secdiff = tv_secdiff_impl(start, end);
 
   /* end->tv_usec - start->tv_usec can be up to 1 second */
   int64_t llabs_secdiff = (secdiff >= 0 ? secdiff : (int64_t)(-secdiff));
@@ -1405,7 +1423,7 @@ tv_udiff(const struct timeval *start, const struct timeval *end)
     return LONG_MAX;
   }
 
-  udiff = secdiff*1000000 + ((int64_t)end->tv_usec - (int64_t)start->tv_usec);
+  udiff = secdiff*1000000 + tv_usecdiff_impl(start, end);
 
   if (udiff > (int64_t)LONG_MAX || udiff < (int64_t)LONG_MIN) {
     return LONG_MAX;
@@ -1423,7 +1441,7 @@ tv_mdiff(const struct timeval *start, const struct timeval *end)
   /* Some BSDs have struct timeval.tv_sec 64-bit, but time_t (and long) 32-bit
    */
   int64_t mdiff;
-  const int64_t secdiff = (int64_t)end->tv_sec - (int64_t)start->tv_sec;
+  const int64_t secdiff = tv_secdiff_impl(start, end);
 
   /* end->tv_usec - start->tv_usec can be up to 1 second,
    * but the mdiff calculation adds another temporary second */
@@ -1441,7 +1459,7 @@ tv_mdiff(const struct timeval *start, const struct timeval *end)
        * the right result for rounding to the nearest msec. Later we subtract
        * 1000 in order to get the correct result.
        */
-      ((int64_t)end->tv_usec - (int64_t)start->tv_usec + 500 + 1000000) / 1000
+      (tv_usecdiff_impl(start, end) + 500 + 1000000) / 1000
       - 1000;
 
   if (mdiff > (int64_t)LONG_MAX || mdiff < (int64_t)LONG_MIN) {
