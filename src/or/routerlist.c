@@ -1109,7 +1109,7 @@ authority_certs_fetch_missing(networkstatus_t *status, time_t now,
       log_warn(LD_BUG, "Directory %s delivered a consensus, but %s"
                "no routerstatus could be found for it.",
                options->UseBridges ? "no node and " : "",
-               hex_str(dir_hint, DIGEST_LEN)));
+               hex_str(dir_hint, DIGEST_LEN));
     }
   }
 
