@@ -771,3 +771,6 @@
 
 # Email sent directly to teor, verified using relay contact info
 62.216.5.120:9030 orport=9001 id=D032D4D617140D6B828FC7C4334860E45E414FBE
+
+# Email sent directly to teor, verified using relay contact info
+51.254.136.195:80 orport=443 id=7BB70F8585DFC27E75D692970C0EEB0F22983A63
