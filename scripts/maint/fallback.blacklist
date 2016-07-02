@@ -227,3 +227,6 @@ id=9C8A123081EFBE022EF795630F447839DDFDDDEC
 
 # Fallback was on 0.2.8.2-alpha list, but opted-out before 0.2.8.6
 37.187.1.149:9030 orport=9001 id=08DC0F3C6E3D9C527C1FC8745D35DD1B0DE1875D ipv6=[2001:41d0:a:195::1]:9001
+
+# Email sent directly to teor, verified using relay contact info
+195.154.15.227:9030 orport=9001 id=6C3E3AB2F5F03CD71B637D433BAD924A1ECC5796
