@@ -79,17 +79,19 @@ int rend_auth_decode_cookie(const char *cookie_in,
 
 int rend_allow_direct_connection(const or_options_t *options);
 int rend_reveal_startup_time(const or_options_t *options);
+int rend_non_anonymous_mode_enabled(const or_options_t *options);
 
 /* Make sure that tor only builds one-hop circuits when they would not
  * compromise user anonymity.
  *
  * One-hop circuits are permitted:
  *  - for directory connections, or
- *  - in Tor2web or RSOS modes.
+ *  - in Tor2web or Single Onion modes.
  * Otherwise, assert that the circuit is not one-hop.
  *
- * Tor2web and RSOS modes are allowed to make multi-hop circuits.
- * For example, RSOS HSDir circuits are 3-hop to prevent denial of service.
+ * Tor2web and single onion modes are allowed to make multi-hop circuits.
+ * For example, single onion HSDir circuits are 3-hop to prevent denial of
+ * service.
  */
 #define assert_circ_onehop_ok(circ, is_dir, options) \
   STMT_BEGIN \
