@@ -1012,7 +1012,7 @@ poison_single_onion_hidden_service_dir(const rend_service_t *service)
   char *poison_fname = NULL;
 
   if (!service->directory) {
-    log_warn(LD_GENERAL, "Ephemeral HS started as RSOS.");
+    log_info(LD_REND, "Ephemeral HS started in Single Onion mode.");
     return 0;
   }
 
