@@ -3258,9 +3258,8 @@ options_validate(or_options_t *old_options, or_options_t *options,
 
   /* If you run an anonymous client with an active Single Onion service, the
    * client loses anonymity. */
-  if (options->SingleOnionMode && options->RendConfigLines
-      && options->SocksPort_set && !options->Tor2webMode
-      && !rend_non_anonymous_mode_enabled(options)) {
+  if (options->SingleOnionMode && options->SocksPort_set
+      && !options->Tor2webMode) {
     REJECT("SingleOnionMode is incompatible with using Tor as an anonymous "
            "client. Please set SocksPort to 0, or SingleOnionMode to 0, or "
            "use the non-anonymous Tor2webMode.");
