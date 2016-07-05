@@ -951,10 +951,10 @@ rend_service_update_descriptor(rend_service_t *service)
 
 static const char *sos_poison_fname = "non_anonymous_hidden_service";
 
-/** Return True if hidden services <b>service> has been poisoned by RSOS
- *  mode. */
+/** Return True if hidden services <b>service> has been poisoned by single
+ * onion mode. */
 static int
-service_is_rsos_poisoned(const rend_service_t *service)
+service_is_single_onion_poisoned(const rend_service_t *service)
 {
   char *poison_fname = NULL;
   file_status_t fstatus;
@@ -977,11 +977,11 @@ service_is_rsos_poisoned(const rend_service_t *service)
   return 0;
 }
 
-/** Return True if any of the active hidden services have been poisoned by RSOS
- *  mode. If a <b>service_list</b> is provided, treat it as the list of hidden
- *  services (used in unittests)*/
+/** Return True if any of the active hidden services have been poisoned by
+ * single onion mode. If a <b>service_list</b> is provided, treat it as the
+ * list of hidden services (used in unittests)*/
 int
-rend_services_are_rsos_poisoned(smartlist_t *service_list)
+rend_services_are_single_onion_poisoned(smartlist_t *service_list)
 {
   /* If no special service list is provided, then just use the global one. */
   if (!service_list) {
@@ -993,7 +993,7 @@ rend_services_are_rsos_poisoned(smartlist_t *service_list)
   }
 
   SMARTLIST_FOREACH_BEGIN(service_list, rend_service_t *, s) {
-    if (service_is_rsos_poisoned(s)) {
+    if (service_is_single_onion_poisoned(s)) {
       return 1;
     }
   } SMARTLIST_FOREACH_END(s);
@@ -1001,11 +1001,11 @@ rend_services_are_rsos_poisoned(smartlist_t *service_list)
   return 0;
 }
 
-/*** Helper for rend_service_poison_all_rsos_dirs(). When in RSOS mode, add a
- *   file to each hidden service directory that marks it as an RSOS hidden
- *   service. */
+/*** Helper for rend_service_poison_all_single_onion_dirs(). When in single
+ * onion mode, add a file to each hidden service directory that marks it as a
+ * single onion hidden service. */
 static int
-poison_rsos_hidden_service_dir(const rend_service_t *service)
+poison_single_onion_hidden_service_dir(const rend_service_t *service)
 {
   int fd;
   int retval = -1;
@@ -1022,15 +1022,17 @@ poison_rsos_hidden_service_dir(const rend_service_t *service)
   switch (file_status(poison_fname)) {
   case FN_DIR:
   case FN_ERROR:
-    log_warn(LD_FS, "Can't read RSOS poison file \"%s\"", poison_fname);
+    log_warn(LD_FS, "Can't read single onion poison file \"%s\"",
+             poison_fname);
     goto done;
-  case FN_FILE: /* RSOS poison file already exists. NOP. */
-  case FN_EMPTY: /* RSOS poison file already exists. NOP. */
+  case FN_FILE: /* single onion poison file already exists. NOP. */
+  case FN_EMPTY: /* single onion poison file already exists. NOP. */
     break;
   case FN_NOENT:
     fd = tor_open_cloexec(poison_fname, O_RDWR|O_CREAT|O_TRUNC, 0600);
     if (fd < 0) {
-      log_warn(LD_FS, "Could not create RSOS poison file %s", poison_fname);
+      log_warn(LD_FS, "Could not create single onion poison file %s",
+               poison_fname);
       goto done;
     }
     close(fd);
@@ -1047,14 +1049,13 @@ poison_rsos_hidden_service_dir(const rend_service_t *service)
   return retval;
 }
 
-/** We just got launched in RSOS mode (Rendezvous Single Onion Service). That's
- *  a non-anoymous mode for hidden services; hence we should mark all hidden
- *  service directories appropriately so that they are never launched as
- *  location-private hidden services again. If a <b>service_list</b> is
- *  provided, treat it as the list of hidden services (used in
- *  unittests). Return 0 on success, -1 on fail. */
+/** We just got launched in single onion mode. That's a non-anoymous mode for
+ * hidden services; hence we should mark all hidden service directories
+ * appropriately so that they are never launched as location-private hidden
+ * services again. If a <b>service_list</b> is provided, treat it as the list
+ * of hidden services (used in unittests). Return 0 on success, -1 on fail. */
 int
-rend_service_poison_all_rsos_dirs(smartlist_t *service_list)
+rend_service_poison_all_single_onion_dirs(smartlist_t *service_list)
 {
   /* If no special service list is provided, then just use the global one. */
   if (!service_list) {
@@ -1066,7 +1067,7 @@ rend_service_poison_all_rsos_dirs(smartlist_t *service_list)
   }
 
   SMARTLIST_FOREACH_BEGIN(service_list, rend_service_t *, s) {
-    if (poison_rsos_hidden_service_dir(s) < 0) {
+    if (poison_single_onion_hidden_service_dir(s) < 0) {
       return -1;
     }
   } SMARTLIST_FOREACH_END(s);

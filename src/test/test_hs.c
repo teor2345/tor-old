@@ -498,9 +498,9 @@ test_hs_auth_cookies(void *arg)
   return;
 }
 
-/* Test that RSOS poisoning works. */
+/* Test that single onion poisoning works. */
 static void
-test_rsos_poisoning(void *arg)
+test_single_onion_poisoning(void *arg)
 {
   int ret = -1;
   rend_service_t *service_1 = tor_malloc_zero(sizeof(rend_service_t));
@@ -530,14 +530,14 @@ test_rsos_poisoning(void *arg)
   smartlist_add(services, service_2);
 
   /* Not poisoned yet. Test this */
-  ret = rend_services_are_rsos_poisoned(services);
+  ret = rend_services_are_single_onion_poisoned(services);
   tor_assert(!ret);
 
   /* Poison! Poison! Poison! */
-  rend_service_poison_all_rsos_dirs(services);
+  rend_service_poison_all_single_onion_dirs(services);
 
   /* Poisoning test */
-  ret = rend_services_are_rsos_poisoned(services);
+  ret = rend_services_are_single_onion_poisoned(services);
   tor_assert(ret);
 
  done:
@@ -558,7 +558,7 @@ struct testcase_t hs_tests[] = {
     NULL, NULL },
   { "hs_auth_cookies", test_hs_auth_cookies, TT_FORK,
     NULL, NULL },
-  { "rsos_poisoning", test_rsos_poisoning, TT_FORK,
+  { "single_onion_poisoning", test_single_onion_poisoning, TT_FORK,
     NULL, NULL },
   END_OF_TESTCASES
 };
