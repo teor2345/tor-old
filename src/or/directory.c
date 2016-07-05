@@ -1140,9 +1140,9 @@ directory_initiate_command_rend(const tor_addr_port_t *or_addr_port,
 
   log_debug(LD_DIR, "Initiating %s", dir_conn_purpose_to_string(dir_purpose));
 
-  if (!rend_non_anonymous_mode_enabled(options)) {
-    tor_assert(!(is_sensitive_dir_purpose(dir_purpose) &&
-                 !anonymized_connection));
+  if (is_sensitive_dir_purpose(dir_purpose)) {
+    tor_assert(anonymized_connection ||
+               rend_non_anonymous_mode_enabled(options));
   }
 
   /* use encrypted begindir connections for everything except relays
