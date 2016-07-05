@@ -2389,20 +2389,25 @@ The following options are used to configure a hidden service.
     Number of introduction points the hidden service will have. You can't
     have more than 10. (Default: 3)
 
-[[RendezvousSingleOnionServiceNonAnonymousServer]] **RendezvousSingleOnionServiceNonAnonymousServer** **0**|**1**::
-    **Experimental - Non Anonymous ** make one-hop circuits between the
-    Rendezvous Single Onion Service server, and the introduction and
-    rendezvous points. ((Onion service descriptors are still posted using
-    3-hop paths, to avoid hidden/onion service directories blocking the
-    service.) This option makes every hidden service instance hosted by this
-    tor instance a Rendezvous Single Onion Service (RSOS). One-hop circuits
-    make RSOS servers easily locatable. But tor clients accessing a RSOS over
-    3-hop Introduction and Rendezvous paths remain location-anonymous.
-    However, the fact that a client is accessing a RSOS rather than a Hidden
-    Service may be statistically distinguishable. +
+[[SingleOnionMode]] **SingleOnionMode** **0**|**1**::
+    **Experimental - Non Anonymous** Hidden Services on a tor instance in
+    Single Onion Mode make one-hop (direct) circuits between the onion service
+    server, and the introduction and rendezvous points. (Onion service
+    descriptors are still posted using 3-hop paths, to avoid onion service
+    directories blocking the service.)
+    This option makes every hidden service instance hosted by a tor instance a
+    Single Onion Service. One-hop circuits make Single Onion servers easily
+    locatable, but clients remain location-anonymous. However, the fact that a
+    client is accessing a Single Onion rather than a Hidden Service may be
+    statistically distinguishable.
 
-    Since a RSOS is non-anonymous, you can not to run an anonymous SOCKSPort
-    on the same tor instance as a RSOS service.
+    SingleOnionMode requires NonAnonymousMode to be set to 1. Since a Single
+    Onion is non-anonymous, you can not to run an anonymous SOCKSPort on the
+    same tor instance as a Single Onion service.
+    (Default: 0)
+
+[[NonAnonymousMode]] **NonAnonymousMode** **0**|**1**::
+    Set to 1 to allow non-anonymous modes, such as SingleOnionMode.
     (Default: 0)
 
 TESTING NETWORK OPTIONS

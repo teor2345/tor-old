@@ -296,7 +296,8 @@ static config_var_t option_vars_[] = {
   V(HidServAuth,                 LINELIST, NULL),
   V(CloseHSClientCircuitsImmediatelyOnTimeout, BOOL, "0"),
   V(CloseHSServiceRendCircuitsImmediatelyOnTimeout, BOOL, "0"),
-  V(RendezvousSingleOnionServiceNonAnonymousServer, BOOL, "0"),
+  V(SingleOnionMode,             BOOL,     "0"),
+  V(NonAnonymousMode,            BOOL,     "0"),
   V(HTTPProxy,                   STRING,   NULL),
   V(HTTPProxyAuthenticator,      STRING,   NULL),
   V(HTTPSProxy,                  STRING,   NULL),
@@ -1494,10 +1495,10 @@ options_act(const or_options_t *old_options)
   if (consider_adding_dir_servers(options, old_options) < 0)
     return -1;
 
-#ifdef NON_ANONYMOUS_MODE_ENABLED
-  log_warn(LD_GENERAL, "This copy of Tor was compiled to run in a "
-      "non-anonymous mode. It will provide NO ANONYMITY.");
-#endif
+  if (rend_non_anonymous_mode_enabled(options)) {
+    log_warn(LD_GENERAL, "This copy of Tor was compiled or configured to run "
+             "in a non-anonymous mode. It will provide NO ANONYMITY.");
+  }
 
 #ifdef ENABLE_TOR2WEB_MODE
 /* LCOV_EXCL_START */
@@ -1665,23 +1666,24 @@ options_act(const or_options_t *old_options)
     return -1;
   }
 
-  /* If we use the insecure RSOS mode, make sure we poison our hidden service
-     directories, so that we never accidentally launch the non-anonymous hidden
-     services thinking they are anonymous. */
-  if (running_tor && options->RendezvousSingleOnionServiceNonAnonymousServer) {
+  /* If we use the insecure Single Onion mode, make sure we poison our hidden
+     service directories, so that we never accidentally launch the
+     non-anonymous hidden services thinking they are anonymous. */
+  if (running_tor && options->SingleOnionMode) {
     if (rend_service_poison_all_rsos_dirs(NULL) < 0) {
-      log_warn(LD_GENERAL,"Failed to mark hidden services as RSOS.");
+      log_warn(LD_GENERAL,"Failed to mark hidden services as Single Onion.");
       return -1;
     }
   }
 
-  /* If we are running hidden services not in RSOS mode, check if they have
-     been poisoned by RSOS, and refuse to launch them if so. */
-  if (!options->RendezvousSingleOnionServiceNonAnonymousServer &&
+  /* If we are running hidden services not in Single Onion mode, check if they
+     have been poisoned by Single Onion mode, and refuse to launch them if so.
+   */
+  if (!options->SingleOnionMode &&
       num_rend_services()) {
     if (rend_services_are_rsos_poisoned(NULL)) {
       log_warn(LD_GENERAL, "Trying to launch hidden services that used to be "
-               "in the non-anonymous RSOS mode. This is not allowed.");
+               "in the non-anonymous Single Onion mode. This is not allowed.");
       return -1;
     }
   }
@@ -3251,64 +3253,57 @@ options_validate(or_options_t *old_options, or_options_t *options,
     options->PredictedPortsRelevanceTime = MAX_PREDICTED_CIRCS_RELEVANCE;
   }
 
-#ifndef NON_ANONYMOUS_MODE_ENABLED
-  /* If you run an anonymous client with an active RSOS, the client loses
-   * anonymity. */
-  if (options->RendezvousSingleOnionServiceNonAnonymousServer
-      && options->RendConfigLines && options->SocksPort_set
-      && !options->Tor2webMode) {
-    REJECT("RendezvousSingleOnionServiceNonAnonymousServer is incompatible "
-           "with using Tor as an anonymous client. Please set SocksPort to "
-           "0, or RendezvousSingleOnionServiceNonAnonymousServer to 0, or "
-           "Tor2webMode 1.");
+  /* If you run an anonymous client with an active Single Onion service, the
+   * client loses anonymity. */
+  if (options->SingleOnionMode && options->RendConfigLines
+      && options->SocksPort_set && !options->Tor2webMode
+      && !rend_non_anonymous_mode_enabled(options)) {
+    REJECT("SingleOnionMode is incompatible with using Tor as an anonymous "
+           "client. Please set SocksPort to 0, or SingleOnionMode to 0, or "
+           "use the non-anonymous Tor2webMode.");
   }
-#endif
 
-#ifdef NON_ANONYMOUS_MODE_ENABLED
   /* If you run a hidden service in non-anonymous mode, the hidden service
    * loses anonymity, even if SOCKSPort / Tor2web mode isn't used. */
-  if (!options->RendezvousSingleOnionServiceNonAnonymousServer
-      && options->RendConfigLines) {
+  if (!options->SingleOnionMode && options->RendConfigLines
+      && rend_non_anonymous_mode_enabled(options)) {
     REJECT("Non-anonymous (Tor2web) mode is incompatible with using Tor as a "
-           "hidden service. Please set "
-           "RendezvousSingleOnionServiceNonAnonymousServer 1, or remove all "
-           "HiddenServiceDir lines, or use a version of tor compiled without "
-           "--enable-tor2webmode.");
+           "hidden service. Please remove all HiddenServiceDir lines, or use "
+           "a version of tor compiled without --enable-tor2web-mode, or use "
+           "the non-anonymous SingleOnionMode.");
   }
-#endif
 
-  if (options->RendezvousSingleOnionServiceNonAnonymousServer
+  if (options->SingleOnionMode
       && options->LearnCircuitBuildTimeout) {
-    /* LearnCircuitBuildTimeout and RSOS are incompatible in
+    /* LearnCircuitBuildTimeout and Single Onion mode are incompatible in
      * two ways:
      *
      * - LearnCircuitBuildTimeout results in a low CBT, which
-     *   RSOS's use of one-hop intro and rendezvous circuits lowers
+     *   Single Onion use of one-hop intro and rendezvous circuits lowers
      *   much further, producing *far* too many timeouts.
      *
      * - The adaptive CBT code does not update its timeout estimate
      *   using build times for single-hop circuits.
      *
      * If we fix both of these issues someday, we should test
-     * RSOS with LearnCircuitBuildTimeout on again. */
-    log_notice(LD_CONFIG,"RendezvousSingleOnionServiceNonAnonymousServer is "
-               "enabled; turning LearnCircuitBuildTimeout off.");
+     * Single Onion mode with LearnCircuitBuildTimeout on again. */
+    log_notice(LD_CONFIG,"SingleOnionMode is enabled; turning "
+               "LearnCircuitBuildTimeout off.");
     options->LearnCircuitBuildTimeout = 0;
   }
 
-  if (options->RendezvousSingleOnionServiceNonAnonymousServer
+  if (options->SingleOnionMode
       && options->UseEntryGuards) {
-    /* RSOS services do not (and should not) use entry guards
-     * in any meaningful way.  Further, RSOS causes the hidden
+    /* Single Onion services do not (and should not) use entry guards
+     * in any meaningful way.  Further, Single Onions causes the hidden
      * service code to do things which break the path bias
      * detector, and it's far easier to turn off entry guards (and
      * thus the path bias detector with it) than to figure out how to
-     * make a piece of code which cannot possibly help RSOS, compatible with
-     * RSOS.
+     * make a piece of code which cannot possibly help Single Onions,
+     * compatible with Single Onion mode.
      */
     log_notice(LD_CONFIG,
-               "RendezvousSingleOnionServiceNonAnonymousServer is enabled; "
-               "disabling UseEntryGuards.");
+               "SingleOnionMode is enabled; disabling UseEntryGuards.");
     options->UseEntryGuards = 0;
   }
 
@@ -3374,16 +3369,15 @@ options_validate(or_options_t *old_options, or_options_t *options,
     return -1;
   }
 
-  /* RendezvousSingleOnionServiceNonAnonymousServer: one hop between the
-   * hidden/onion service server and intro / rendezvous points */
-  if (options->RendezvousSingleOnionServiceNonAnonymousServer) {
+  /* SingleOnionMode: one hop between the onion service server and intro and
+   * rendezvous points */
+  if (options->SingleOnionMode) {
     log_warn(LD_CONFIG,
-             "RendezvousSingleOnionServiceNonAnonymousServer (RSOS) is set."
-             " Every hidden/onion service on this instance is NON-ANONYMOUS."
-             " Clients remain location-anonymous, but may be statistically"
-             " distinguishable. If RSOS is disabled, Tor will refuse to "
-             " launch RSOS hidden services to protect against misconfiguration"
-             " errors. This setting is for experimental use only.");
+             "SingleOnionMode is set. Every hidden service on this instance "
+             "is NON-ANONYMOUS. (But clients are still location-anonymous.) "
+             "If Single Onion mode is disabled, Tor will refuse to launch "
+             "hidden services from the same directories, to protect against "
+             "config errors. This setting is for experimental use only.");
   }
 
   if (!options->LearnCircuitBuildTimeout && options->CircuitBuildTimeout &&
@@ -4334,10 +4328,9 @@ options_transition_allowed(const or_options_t *old,
     return -1;
   }
 
-  if (old->RendezvousSingleOnionServiceNonAnonymousServer !=
-      new_val->RendezvousSingleOnionServiceNonAnonymousServer) {
-    *msg = tor_strdup("While Tor is running, changing "
-                      "RendezvousSingleOnionServiceNonAnonymousServer is not "
+  if (old->SingleOnionMode !=
+      new_val->SingleOnionMode) {
+    *msg = tor_strdup("While Tor is running, changing SingleOnionMode is not "
                       "allowed.");
     return -1;
   }
