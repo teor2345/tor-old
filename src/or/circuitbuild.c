@@ -824,7 +824,7 @@ circuit_pick_extend_handshake(uint8_t *cell_type_out,
       *handshake_type_out != ONION_HANDSHAKE_TYPE_TAP &&
       (node_has_curve25519_onion_key(node_prev) ||
        (node_prev->rs &&
-        routerstatus_version_supports_ntor(node_prev->rs, 0))) {
+        routerstatus_version_supports_ntor(node_prev->rs, 0)))) {
     *cell_type_out = RELAY_COMMAND_EXTEND2;
     *create_cell_type_out = CELL_CREATE2;
   } else {
