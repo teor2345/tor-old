@@ -390,41 +390,27 @@ circuit_cpath_supports_ntor(const origin_circuit_t *circ)
 static int
 onion_populate_cpath(origin_circuit_t *circ)
 {
-  int n_tries = 0;
-  const int using_ntor = circuits_can_use_ntor();
+  int r = 0;
 
-#define MAX_POPULATE_ATTEMPTS 32
-
-  while (1) {
-    int r = onion_extend_cpath(circ);
+  while (r == 0) {
+    r = onion_extend_cpath(circ);
     if (r < 0) {
       log_info(LD_CIRC,"Generating cpath hop failed.");
       return -1;
     }
-    if (r == 1) {
-      /* This circuit doesn't need/shouldn't be forced to have an ntor hop */
-      if (circ->build_state->desired_path_len <= 1 || ! using_ntor)
-        return 0;
-
-      /* This circuit has an ntor hop. great! */
-      if (circuit_cpath_supports_ntor(circ))
-        return 0;
-
-      /* No node in the circuit supports ntor.  Have we already tried too many
-       * times? */
-      if (++n_tries >= MAX_POPULATE_ATTEMPTS)
-        break;
-
-      /* Clear the path and retry */
-      circuit_clear_cpath(circ);
-    }
   }
-  log_warn(LD_CIRC, "I tried for %d times, but I couldn't build a %d-hop "
-           "circuit with at least one node that supports ntor.",
-           MAX_POPULATE_ATTEMPTS,
-           circ->build_state->desired_path_len);
 
-  return -1;
+  /* The path is complete */
+  tor_assert(r == 1);
+
+  /* Every extend_info must support ntor, so it's a bug when a path doesn't */
+  int path_supports_ntor = circuit_cpath_supports_ntor(circ);
+  BUG(!path_supports_ntor);
+  if (!path_supports_ntor) {
+    return -1;
+  }
+
+  return 0;
 }
 
 /** Create and return a new origin circuit. Initialize its purpose and
@@ -2054,15 +2040,18 @@ count_acceptable_nodes(smartlist_t *nodes)
     if (! node->is_running)
 //      log_debug(LD_CIRC,"Nope, the directory says %d is not running.",i);
       continue;
+    /* XXX This clause makes us count incorrectly: if AllowInvalidRouters
+     * allows this node in some places, then we're getting an inaccurate
+     * count. For now, be conservative and don't count it. But later we
+     * should try to be smarter. */
     if (! node->is_valid)
 //      log_debug(LD_CIRC,"Nope, the directory says %d is not valid.",i);
       continue;
     if (! node_has_descriptor(node))
       continue;
-      /* XXX This clause makes us count incorrectly: if AllowInvalidRouters
-       * allows this node in some places, then we're getting an inaccurate
-       * count. For now, be conservative and don't count it. But later we
-       * should try to be smarter. */
+    /* The node has a descriptor, so we can just check the ntor key directly */
+    if (!node_has_curve25519_onion_key(node))
+      continue;
     ++num;
   } SMARTLIST_FOREACH_END(node);
 
@@ -2350,6 +2339,14 @@ extend_info_from_node(const node_t *node, int for_direct_connect)
   else
     log_warn(LD_CIRC, "Could not choose valid address for %s",
               node->ri ? node->ri->nickname : node->rs->nickname);
+
+  /* Every node we connect or extend to must support ntor */
+  if (!node_has_curve25519_onion_key(node)) {
+    log_fn(LOG_PROTOCOL_WARN, LD_CIRC,
+           "Attempted to create extend_info for a node that does not support "
+           "ntor: %s", node_describe(node));
+    return NULL;
+  }
 
   if (valid_addr && node->ri)
     return extend_info_new(node->ri->nickname,
