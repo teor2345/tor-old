@@ -1,7 +1,6 @@
   o Major bug fixes (circuit building):
     - Tor authorities, relays, and clients no longer support
-      circuit-building using TAP. (The hidden service protocol
-      still uses TAP.)
+      circuit-building using TAP.
     - Relays make sure their own descriptor has an ntor key.
     - Authorites no longer trust the version a relay claims (if any),
       instead, they check specifically for an ntor key.
@@ -11,4 +10,10 @@
       selected during circuit-building, or as guards, or as directory
       mirrors, or as introduction or rendezvous points.
     - Circuit-building code assumes that all hops can use ntor.
+    - Clients require introduction points to have ntor onion keys
+      in their relay descriptors, rather than using the intro point
+      TAP onion key in the hidden service descriptor.
+    - Hidden services require rendezvous points to have ntor onion keys
+      in their relay descriptors, rather than using the rend point
+      TAP onion key in the INTRODUCE cell.
       Fixes bug 19163; bugfix on 0.2.4.18-rc.
