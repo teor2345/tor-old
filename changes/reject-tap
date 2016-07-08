@@ -1,7 +1,6 @@
   o Major bug fixes (circuit building):
     - Tor authorities, relays, and clients no longer support
-      circuit-building using TAP. (The hidden service protocol
-      still uses TAP.)
+      circuit-building using TAP.
     - Relays make sure their own descriptor has an ntor key.
     - Authorites no longer trust the version a relay claims (if any),
       instead, they check specifically for an ntor key.
