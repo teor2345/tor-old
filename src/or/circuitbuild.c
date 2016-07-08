@@ -365,7 +365,7 @@ circuit_rep_hist_note_result(origin_circuit_t *circ)
   } while (hop!=circ->cpath);
 }
 
-/** Return 1 iff at least one node in circ's cpath supports ntor. */
+/** Return 1 iff every node in circ's cpath definitely supports ntor. */
 static int
 circuit_cpath_supports_ntor(const origin_circuit_t *circ)
 {
@@ -373,16 +373,22 @@ circuit_cpath_supports_ntor(const origin_circuit_t *circ)
 
   cpath = head = circ->cpath;
   do {
-    if (cpath->extend_info &&
-        !tor_mem_is_zero(
+    /* if the extend_info is missing, we can't tell if it supports ntor */
+    if (!cpath->extend_info) {
+      return 0;
+    }
+
+    /* if the key is blank, it definitely doesn't support ntor */
+    if (tor_mem_is_zero(
             (const char*)cpath->extend_info->curve25519_onion_key.public_key,
-            CURVE25519_PUBKEY_LEN))
-      return 1;
+            CURVE25519_PUBKEY_LEN)) {
+      return 0;
+    }
 
     cpath = cpath->next;
   } while (cpath != head);
 
-  return 0;
+  return 1;
 }
 
 /** Pick all the entries in our cpath. Stop and return 0 when we're
