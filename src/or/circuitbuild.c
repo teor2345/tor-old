@@ -403,9 +403,12 @@ onion_populate_cpath(origin_circuit_t *circ)
   /* The path is complete */
   tor_assert(r == 1);
 
+  /* We would like to have every hop support ntor, but sometimes we don't
+   * know a hop's ntor key at this point. Instead, we ensure that circuit
+   * creation and extension only use ntor. */
   int path_supports_ntor = circuit_cpath_supports_ntor(circ);
 
-  /* We would like every extend_info to support ntor, but we have to allow
+  /* We would like every path to support ntor, but we have to allow
    * for bootstrapping: when we're fetching directly from a fallback,
    * authority, or bridge, we have no way of knowing its ntor onion key
    * before we connect to it. So instead, we try connecting, and hope it sends
