@@ -3491,7 +3491,7 @@ options_validate(or_options_t *old_options, or_options_t *options,
     char *dircache_msg = NULL;
     if (have_enough_mem_for_dircache(options, 0, &dircache_msg)) {
       log_warn(LD_CONFIG, "%s", dircache_msg);
-      tor_free(msg);
+      tor_free(dircache_msg);
     }
   }
 
