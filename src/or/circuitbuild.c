@@ -373,10 +373,7 @@ circuit_cpath_supports_ntor(const origin_circuit_t *circ)
 
   cpath = head = circ->cpath;
   do {
-    if (cpath->extend_info &&
-        !tor_mem_is_zero(
-            (const char*)cpath->extend_info->curve25519_onion_key.public_key,
-            CURVE25519_PUBKEY_LEN))
+    if (cpath->extend_info && extend_info_supports_ntor(cpath->extend_info))
       return 1;
 
     cpath = cpath->next;
@@ -810,9 +807,7 @@ circuit_pick_create_handshake(uint8_t *cell_type_out,
                               const extend_info_t *ei)
 {
   /* XXXX029 Remove support for deciding to use TAP. */
-  if (!tor_mem_is_zero((const char*)ei->curve25519_onion_key.public_key,
-                       CURVE25519_PUBKEY_LEN) &&
-      circuits_can_use_ntor()) {
+  if (extend_info_supports_ntor(ei) && circuits_can_use_ntor()) {
     *cell_type_out = CELL_CREATE2;
     *handshake_type_out = ONION_HANDSHAKE_TYPE_NTOR;
     return;
@@ -2451,3 +2446,12 @@ extend_info_addr_is_allowed(const tor_addr_t *addr)
   return 0;
 }
 
+/* Does ei have a valid ntor key? */
+int
+extend_info_supports_ntor(const extend_info_t* ei)
+{
+  /* Valid ntor keys have at least one non-zero byte */
+  return !tor_mem_is_zero(
+                          (const char*)ei->curve25519_onion_key.public_key,
+                          CURVE25519_PUBKEY_LEN);
+}
