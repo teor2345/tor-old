@@ -364,7 +364,7 @@ circuit_rep_hist_note_result(origin_circuit_t *circ)
   } while (hop!=circ->cpath);
 }
 
-/** Return 1 iff at least one node in circ's cpath supports ntor. */
+/** Return 1 iff every node in circ's cpath definitely supports ntor. */
 static int
 circuit_cpath_supports_ntor(const origin_circuit_t *circ)
 {
@@ -372,13 +372,19 @@ circuit_cpath_supports_ntor(const origin_circuit_t *circ)
 
   cpath = head = circ->cpath;
   do {
-    if (cpath->extend_info && extend_info_supports_ntor(cpath->extend_info))
-      return 1;
+    /* if the extend_info is missing, we can't tell if it supports ntor */
+    if (!cpath->extend_info) {
+      return 0;
+    }
 
+    /* if the key is blank, it definitely doesn't support ntor */
+    if (!extend_info_supports_ntor(cpath->extend_info)) {
+      return 0;
+    }
     cpath = cpath->next;
   } while (cpath != head);
 
-  return 0;
+  return 1;
 }
 
 /** Pick all the entries in our cpath. Stop and return 0 when we're
@@ -399,9 +405,7 @@ onion_populate_cpath(origin_circuit_t *circ)
   /* The path is complete */
   tor_assert(r == 1);
 
-  /* We would like to have every hop support ntor, but sometimes we don't
-   * know a hop's ntor key at this point. Instead, we ensure that circuit
-   * creation and extension only use ntor. */
+  /* Does every node in this path support ntor? */
   int path_supports_ntor = circuit_cpath_supports_ntor(circ);
 
   /* We would like every path to support ntor, but we have to allow
