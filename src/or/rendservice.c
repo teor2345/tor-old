@@ -1791,7 +1791,11 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
       goto err;
     }
 
-    rp = extend_info_from_node(node, 0);
+    /* Merge note: Single Onion Services must pass rend_allow_direct_connection
+     * here and below. */
+    rp = extend_info_from_node(
+                            node,
+                            0 /*rend_allow_direct_connection(get_options())*/);
     if (!rp) {
       if (err_msg_out) {
         tor_asprintf(&err_msg,
@@ -1815,6 +1819,59 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
 
     goto err;
   }
+
+  if (!rp) {
+    if (err_msg_out) {
+      tor_asprintf(&err_msg,
+                   "INTRODUCE2 cell produced a NULL rend point.");
+    }
+    goto err;
+  }
+
+  if (!extend_info_supports_ntor(rp)) {
+    const node_t *node;
+    extend_info_t *new_extend_info;
+    if (tor_digest_is_zero(rp->identity_digest))
+      node = node_get_by_hex_id(rp->nickname);
+    else
+      node = node_get_by_id(rp->identity_digest);
+    if (!node) {
+      if (err_msg_out) {
+        tor_asprintf(&err_msg,
+                     "Relay nickname %s in INTRODUCE2 cell does not have a "
+                     "descriptor.", rp->nickname);
+      }
+      extend_info_free(rp);
+      rp = NULL;
+      goto err;
+    }
+    /* Merge note: Single Onion Services must pass rend_allow_direct_connection
+     * here and above */
+    new_extend_info = extend_info_from_node(
+                            node,
+                            0 /*rend_allow_direct_connection(get_options())*/);
+    if (!new_extend_info) {
+      if (err_msg_out) {
+        const char *alternate_reason = "";
+        /* Merge note: Single Onion Services must uncomment this code:
+        if (rend_allow_direct_connection(get_options())) {
+          // hopefully the client will try another rend point we can connect to
+          alternate_reason = ", or we cannot connect directly to it";
+        }
+        */
+        tor_asprintf(&err_msg,
+                  "Relay IP in INTRODUCE2 cell does not have a descriptor%s.",
+                  alternate_reason);
+      }
+      extend_info_free(rp);
+      rp = NULL;
+      goto err;
+    } else {
+      extend_info_free(rp);
+      rp = new_extend_info;
+    }
+  }
+  tor_assert(rp != NULL);
 
   /* Make sure the RP we are being asked to connect to is _not_ a private
    * address unless it's allowed. Let's avoid to build a circuit to our
