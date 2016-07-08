@@ -408,24 +408,21 @@ onion_populate_cpath(origin_circuit_t *circ)
   /* We would like every extend_info to support ntor, but we have to allow
    * for bootstrapping: when we're fetching directly from a fallback,
    * authority, or bridge, we have no way of knowing its ntor onion key
-   * before we connect to it. */
+   * before we connect to it. So instead, we try connecting, and hope it sends
+   * us its ntor key in the CERTS cell. */
   if (circ && circuit_get_cpath_len(circ) == 1 && circ->cpath &&
       circ->cpath->extend_info) {
     /* If we're building a one-hop path, to a node we have a descriptor for,
      * but it doesn't support ntor, something has gone wrong. */
     const node_t *node = node_get_by_id(
                                     circ->cpath->extend_info->identity_digest);
-    if (node && node_has_descriptor(node)) {
-      if (BUG(!path_supports_ntor)) {
-        return -1;
-      }
-    }
-  } else {
-    /* If we're building a multi-hop path, but it doesn't support ntor,
-     * something has gone wrong. */
-    if (BUG(!path_supports_ntor)) {
+    if (BUG(node && node_has_descriptor(node) && !path_supports_ntor)) {
       return -1;
     }
+  } else if (BUG(!path_supports_ntor)) {
+    /* If we're building a multi-hop path, but it doesn't support ntor,
+     * something has gone wrong. */
+    return -1;
   }
 
   return 0;
