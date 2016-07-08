@@ -411,8 +411,8 @@ onion_populate_cpath(origin_circuit_t *circ)
   /* We would like every path to support ntor, but we have to allow
    * for bootstrapping: when we're fetching directly from a fallback,
    * authority, or bridge, we have no way of knowing its ntor onion key
-   * before we connect to it. So instead, we try connecting, and hope it sends
-   * us its ntor key in the CERTS cell. */
+   * before we connect to it. So instead, we try connecting, and end up using
+   * CREATE_FAST. */
   if (circ && circuit_get_cpath_len(circ) == 1 && circ->cpath &&
       circ->cpath->extend_info) {
     /* If we're building a one-hop path, to a node we have a descriptor for,
