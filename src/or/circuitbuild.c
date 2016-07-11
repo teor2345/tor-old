@@ -394,6 +394,10 @@ onion_populate_cpath(origin_circuit_t *circ)
 {
   int r = 0;
 
+  /* onion_extend_cpath assumes these are non-NULL */
+  tor_assert(circ);
+  tor_assert(circ->build_state);
+
   while (r == 0) {
     r = onion_extend_cpath(circ);
     if (r < 0) {
@@ -408,24 +412,47 @@ onion_populate_cpath(origin_circuit_t *circ)
   /* Does every node in this path support ntor? */
   int path_supports_ntor = circuit_cpath_supports_ntor(circ);
 
-  /* We would like every path to support ntor, but we have to allow
-   * for bootstrapping: when we're fetching directly from a fallback,
-   * authority, or bridge, we have no way of knowing its ntor onion key
-   * before we connect to it. So instead, we try connecting, and end up using
-   * CREATE_FAST. */
-  if (circ && circuit_get_cpath_len(circ) == 1 && circ->cpath &&
-      circ->cpath->extend_info) {
-    /* If we're building a one-hop path, to a node we have a descriptor for,
-     * but it doesn't support ntor, something has gone wrong. */
+  /* We would like every path to support ntor, but we have to allow for some
+   * edge cases. */
+  tor_assert(circuit_get_cpath_len(circ));
+  if (circuit_get_cpath_len(circ) == 1) {
+    /* Allow for bootstrapping: when we're fetching directly from a fallback,
+     * authority, or bridge, we have no way of knowing its ntor onion key
+     * before we connect to it. So instead, we try connecting, and end up using
+     * CREATE_FAST.
+     * Direct connections from Tor2web to intro points, and Single Onions to
+     * rend points might not support ntor, if they're not in the consensus we
+     * have. */
+    tor_assert(circ->cpath);
+    tor_assert(circ->cpath->extend_info);
     const node_t *node = node_get_by_id(
                                     circ->cpath->extend_info->identity_digest);
     if (BUG(node && node_has_descriptor(node) && !path_supports_ntor)) {
       return -1;
     }
-  } else if (BUG(!path_supports_ntor)) {
-    /* If we're building a multi-hop path, but it doesn't support ntor,
-     * something has gone wrong. */
-    return -1;
+  } else {
+    /* Multi-hop paths from clients to intro points, and hidden services to
+     * rend points might not support ntor, if they're not in the consensus we
+     * have. */
+    if (circ->base_.purpose == CIRCUIT_PURPOSE_S_CONNECT_REND ||
+        circ->base_.purpose == CIRCUIT_PURPOSE_C_INTRODUCING) {
+      /* These circuit types must have a chosen exit */
+      if (BUG(!circ->build_state->chosen_exit)) {
+        return -1;
+      }
+      /* If we have a descriptor for this node, we should have looked up the
+       * ntor key and added it to chosen_exit. So if the path doesn't support
+       * ntor, something has gone wrong. */
+      const node_t *node = node_get_by_id(
+                              circ->build_state->chosen_exit->identity_digest);
+      if (BUG(node && node_has_descriptor(node) && !path_supports_ntor)) {
+        return -1;
+      }
+    } else if (BUG(!path_supports_ntor)) {
+      /* Otherwise, if we're building a multi-hop path for any other purpose,
+       * but it doesn't support ntor, something has gone wrong. */
+      return -1;
+    }
   }
 
   return 0;
