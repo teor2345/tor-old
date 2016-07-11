@@ -2810,8 +2810,8 @@ test_options_validate__single_onion(void *ignored)
   ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
   tt_int_op(ret, OP_EQ, -1);
   tt_str_op(msg, OP_EQ, "SingleOnionMode is incompatible with using Tor as an "
-            "anonymous client. Please set SocksPort to 0, or SingleOnionMode "
-            "to 0, or use the non-anonymous Tor2webMode.");
+            "anonymous client. Please set Socks/Trans/NATD/DNSPort to 0, or "
+            "SingleOnionMode to 0, or use the non-anonymous Tor2webMode.");
   tor_free(msg);
   free_options_test_data(tdata);
 
