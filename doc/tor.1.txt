@@ -1441,7 +1441,7 @@ The following options are useful only for clients (that is, if
     non-hidden-service hostnames through Tor. It **must only** be used when
     running a tor2web Hidden Service web proxy.
     To enable this option the compile time flag --enable-tor2web-mode must be
-    specified. Since Tor2webMode is non-anonymous, you can not to run an
+    specified. Since Tor2webMode is non-anonymous, you can not run an
     anonymous Hidden Service on a tor version compiled with Tor2webMode.
     (Default: 0)
 
