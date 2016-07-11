@@ -3666,6 +3666,9 @@ typedef struct {
    * Derived booleans: True iff there is a non-listener port on an AF_INET or
    * AF_INET6 address of the given type configured in one of the _lines
    * options above.
+   * If you are checking for client ports, you may want to use:
+   *   SocksPort_set || TransPort_set || NATDPort_set || DNSPort_set
+   * rather than SocksPort_set.
    *
    * @{
    */

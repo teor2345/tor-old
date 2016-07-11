@@ -9,3 +9,8 @@
       implementation, and works on the current tor network without any
       changes to older relays or clients.
       Completes ticket #17178. Patch by teor.
+    o Minor bug fixes (option parsing):
+      Count unix sockets when counting client listeners (SOCKS, Trans,
+      NATD, and DNS). This has no user-visible behaviour changes: these
+      options are set once, and never read.
+      Required for correct behaviour in ticket #17178.
