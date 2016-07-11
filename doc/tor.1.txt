@@ -2401,6 +2401,14 @@ The following options are used to configure a hidden service.
     client is accessing a Single Onion rather than a Hidden Service may be
     statistically distinguishable.
 
+    **WARNING:** Once a hidden service directory has been used by a tor
+    instance in SingleOnionMode, it can **NEVER** be used again for a hidden
+    service. It is best practice to create a new hidden service directory,
+    key, and address for each new Single Onion Service and Hidden Service.
+    It is not possible to run Single Onion Services and Hidden Services from
+    the same tor instance: they should be run on different servers with
+    different IP addresses.
+
     SingleOnionMode requires NonAnonymousMode to be set to 1. Since a Single
     Onion is non-anonymous, you can not to run an anonymous SOCKSPort on the
     same tor instance as a Single Onion service.
