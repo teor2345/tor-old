@@ -951,6 +951,25 @@ rend_service_update_descriptor(rend_service_t *service)
 
 static const char *sos_poison_fname = "non_anonymous_hidden_service";
 
+/* Allocate and return a string containing the path to the single onion
+ * poison file in service.
+ * The caller must free this path.
+ * Returns NULL if there is no directory for service. */
+static char *
+sos_poison_path(const rend_service_t *service)
+{
+  char *poison_path;
+
+  if (!service->directory) {
+    return NULL;
+  }
+
+  tor_asprintf(&poison_path, "%s%s%s",
+               service->directory, PATH_SEPARATOR, sos_poison_fname);
+
+  return poison_path;
+}
+
 /** Return True if hidden services <b>service> has been poisoned by single
  * onion mode. */
 static int
@@ -963,8 +982,8 @@ service_is_single_onion_poisoned(const rend_service_t *service)
     return 0;
   }
 
-  tor_asprintf(&poison_fname, "%s%s%s",
-               service->directory, PATH_SEPARATOR, sos_poison_fname);
+  poison_fname = sos_poison_path(service);
+  tor_assert(poison_fname);
 
   fstatus = file_status(poison_fname);
   tor_free(poison_fname);
@@ -1016,8 +1035,8 @@ poison_single_onion_hidden_service_dir(const rend_service_t *service)
     return 0;
   }
 
-  tor_asprintf(&poison_fname, "%s%s%s",
-               service->directory, PATH_SEPARATOR, sos_poison_fname);
+  poison_fname = sos_poison_path(service);
+  tor_assert(poison_fname);
 
   switch (file_status(poison_fname)) {
   case FN_DIR:
