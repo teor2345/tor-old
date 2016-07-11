@@ -1,4 +1,4 @@
-  o Minor features (onion services):
+  o Major features (onion services):
     - Add experimental SingleOnionMode and NonAnonymousMode options.
       When both are set to 1, every hidden service instance becomes a
       non-anonymous Single Onion Service. Single Onions make one-hop
@@ -8,4 +8,4 @@
       This is compatible with the existing hidden service
       implementation, and works on the current tor network without any
       changes to older relays or clients.
-      Completes ticket #17178. Patch by "teor".
+      Completes ticket #17178. Patch by teor.
