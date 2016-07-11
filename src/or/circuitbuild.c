@@ -828,7 +828,11 @@ circuit_pick_create_handshake(uint8_t *cell_type_out,
                               uint16_t *handshake_type_out,
                               const extend_info_t *ei)
 {
-  /* XXXX030 Remove support for deciding to use TAP. */
+  /* XXXX030 Remove support for deciding to use TAP.
+   * It would be easier to remove TAP if we could make sure that ei either
+   * has an ntor key, or it doesn't have a descriptor. But that's a lot of
+   * code. */
+
   if (extend_info_supports_ntor(ei)) {
     *cell_type_out = CELL_CREATE2;
     *handshake_type_out = ONION_HANDSHAKE_TYPE_NTOR;
@@ -858,7 +862,18 @@ circuit_pick_extend_handshake(uint8_t *cell_type_out,
   uint8_t t;
   circuit_pick_create_handshake(&t, handshake_type_out, ei);
 
-  /* XXXX030 Remove support for deciding to use TAP. */
+  /* XXXX030 Remove support for deciding to use TAP.
+   * The checks below exist to make sure removing TAP support will work. */
+
+  /* It is an error to extend if there is no previous node. */
+  BUG(!node_prev);
+  /* It is an error for a node with a descriptor to not have an ntor key. */
+  BUG(node_prev && node_has_descriptor(node_prev) &&
+      !node_has_curve25519_onion_key(node_prev));
+  /* It is an error for a node with a known version to be so old it does not
+   * support ntor. */
+  BUG(!routerstatus_version_supports_ntor(node_prev->rs, 1));
+
   /* Assume relays without tor versions or routerstatuses support ntor.
    * The authorities enforce ntor support, and assuming and failing is better
    * than allowing a malicious node to perform a protocol downgrade to TAP. */
