@@ -3262,11 +3262,14 @@ options_validate(or_options_t *old_options, or_options_t *options,
 
   /* If you run an anonymous client with an active Single Onion service, the
    * client loses anonymity. */
-  if (options->SingleOnionMode && options->SocksPort_set
-      && !options->Tor2webMode) {
+  const int client_port_set = (options->SocksPort_set ||
+                               options->TransPort_set ||
+                               options->NATDPort_set ||
+                               options->DNSPort_set);
+  if (options->SingleOnionMode && client_port_set && !options->Tor2webMode) {
     REJECT("SingleOnionMode is incompatible with using Tor as an anonymous "
-           "client. Please set SocksPort to 0, or SingleOnionMode to 0, or "
-           "use the non-anonymous Tor2webMode.");
+           "client. Please set Socks/Trans/NATD/DNSPort to 0, or "
+           "SingleOnionMode to 0, or use the non-anonymous Tor2webMode.");
   }
 
   /* If you run a hidden service in non-anonymous mode, the hidden service
