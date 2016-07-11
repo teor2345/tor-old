@@ -1758,6 +1758,15 @@ rend_service_receive_introduction(origin_circuit_t *circuit,
   return status;
 }
 
+/* This is a stub function, it should be deleted when the Single Onion Service
+ * code in #17178 is merged. */
+static int
+rend_allow_direct_connection(const or_options_t *options)
+{
+  (void)options;
+  return 0;
+}
+
 /** Given a parsed and decrypted INTRODUCE2, find the rendezvous point or
  * return NULL and an error string if we can't. Return a newly allocated
  * extend_info_t* for the rendezvous point. */
@@ -1791,11 +1800,7 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
       goto err;
     }
 
-    /* Merge note: Single Onion Services must pass rend_allow_direct_connection
-     * here and below. */
-    rp = extend_info_from_node(
-                            node,
-                            0 /*rend_allow_direct_connection(get_options())*/);
+    rp = extend_info_from_node(node, 0);
     if (!rp) {
       if (err_msg_out) {
         tor_asprintf(&err_msg,
@@ -1828,7 +1833,7 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
     goto err;
   }
 
-  if (!extend_info_supports_ntor(rp)) {
+  if (!rp->onion_key || !extend_info_supports_ntor(rp)) {
     const node_t *node;
     extend_info_t *new_extend_info;
     if (tor_digest_is_zero(rp->identity_digest))
@@ -1845,20 +1850,17 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
       rp = NULL;
       goto err;
     }
-    /* Merge note: Single Onion Services must pass rend_allow_direct_connection
-     * here and above */
     new_extend_info = extend_info_from_node(
                             node,
-                            0 /*rend_allow_direct_connection(get_options())*/);
+                            rend_allow_direct_connection(get_options()));
     if (!new_extend_info) {
       if (err_msg_out) {
         const char *alternate_reason = "";
-        /* Merge note: Single Onion Services must uncomment this code:
         if (rend_allow_direct_connection(get_options())) {
-          // hopefully the client will try another rend point we can connect to
+          /* hopefully the client will try another rend point we can connect to
+           */
           alternate_reason = ", or we cannot connect directly to it";
         }
-        */
         tor_asprintf(&err_msg,
                   "Relay IP in INTRODUCE2 cell does not have a descriptor%s.",
                   alternate_reason);
@@ -1867,6 +1869,17 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
       rp = NULL;
       goto err;
     } else {
+      /* Replace the old extend_info with the one we've just looked up.
+       * This ensures we have an ntor key if the node is in our consensus.
+       * There are two possible drawbacks to doing this:
+       * - we replace a newer TAP key with an older TAP key. This is ok,
+       *   because we are guaranteed an ntor key, so we won't use TAP.
+       * - we replace a newer IP and port with older IP and port. This is
+       *   problematic, because the client has just built a circuit to this
+       *   rend point, and so it is more likely to have an accurate IP
+       *   than our consensus. On the other hand, if we believe the IP in the
+       *   consensus, we defend ourselves against client bugs and arbitrary
+       *   rendezvous IP address attacks. */
       extend_info_free(rp);
       rp = new_extend_info;
     }

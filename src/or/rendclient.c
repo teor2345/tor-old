@@ -1357,7 +1357,9 @@ rend_client_get_random_intro_impl(const rend_cache_entry_t *entry,
     smartlist_del(usable_nodes, i);
     goto again;
   }
-  if (!extend_info_supports_ntor(intro->extend_info)) {
+  /* Add TAP and ntor onion keys to the extend_info if they are missing */
+  if (!intro->extend_info->onion_key ||
+      !extend_info_supports_ntor(intro->extend_info)) {
     const node_t *node;
     extend_info_t *new_extend_info;
     if (tor_digest_is_zero(intro->extend_info->identity_digest))
@@ -1386,6 +1388,14 @@ rend_client_get_random_intro_impl(const rend_cache_entry_t *entry,
       smartlist_del(usable_nodes, i);
       goto again;
     } else {
+      /* Replace the old extend_info with the one we've just looked up.
+       * This ensures we have an ntor key if the node is in our consensus.
+       * There are two possible drawbacks to doing this:
+       * - we replace a newer TAP key with an older TAP key. This is ok,
+       *   because we are guaranteed an ntor key, so we won't use TAP.
+       * - we replace a newer IP and port with older IP and port. This is
+       *   ok, because the consensus is more likely to have an accurate IP
+       *   than a descriptor, which can be up to 72 hours old. */
       extend_info_free(intro->extend_info);
       intro->extend_info = new_extend_info;
     }
