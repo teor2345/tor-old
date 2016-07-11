@@ -816,64 +816,62 @@ circuit_timeout_want_to_count_circ(origin_circuit_t *circ)
           && circ->build_state->desired_path_len == DEFAULT_ROUTE_LEN;
 }
 
-/** Use an ntor handshake for connecting to <b>ei</b> directly.
- * Set *<b>cell_type_out</b> and *<b>handshake_type_out</b> to ntor. */
+/** Decide whether to use a TAP or ntor handshake for connecting to <b>ei</b>
+ * directly, and set *<b>cell_type_out</b> and *<b>handshake_type_out</b>
+ * accordingly.
+ * Note that TAP handshakes are only used for direct connections:
+ *  - from Tor2web to intro points not in the client's consensus, and
+ *  - from Single Onions to rend points not in the service's consensus.
+ * This is checked in onion_populate_cpath. */
 static void
-circuit_set_create_handshake(uint8_t *cell_type_out,
-                             uint16_t *handshake_type_out,
-                             const extend_info_t *ei)
+circuit_pick_create_handshake(uint8_t *cell_type_out,
+                              uint16_t *handshake_type_out,
+                              const extend_info_t *ei)
 {
-  /* We no longer support TAP, but sometimes we don't know if a relay supports
-   * ntor before connecting to it. Log this, just in case it turns out that we
-   * really needed TAP for something. */
-  if (!extend_info_supports_ntor(ei)) {
-    log_info(LD_CIRC, "ntor onion key not in extend_info, but trying ntor "
-             "create to relay %s", extend_info_describe(ei));
+  /* XXXX030 Remove support for deciding to use TAP. */
+  if (extend_info_supports_ntor(ei)) {
+    *cell_type_out = CELL_CREATE2;
+    *handshake_type_out = ONION_HANDSHAKE_TYPE_NTOR;
+    return;
   }
 
-  *cell_type_out = CELL_CREATE2;
-  *handshake_type_out = ONION_HANDSHAKE_TYPE_NTOR;
+  *cell_type_out = CELL_CREATE;
+  *handshake_type_out = ONION_HANDSHAKE_TYPE_TAP;
 }
 
-/** Use an ntor handshake for connecting to <b>ei</b> directly.
- * Set *<b>handshake_type_out</b> to ntor. Decide whether,
- * in extending through <b>node_prev</b> to do so, we should use an EXTEND2 or
- * an EXTEND cell to do so, and set *<b>cell_type_out</b> and
- * *<b>create_cell_type_out</b> accordingly. */
+/** Decide whether to use a TAP or ntor handshake for connecting to <b>ei</b>
+ * directly, and set *<b>handshake_type_out</b> accordingly. Decide whether,
+ * in extending through <b>node</b> to do so, we should use an EXTEND2 or an
+ * EXTEND cell to do so, and set *<b>cell_type_out</b> and
+ * *<b>create_cell_type_out</b> accordingly.
+ * Note that TAP handshakes are only used for extend handshakes:
+ *  - from clients to intro points not in the client's consensus, and
+ *  - from hidden services to rend points not in the service's consensus.
+ * This is checked in onion_populate_cpath. */
 static void
-circuit_set_extend_handshake(uint8_t *cell_type_out,
-                             uint8_t *create_cell_type_out,
-                             uint16_t *handshake_type_out,
-                             const node_t *node_prev,
-                             const extend_info_t *ei)
+circuit_pick_extend_handshake(uint8_t *cell_type_out,
+                              uint8_t *create_cell_type_out,
+                              uint16_t *handshake_type_out,
+                              const node_t *node_prev,
+                              const extend_info_t *ei)
 {
   uint8_t t;
-  circuit_set_create_handshake(&t, handshake_type_out, ei);
+  circuit_pick_create_handshake(&t, handshake_type_out, ei);
 
-  /* We no longer support TAP, but sometimes we don't know if a relay supports
-   * ntor before extending to it. Log this, just in case it turns out that we
-   * really needed TAP for something. */
-
-  if (!node_prev) {
-    log_info(LD_CIRC, "ntor missing previous node, but trying ntor "
-             "extend to relay %s", extend_info_describe(ei));
-  }
-
-  tor_assert(*handshake_type_out != ONION_HANDSHAKE_TYPE_TAP);
-
-  const int node_key = node_has_curve25519_onion_key(node_prev);
-  const int node_vers = (node_prev && node_prev->rs &&
-                         routerstatus_version_supports_ntor(node_prev->rs, 0));
-
-  if (!node_key || !node_vers) {
-    log_info(LD_CIRC, "ntor onion key not in previous node, and previous node "
-             "version does not support ntor, but trying ntor extend to relay "
-             "%s via relay %s", extend_info_describe(ei),
-             node_describe(node_prev));
-  }
-
-  *cell_type_out = RELAY_COMMAND_EXTEND2;
-  *create_cell_type_out = CELL_CREATE2;
+  /* XXXX030 Remove support for deciding to use TAP. */
+  /* Assume relays without tor versions or routerstatuses support ntor.
+   * The authorities enforce ntor support, and assuming and failing is better
+   * than allowing a malicious node to perform a protocol downgrade to TAP. */
+  if (node_prev &&
+      *handshake_type_out != ONION_HANDSHAKE_TYPE_TAP &&
+      (node_has_curve25519_onion_key(node_prev) ||
+       (routerstatus_version_supports_ntor(node_prev->rs, 1)))) {
+        *cell_type_out = RELAY_COMMAND_EXTEND2;
+        *create_cell_type_out = CELL_CREATE2;
+      } else {
+        *cell_type_out = RELAY_COMMAND_EXTEND;
+        *create_cell_type_out = CELL_CREATE;
+      }
 }
 
 /** This is the backbone function for building circuits.
@@ -912,7 +910,7 @@ circuit_send_next_onion_skin(origin_circuit_t *circ)
       /* We are an OR and we know the right onion key: we should
        * send a create cell.
        */
-      circuit_set_create_handshake(&cc.cell_type, &cc.handshake_type,
+      circuit_pick_create_handshake(&cc.cell_type, &cc.handshake_type,
                                    circ->cpath->extend_info);
     } else {
       /* We are not an OR, and we're building the first hop of a circuit to a
@@ -1029,7 +1027,7 @@ circuit_send_next_onion_skin(origin_circuit_t *circ)
     {
       const node_t *prev_node;
       prev_node = node_get_by_id(hop->prev->extend_info->identity_digest);
-      circuit_set_extend_handshake(&ec.cell_type,
+      circuit_pick_extend_handshake(&ec.cell_type,
                                     &ec.create_cell.cell_type,
                                     &ec.create_cell.handshake_type,
                                     prev_node,
