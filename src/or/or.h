@@ -3774,8 +3774,9 @@ typedef struct {
    * rend_reveal_startup_time() instead of using this option directly.
    */
   int SingleOnionMode;
-  /* Set to 1 to allow non-anonymous modes, such as Single Onion Mode.
-   */
+  /* Set to 1 to allow the non-anonymous SingleOnionMode on this tor instance.
+   * This option also enables direct connections in parts of the hidden
+   * service protocol. */
   int NonAnonymousMode;
 
   int ConnLimit; /**< Demanded minimum number of simultaneous connections. */
