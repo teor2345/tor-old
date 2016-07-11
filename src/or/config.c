@@ -4337,8 +4337,7 @@ options_transition_allowed(const or_options_t *old,
     return -1;
   }
 
-  if (old->SingleOnionMode !=
-      new_val->SingleOnionMode) {
+  if (old->SingleOnionMode != new_val->SingleOnionMode) {
     *msg = tor_strdup("While Tor is running, changing SingleOnionMode is not "
                       "allowed.");
     return -1;
