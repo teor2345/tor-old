@@ -2415,9 +2415,9 @@ The following options are used to configure a hidden service.
     (Default: 0)
 
 [[NonAnonymousMode]] **NonAnonymousMode** **0**|**1**::
-    Set to 1 to allow the non-anonymous SingleOnionMode on this tor instance.
-    This option also enables direct connections in parts of the hidden
-    service protocol.
+    Makes hidden service clients and servers non-anonymous on this tor
+    instance. Allows the non-anonymous SingleOnionMode. Enables direct
+    connections in the hidden service protocol.
     (Default: 0)
 
 TESTING NETWORK OPTIONS
