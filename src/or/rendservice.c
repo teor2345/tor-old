@@ -996,20 +996,23 @@ service_is_single_onion_poisoned(const rend_service_t *service)
 
 /** Return True if any of the active hidden services have been poisoned by
  * OnionServiceSingleHopMode. If a <b>service_list</b> is provided, treat it
- * as the list of hidden services (used in unittests)*/
+ * as the list of hidden services (used in unittests). */
 int
-rend_services_are_single_onion_poisoned(smartlist_t *service_list)
+rend_services_are_single_onion_poisoned(const smartlist_t *service_list)
 {
+  const smartlist_t *s_list;
   /* If no special service list is provided, then just use the global one. */
   if (!service_list) {
-    if (!rend_service_list) { /* No global HS list. Nothing see here. */
+    if (!rend_service_list) { /* No global HS list. Nothing to see here. */
       return 0;
     }
 
-    service_list = rend_service_list;
+    s_list = rend_service_list;
+  } else {
+    s_list = service_list;
   }
 
-  SMARTLIST_FOREACH_BEGIN(service_list, rend_service_t *, s) {
+  SMARTLIST_FOREACH_BEGIN(s_list, const rend_service_t *, s) {
     if (service_is_single_onion_poisoned(s)) {
       return 1;
     }
@@ -1073,18 +1076,21 @@ poison_single_onion_hidden_service_dir(const rend_service_t *service)
  * provided, treat it as the list of hidden services (used in unittests).
  * Return 0 on success, -1 on fail. */
 int
-rend_service_poison_all_single_onion_dirs(smartlist_t *service_list)
+rend_service_poison_all_single_onion_dirs(const smartlist_t *service_list)
 {
+  const smartlist_t *s_list;
   /* If no special service list is provided, then just use the global one. */
   if (!service_list) {
-    if (!rend_service_list) { /* No global HS list. Nothing to poison */
+    if (!rend_service_list) { /* No global HS list. Nothing to see here. */
       return 0;
     }
 
-    service_list = rend_service_list;
+    s_list = rend_service_list;
+  } else {
+    s_list = service_list;
   }
 
-  SMARTLIST_FOREACH_BEGIN(service_list, rend_service_t *, s) {
+  SMARTLIST_FOREACH_BEGIN(s_list, const rend_service_t *, s) {
     if (poison_single_onion_hidden_service_dir(s) < 0) {
       return -1;
     }
