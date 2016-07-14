@@ -1761,7 +1761,7 @@ rend_service_receive_introduction(origin_circuit_t *circuit,
 /* This is a stub function, it should be deleted when the Single Onion Service
  * code in #17178 is merged. */
 static int
-rend_allow_direct_connection(const or_options_t *options)
+rend_service_allow_direct_connection(const or_options_t *options)
 {
   (void)options;
   return 0;
@@ -1852,11 +1852,12 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
     }
     new_extend_info = extend_info_from_node(
                             node,
-                            rend_allow_direct_connection(get_options()));
+                            rend_service_allow_direct_connection(
+                                                              get_options()));
     if (!new_extend_info) {
       if (err_msg_out) {
         const char *alternate_reason = "";
-        if (rend_allow_direct_connection(get_options())) {
+        if (rend_service_allow_direct_connection(get_options())) {
           /* hopefully the client will try another rend point we can connect to
            */
           alternate_reason = ", or we cannot connect directly to it";
