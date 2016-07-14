@@ -1122,3 +1122,4 @@ rend_non_anonymous_mode_enabled(const or_options_t *options)
   return 0;
 #endif
 }
+
