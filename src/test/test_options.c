@@ -2898,7 +2898,7 @@ test_options_validate__single_onion(void *ignored)
   tt_int_op(ret, OP_EQ, 0);
   tt_ptr_op(msg, OP_EQ, NULL);
 
-done:
+ done:
   policies_free_all();
   teardown_capture_of_logs(previous_log);
   free_options_test_data(tdata);
