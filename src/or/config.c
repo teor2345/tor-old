@@ -3262,6 +3262,15 @@ options_validate(or_options_t *old_options, or_options_t *options,
            "It must be used with OnionServiceNonAnonymousMode set to 1.");
   }
 
+  /* If you have OnionServiceNonAnonymousMode set, you must use
+   * OnionServiceSingleHopMode. (OnionServiceNonAnonymousMode does not allow
+   * Tor2webMode at this time, Tor2webMode has to be compiled in.) */
+  if (options->OnionServiceNonAnonymousMode &&
+      !options->OnionServiceSingleHopMode) {
+    REJECT("OnionServiceNonAnonymousMode must be used with "
+           "OnionServiceSingleHopMode set to 1.");
+  }
+
   /* If you run an anonymous client with an active Single Onion service, the
    * client loses anonymity. */
   const int client_port_set = (options->SocksPort_set ||
@@ -3279,7 +3288,7 @@ options_validate(or_options_t *old_options, or_options_t *options,
   /* If you run a hidden service in non-anonymous mode, the hidden service
    * loses anonymity, even if SOCKSPort / Tor2web mode isn't used. */
   if (!options->OnionServiceSingleHopMode && options->RendConfigLines
-      && rend_non_anonymous_mode_enabled(options)) {
+      && options->Tor2webMode) {
     REJECT("Non-anonymous (Tor2web) mode is incompatible with using Tor as a "
            "hidden service. Please remove all HiddenServiceDir lines, or use "
            "a version of tor compiled without --enable-tor2web-mode, or use "
