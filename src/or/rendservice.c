@@ -960,9 +960,7 @@ sos_poison_path(const rend_service_t *service)
 {
   char *poison_path;
 
-  if (!service->directory) {
-    return NULL;
-  }
+  tor_assert(service->directory);
 
   tor_asprintf(&poison_path, "%s%s%s",
                service->directory, PATH_SEPARATOR, sos_poison_fname);
