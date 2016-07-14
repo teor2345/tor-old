@@ -3254,18 +3254,17 @@ options_validate(or_options_t *old_options, or_options_t *options,
     options->PredictedPortsRelevanceTime = MAX_PREDICTED_CIRCS_RELEVANCE;
   }
 
-  /* You must set OnionServiceNonAnonymousMode to 1 or #define
-   * NON_ANONYMOUS_MODE_ENABLED to use OnionServiceSingleHopMode */
+  /* You must set OnionServiceNonAnonymousMode to 1 to use
+   * OnionServiceSingleHopMode */
   if (options->OnionServiceSingleHopMode &&
-      !rend_non_anonymous_mode_enabled(options)) {
+      !rend_service_non_anonymous_mode_enabled(options)) {
     REJECT("OnionServiceSingleHopMode does not provide any server anonymity. "
            "It must be used with OnionServiceNonAnonymousMode set to 1.");
   }
 
   /* If you have OnionServiceNonAnonymousMode set, you must use
-   * OnionServiceSingleHopMode. (OnionServiceNonAnonymousMode does not allow
-   * Tor2webMode at this time, Tor2webMode has to be compiled in.) */
-  if (options->OnionServiceNonAnonymousMode &&
+   * OnionServiceSingleHopMode. */
+  if (rend_service_non_anonymous_mode_enabled(options) &&
       !options->OnionServiceSingleHopMode) {
     REJECT("OnionServiceNonAnonymousMode must be used with "
            "OnionServiceSingleHopMode set to 1.");
