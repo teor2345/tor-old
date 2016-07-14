@@ -3769,13 +3769,16 @@ typedef struct {
    * Onion servers easily locatable, but clients remain location-anonymous.
    * OnionServiceSingleHopMode requires OnionServiceNonAnonymousMode to be set
    * to 1.
-   * Consider using rend_allow_direct_connection() or
-   * rend_reveal_startup_time() instead of using this option directly.
+   * Use rend_service_allow_direct_connection() or
+   * rend_service_reveal_startup_time() instead of using this option directly.
    */
   int OnionServiceSingleHopMode;
   /* Makes hidden service clients and servers non-anonymous on this tor
    * instance. Allows the non-anonymous OnionServiceSingleHopMode. Enables
-   * direct connections in the hidden service protocol. */
+   * direct connections in the hidden service protocol.
+   * Use rend_service_non_anonymous_mode() instead of using this option
+   * directly.
+   */
   int OnionServiceNonAnonymousMode;
 
   int ConnLimit; /**< Demanded minimum number of simultaneous connections. */

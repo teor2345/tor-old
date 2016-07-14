@@ -1067,59 +1067,25 @@ rend_auth_decode_cookie(const char *cookie_in, uint8_t *cookie_out,
   return res;
 }
 
-/* Do the options allow us to make direct connections to introduction or
- * rendezvous points?
- * Returns true if tor is in Tor2web or OnionServiceSingleHopMode. */
+/* Is this a rend client or server that allows direct connections?
+ * Prefer rend_client_allow_direct_connection() or
+ * rend_service_allow_direct_connection() whenever possible, so that checks
+ * are specific to Single Onion Services or Tor2web. */
 int
-rend_allow_direct_connection(const or_options_t *options)
+rend_allow_direct_connection(const or_options_t* options)
 {
-  if (options->OnionServiceSingleHopMode) {
-    return 1;
-  }
-
-  /* Using NON_ANONYMOUS_MODE_ENABLED rather than
-   * rend_non_anonymous_mode_enabled() means that Tor2web support needs to
-   * be compiled in to a tor binary. */
-
-#ifdef NON_ANONYMOUS_MODE_ENABLED
-  /* Tor2web */
-  return 1;
-#else
-  return 0;
-#endif
+  return (rend_client_allow_direct_connection(options)
+          || rend_service_allow_direct_connection(options));
 }
 
-/* Do the options allow us to reveal the exact startup time of the onion
- * service?
- * Single Onion Services prioritise availability over hiding their
- * startup time, as their IP address is publicly discoverable anyway.
- * Returns true if tor is in OnionServiceSingleHopMode. */
-int
-rend_reveal_startup_time(const or_options_t *options)
-{
-  /* Even though it only applies to onion services, this code is in rendcommon
-   * so that it's near the other Single Onion option code. */
-  if (options->OnionServiceSingleHopMode) {
-    return 1;
-  }
-
-  return 0;
-}
-
-/* Is non-anonymous mode enabled, either via NON_ANONYMOUS_MODE_ENABLED at
- * compile-time, or the OnionServiceNonAnonymousMode config option? */
+/* Is this a rend client or server in non-anonymous mode?
+ * Prefer rend_client_non_anonymous_mode_enabled() or
+ * rend_service_non_anonymous_mode_enabled() whenever possible, so that checks
+ * are specific to Single Onion Services or Tor2web. */
 int
 rend_non_anonymous_mode_enabled(const or_options_t *options)
 {
-  if (options->OnionServiceNonAnonymousMode) {
-    return 1;
-  }
-
-#ifdef NON_ANONYMOUS_MODE_ENABLED
-  /* Tor2web */
-  return 1;
-#else
-  return 0;
-#endif
+  return (rend_client_non_anonymous_mode_enabled(options)
+          || rend_service_non_anonymous_mode_enabled(options));
 }
 
