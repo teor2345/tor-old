@@ -1362,7 +1362,7 @@ rend_client_get_random_intro_impl(const rend_cache_entry_t *entry,
       smartlist_del(usable_nodes, i);
       goto again;
     }
-    int direct_conn = rend_allow_direct_connection(options);
+    int direct_conn = rend_client_allow_direct_connection(options);
     new_extend_info = extend_info_from_node(node, direct_conn);
     if (!new_extend_info) {
       const char *alternate_reason = (direct_conn
@@ -1521,5 +1521,29 @@ rend_parse_service_authorization(const or_options_t *options,
     strmap_free(parsed, rend_service_authorization_strmap_item_free);
   }
   return res;
+}
+
+/* Do the options allow clients to make direct connections to introduction or
+ * rendezvous points?
+ * Returns true if tor was compiled with NON_ANONYMOUS_MODE_ENABLED. */
+int
+rend_client_allow_direct_connection(const or_options_t *options)
+{
+  return rend_client_non_anonymous_mode_enabled(options);
+}
+
+/* Was non-anonymous mode enabled via NON_ANONYMOUS_MODE_ENABLED at
+ * compile-time? */
+int
+rend_client_non_anonymous_mode_enabled(const or_options_t *options)
+{
+  (void)options;
+  /* Tor2web support needs to be compiled in to a tor binary. */
+#ifdef NON_ANONYMOUS_MODE_ENABLED
+  /* Tor2web */
+  return 1;
+#else
+  return 0;
+#endif
 }
 

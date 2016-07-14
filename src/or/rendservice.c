@@ -1775,7 +1775,7 @@ rend_service_receive_introduction(origin_circuit_t *circuit,
   for (i=0;i<MAX_REND_FAILURES;i++) {
     int flags = CIRCLAUNCH_NEED_CAPACITY | CIRCLAUNCH_IS_INTERNAL;
     if (circ_needs_uptime) flags |= CIRCLAUNCH_NEED_UPTIME;
-    if (rend_allow_direct_connection(options)) {
+    if (rend_service_allow_direct_connection(options)) {
           flags = flags | CIRCLAUNCH_ONEHOP_TUNNEL;
     }
     launched = circuit_launch_by_extend_info(
@@ -1891,7 +1891,8 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
     }
 
     rp = extend_info_from_node(node,
-                               rend_allow_direct_connection(get_options()));
+                               rend_service_allow_direct_connection(
+                                                              get_options()));
     if (!rp) {
       if (err_msg_out) {
         tor_asprintf(&err_msg,
@@ -2691,7 +2692,7 @@ rend_service_relaunch_rendezvous(origin_circuit_t *oldcirc)
            safe_str(extend_info_describe(oldstate->chosen_exit)));
 
   int flags = CIRCLAUNCH_NEED_CAPACITY | CIRCLAUNCH_IS_INTERNAL;
-  if (rend_allow_direct_connection(get_options())) {
+  if (rend_service_allow_direct_connection(get_options())) {
     flags = flags | CIRCLAUNCH_ONEHOP_TUNNEL;
   }
 
@@ -2724,7 +2725,7 @@ rend_service_launch_establish_intro(rend_service_t *service,
   origin_circuit_t *launched;
   int flags = CIRCLAUNCH_NEED_UPTIME|CIRCLAUNCH_IS_INTERNAL;
 
-  if (rend_allow_direct_connection(get_options())) {
+  if (rend_service_allow_direct_connection(get_options())) {
     flags = flags | CIRCLAUNCH_ONEHOP_TUNNEL;
   }
 
@@ -3707,7 +3708,7 @@ rend_consider_services_intro_points(void)
       smartlist_add(exclude_nodes, (void*)node);
       intro = tor_malloc_zero(sizeof(rend_intro_point_t));
       intro->extend_info = extend_info_from_node(node,
-                                        rend_allow_direct_connection(options));
+                                rend_service_allow_direct_connection(options));
       intro->intro_key = crypto_pk_new();
       const int fail = crypto_pk_generate_key(intro->intro_key);
       tor_assert(!fail);
@@ -3768,7 +3769,7 @@ rend_consider_services_upload(time_t now)
       /* Single Onion Services prioritise availability over hiding their
        * startup time, as their IP address is publicly discoverable anyway.
        */
-      if (rend_reveal_startup_time(options)) {
+      if (rend_service_reveal_startup_time(options)) {
         service->next_upload_time = now + rendinitialpostdelay;
       }
     }
@@ -4009,5 +4010,45 @@ rend_service_set_connection_addr_port(edge_connection_t *conn,
     return -1;
   else
     return -2;
+}
+
+/* Do the options allow services to make direct connections to introduction or
+ * rendezvous points?
+ * Returns true if tor is in OnionServiceSingleHopMode. */
+int
+rend_service_allow_direct_connection(const or_options_t *options)
+{
+  if (options->OnionServiceSingleHopMode) {
+    return 1;
+  }
+
+  return 0;
+}
+
+/* Do the options allow us to reveal the exact startup time of the onion
+ * service?
+ * Single Onion Services prioritise availability over hiding their
+ * startup time, as their IP address is publicly discoverable anyway.
+ * Returns true if tor is in OnionServiceSingleHopMode. */
+int
+rend_service_reveal_startup_time(const or_options_t *options)
+{
+  if (options->OnionServiceSingleHopMode) {
+    return 1;
+  }
+
+  return 0;
+}
+
+/* Is non-anonymous mode enabled using the OnionServiceNonAnonymousMode
+ * config option? */
+int
+rend_service_non_anonymous_mode_enabled(const or_options_t *options)
+{
+  if (options->OnionServiceNonAnonymousMode) {
+    return 1;
+  }
+
+  return 0;
 }
 
