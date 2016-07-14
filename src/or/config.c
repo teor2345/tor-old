@@ -296,8 +296,8 @@ static config_var_t option_vars_[] = {
   V(HidServAuth,                 LINELIST, NULL),
   V(CloseHSClientCircuitsImmediatelyOnTimeout, BOOL, "0"),
   V(CloseHSServiceRendCircuitsImmediatelyOnTimeout, BOOL, "0"),
-  V(SingleOnionMode,             BOOL,     "0"),
-  V(NonAnonymousMode,            BOOL,     "0"),
+  V(OnionServiceSingleHopMode,   BOOL,     "0"),
+  V(OnionServiceNonAnonymousMode,BOOL,     "0"),
   V(HTTPProxy,                   STRING,   NULL),
   V(HTTPProxyAuthenticator,      STRING,   NULL),
   V(HTTPSProxy,                  STRING,   NULL),
@@ -1666,24 +1666,25 @@ options_act(const or_options_t *old_options)
     return -1;
   }
 
-  /* If we use the insecure Single Onion mode, make sure we poison our hidden
-     service directories, so that we never accidentally launch the
+  /* If we use the insecure OnionServiceSingleHopMode, make sure we poison our
+     hidden service directories, so that we never accidentally launch the
      non-anonymous hidden services thinking they are anonymous. */
-  if (running_tor && options->SingleOnionMode) {
+  if (running_tor && options->OnionServiceSingleHopMode) {
     if (rend_service_poison_all_single_onion_dirs(NULL) < 0) {
       log_warn(LD_GENERAL,"Failed to mark hidden services as Single Onion.");
       return -1;
     }
   }
 
-  /* If we are running hidden services not in Single Onion mode, check if they
-     have been poisoned by Single Onion mode, and refuse to launch them if so.
+  /* If we are running hidden services not in OnionServiceSingleHopMode, check
+     if they have been poisoned by OnionServiceSingleHopMode, and refuse to
+     launch them if so.
    */
-  if (!options->SingleOnionMode &&
-      num_rend_services()) {
+  if (!options->OnionServiceSingleHopMode && num_rend_services()) {
     if (rend_services_are_single_onion_poisoned(NULL)) {
       log_warn(LD_GENERAL, "Trying to launch hidden services that used to be "
-               "in the non-anonymous Single Onion mode. This is not allowed.");
+               "in the non-anonymous OnionServiceSingleHopMode. This is not "
+               "allowed.");
       return -1;
     }
   }
@@ -3253,11 +3254,12 @@ options_validate(or_options_t *old_options, or_options_t *options,
     options->PredictedPortsRelevanceTime = MAX_PREDICTED_CIRCS_RELEVANCE;
   }
 
-  /* You must set NonAnonymousMode to 1 or #define NON_ANONYMOUS_MODE_ENABLED
-   * to use SingleOnionMode */
-  if (options->SingleOnionMode && !rend_non_anonymous_mode_enabled(options)) {
-    REJECT("SingleOnionMode does not provide any server anonymity. It must be "
-           "used with NonAnonymousMode set to 1.");
+  /* You must set OnionServiceNonAnonymousMode to 1 or #define
+   * NON_ANONYMOUS_MODE_ENABLED to use OnionServiceSingleHopMode */
+  if (options->OnionServiceSingleHopMode &&
+      !rend_non_anonymous_mode_enabled(options)) {
+    REJECT("OnionServiceSingleHopMode does not provide any server anonymity. "
+           "It must be used with OnionServiceNonAnonymousMode set to 1.");
   }
 
   /* If you run an anonymous client with an active Single Onion service, the
@@ -3266,26 +3268,28 @@ options_validate(or_options_t *old_options, or_options_t *options,
                                options->TransPort_set ||
                                options->NATDPort_set ||
                                options->DNSPort_set);
-  if (options->SingleOnionMode && client_port_set && !options->Tor2webMode) {
-    REJECT("SingleOnionMode is incompatible with using Tor as an anonymous "
-           "client. Please set Socks/Trans/NATD/DNSPort to 0, or "
-           "SingleOnionMode to 0, or use the non-anonymous Tor2webMode.");
+  if (options->OnionServiceSingleHopMode && client_port_set &&
+      !options->Tor2webMode) {
+    REJECT("OnionServiceSingleHopMode is incompatible with using Tor as an "
+           "anonymous client. Please set Socks/Trans/NATD/DNSPort to 0, or "
+           "OnionServiceSingleHopMode to 0, or use the non-anonymous "
+           "Tor2webMode.");
   }
 
   /* If you run a hidden service in non-anonymous mode, the hidden service
    * loses anonymity, even if SOCKSPort / Tor2web mode isn't used. */
-  if (!options->SingleOnionMode && options->RendConfigLines
+  if (!options->OnionServiceSingleHopMode && options->RendConfigLines
       && rend_non_anonymous_mode_enabled(options)) {
     REJECT("Non-anonymous (Tor2web) mode is incompatible with using Tor as a "
            "hidden service. Please remove all HiddenServiceDir lines, or use "
            "a version of tor compiled without --enable-tor2web-mode, or use "
-           "the non-anonymous SingleOnionMode.");
+           "the non-anonymous OnionServiceSingleHopMode.");
   }
 
-  if (options->SingleOnionMode
+  if (options->OnionServiceSingleHopMode
       && options->LearnCircuitBuildTimeout) {
-    /* LearnCircuitBuildTimeout and Single Onion mode are incompatible in
-     * two ways:
+    /* LearnCircuitBuildTimeout and OnionServiceSingleHopMode are incompatible
+     * in two ways:
      *
      * - LearnCircuitBuildTimeout results in a low CBT, which
      *   Single Onion use of one-hop intro and rendezvous circuits lowers
@@ -3295,13 +3299,13 @@ options_validate(or_options_t *old_options, or_options_t *options,
      *   using build times for single-hop circuits.
      *
      * If we fix both of these issues someday, we should test
-     * Single Onion mode with LearnCircuitBuildTimeout on again. */
-    log_notice(LD_CONFIG,"SingleOnionMode is enabled; turning "
+     * OnionServiceSingleHopMode with LearnCircuitBuildTimeout on again. */
+    log_notice(LD_CONFIG,"OnionServiceSingleHopMode is enabled; turning "
                "LearnCircuitBuildTimeout off.");
     options->LearnCircuitBuildTimeout = 0;
   }
 
-  if (options->SingleOnionMode
+  if (options->OnionServiceSingleHopMode
       && options->UseEntryGuards) {
     /* Single Onion services do not (and should not) use entry guards
      * in any meaningful way.  Further, Single Onions causes the hidden
@@ -3309,10 +3313,11 @@ options_validate(or_options_t *old_options, or_options_t *options,
      * detector, and it's far easier to turn off entry guards (and
      * thus the path bias detector with it) than to figure out how to
      * make a piece of code which cannot possibly help Single Onions,
-     * compatible with Single Onion mode.
+     * compatible with OnionServiceSingleHopMode.
      */
     log_notice(LD_CONFIG,
-               "SingleOnionMode is enabled; disabling UseEntryGuards.");
+               "OnionServiceSingleHopMode is enabled; disabling "
+               "UseEntryGuards.");
     options->UseEntryGuards = 0;
   }
 
@@ -3378,15 +3383,15 @@ options_validate(or_options_t *old_options, or_options_t *options,
     return -1;
   }
 
-  /* SingleOnionMode: one hop between the onion service server and intro and
-   * rendezvous points */
-  if (options->SingleOnionMode) {
+  /* OnionServiceSingleHopMode: one hop between the onion service server and
+   * intro and rendezvous points */
+  if (options->OnionServiceSingleHopMode) {
     log_warn(LD_CONFIG,
-             "SingleOnionMode is set. Every hidden service on this instance "
-             "is NON-ANONYMOUS. (But clients are still location-anonymous.) "
-             "If Single Onion mode is disabled, Tor will refuse to launch "
-             "hidden services from the same directories, to protect against "
-             "config errors. This setting is for experimental use only.");
+             "OnionServiceSingleHopMode is set. Every hidden service on this "
+             "tor instance is NON-ANONYMOUS. If OnionServiceSingleHopMode is "
+             "disabled, Tor will refuse to launch hidden services from the "
+             "same directories, to protect against config errors. This "
+             "setting is for experimental use only.");
   }
 
   if (!options->LearnCircuitBuildTimeout && options->CircuitBuildTimeout &&
@@ -4337,9 +4342,9 @@ options_transition_allowed(const or_options_t *old,
     return -1;
   }
 
-  if (old->SingleOnionMode != new_val->SingleOnionMode) {
-    *msg = tor_strdup("While Tor is running, changing SingleOnionMode is not "
-                      "allowed.");
+  if (old->OnionServiceSingleHopMode != new_val->OnionServiceSingleHopMode) {
+    *msg = tor_strdup("While Tor is running, changing "
+                      "OnionServiceSingleHopMode is not allowed.");
     return -1;
   }
 
