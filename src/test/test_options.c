@@ -2862,11 +2862,8 @@ test_options_validate__single_onion(void *ignored)
                                 );
   ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
   tt_int_op(ret, OP_EQ, -1);
-  tt_str_op(msg, OP_EQ,
-            "Non-anonymous (Tor2web) mode is incompatible with using Tor as a "
-            "hidden service. Please remove all HiddenServiceDir lines, or use "
-            "a version of tor compiled without --enable-tor2web-mode, or use "
-            "the non-anonymous OnionServiceSingleHopMode.");
+  tt_str_op(msg, OP_EQ, "OnionServiceNonAnonymousMode must be used with "
+            "OnionServiceSingleHopMode set to 1.");
   tor_free(msg);
   free_options_test_data(tdata);
 
@@ -2874,8 +2871,9 @@ test_options_validate__single_onion(void *ignored)
                   "OnionServiceNonAnonymousMode 1\n"
                                 );
   ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
-  tt_int_op(ret, OP_EQ, 0);
-  tt_ptr_op(msg, OP_EQ, NULL);
+  tt_int_op(ret, OP_EQ, -1);
+  tt_str_op(msg, OP_EQ, "OnionServiceNonAnonymousMode must be used with "
+            "OnionServiceSingleHopMode set to 1.");
   free_options_test_data(tdata);
 
   tdata = get_options_test_data(TEST_OPTIONS_DEFAULT_VALUES
