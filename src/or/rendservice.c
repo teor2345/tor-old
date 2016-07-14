@@ -995,8 +995,8 @@ service_is_single_onion_poisoned(const rend_service_t *service)
 }
 
 /** Return True if any of the active hidden services have been poisoned by
- * single onion mode. If a <b>service_list</b> is provided, treat it as the
- * list of hidden services (used in unittests)*/
+ * OnionServiceSingleHopMode. If a <b>service_list</b> is provided, treat it
+ * as the list of hidden services (used in unittests)*/
 int
 rend_services_are_single_onion_poisoned(smartlist_t *service_list)
 {
@@ -1029,7 +1029,7 @@ poison_single_onion_hidden_service_dir(const rend_service_t *service)
   char *poison_fname = NULL;
 
   if (!service->directory) {
-    log_info(LD_REND, "Ephemeral HS started in Single Onion mode.");
+    log_info(LD_REND, "Ephemeral HS started in OnionServiceSingleHopMode.");
     return 0;
   }
 
@@ -1066,11 +1066,12 @@ poison_single_onion_hidden_service_dir(const rend_service_t *service)
   return retval;
 }
 
-/** We just got launched in single onion mode. That's a non-anoymous mode for
- * hidden services; hence we should mark all hidden service directories
- * appropriately so that they are never launched as location-private hidden
- * services again. If a <b>service_list</b> is provided, treat it as the list
- * of hidden services (used in unittests). Return 0 on success, -1 on fail. */
+/** We just got launched in OnionServiceSingleHopMode. That's a non-anoymous
+ * mode for hidden services; hence we should mark all hidden service
+ * directories appropriately so that they are never launched as
+ * location-private hidden services again. If a <b>service_list</b> is
+ * provided, treat it as the list of hidden services (used in unittests).
+ * Return 0 on success, -1 on fail. */
 int
 rend_service_poison_all_single_onion_dirs(smartlist_t *service_list)
 {

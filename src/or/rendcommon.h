@@ -86,12 +86,12 @@ int rend_non_anonymous_mode_enabled(const or_options_t *options);
  *
  * One-hop circuits are permitted:
  *  - for directory connections, or
- *  - in Tor2web or Single Onion modes.
+ *  - in Tor2webMode or OnionServiceSingleHopMode.
  * Otherwise, assert that the circuit is not one-hop.
  *
- * Tor2web and single onion modes are allowed to make multi-hop circuits.
- * For example, single onion HSDir circuits are 3-hop to prevent denial of
- * service.
+ * Tor2webMode and OnionServiceSingleHopMode are allowed to make multi-hop
+ * circuits. For example, single onion HSDir circuits are 3-hop to prevent
+ * denial of service.
  */
 #define assert_circ_onehop_ok(circ, is_dir, options) \
   STMT_BEGIN \
