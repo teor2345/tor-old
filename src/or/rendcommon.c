@@ -1069,11 +1069,11 @@ rend_auth_decode_cookie(const char *cookie_in, uint8_t *cookie_out,
 
 /* Do the options allow us to make direct connections to introduction or
  * rendezvous points?
- * Returns true if tor is in Tor2web or Single Onion mode. */
+ * Returns true if tor is in Tor2web or OnionServiceSingleHopMode. */
 int
 rend_allow_direct_connection(const or_options_t *options)
 {
-  if (options->SingleOnionMode) {
+  if (options->OnionServiceSingleHopMode) {
     return 1;
   }
 
@@ -1093,13 +1093,13 @@ rend_allow_direct_connection(const or_options_t *options)
  * service?
  * Single Onion Services prioritise availability over hiding their
  * startup time, as their IP address is publicly discoverable anyway.
- * Returns true if tor is in Single Onion mode. */
+ * Returns true if tor is in OnionServiceSingleHopMode. */
 int
 rend_reveal_startup_time(const or_options_t *options)
 {
   /* Even though it only applies to onion services, this code is in rendcommon
    * so that it's near the other Single Onion option code. */
-  if (options->SingleOnionMode) {
+  if (options->OnionServiceSingleHopMode) {
     return 1;
   }
 
@@ -1107,11 +1107,11 @@ rend_reveal_startup_time(const or_options_t *options)
 }
 
 /* Is non-anonymous mode enabled, either via NON_ANONYMOUS_MODE_ENABLED at
- * compile-time, or the NonAnonymousMode config option? */
+ * compile-time, or the OnionServiceNonAnonymousMode config option? */
 int
 rend_non_anonymous_mode_enabled(const or_options_t *options)
 {
-  if (options->NonAnonymousMode) {
+  if (options->OnionServiceNonAnonymousMode) {
     return 1;
   }
 
