@@ -119,7 +119,6 @@ typedef struct rend_service_t {
 
 void rend_service_free(rend_service_t *service);
 
-
 #endif
 
 int num_rend_services(void);
