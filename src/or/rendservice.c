@@ -20,6 +20,7 @@
 #include "main.h"
 #include "networkstatus.h"
 #include "nodelist.h"
+#include "policies.h"
 #include "rendclient.h"
 #include "rendcommon.h"
 #include "rendservice.h"
@@ -1775,7 +1776,13 @@ rend_service_receive_introduction(origin_circuit_t *circuit,
   for (i=0;i<MAX_REND_FAILURES;i++) {
     int flags = CIRCLAUNCH_NEED_CAPACITY | CIRCLAUNCH_IS_INTERNAL;
     if (circ_needs_uptime) flags |= CIRCLAUNCH_NEED_UPTIME;
-    if (rend_service_allow_direct_connection(options)) {
+    /* A Single Onion Service only asks for a direct connection if its
+     * firewall rules permit direct connections to the address.
+     * The prefer_ipv6 argument to fascist_firewall_allows_address_addr is
+     * ignored, because pref_only is 0. */
+    if (rend_service_allow_direct_connection(options) &&
+        fascist_firewall_allows_address_addr(&rp->addr, rp->port,
+                                             FIREWALL_OR_CONNECTION, 0, 0)) {
           flags = flags | CIRCLAUNCH_ONEHOP_TUNNEL;
     }
     launched = circuit_launch_by_extend_info(
@@ -1914,6 +1921,14 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
                    (int)(intro->version));
     }
 
+    goto err;
+  }
+
+  if (!rp) {
+    if (err_msg_out) {
+      tor_asprintf(&err_msg,
+                   "INTRODUCE2 cell produced a NULL rend point.");
+    }
     goto err;
   }
 
