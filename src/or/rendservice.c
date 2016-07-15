@@ -1857,6 +1857,27 @@ rend_service_receive_introduction(origin_circuit_t *circuit,
   return status;
 }
 
+/** Given rp, an extend_info from an INTRODUCE2 cell, find the rendezvous
+ * point in the consensus. If for_direct_connect is true, check if it's
+ * reachable via a direct connection based on our firewall rules (including
+ * IPv6). If it's not in the consensus, or not reachable, return NULL.
+ * Return a newly allocated extend_info_t* for the rendezvous point. */
+static extend_info_t *
+find_rp_extend_info_from_consensus(const extend_info_t* rp,
+                                   int for_direct_connect)
+{
+  const node_t *node;
+  if (tor_digest_is_zero(rp->identity_digest))
+    node = node_get_by_hex_id(rp->nickname);
+  else
+    node = node_get_by_id(rp->identity_digest);
+  if (!node) {
+    return NULL;
+  }
+
+  return extend_info_from_node(node, for_direct_connect);
+}
+
 /** Given a parsed and decrypted INTRODUCE2, find the rendezvous point or
  * return NULL and an error string if we can't. Return a newly allocated
  * extend_info_t* for the rendezvous point. */
@@ -1926,37 +1947,13 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
   }
 
   if (!rp->onion_key || !extend_info_supports_ntor(rp)) {
-    const node_t *node;
-    extend_info_t *new_extend_info;
-    if (tor_digest_is_zero(rp->identity_digest))
-      node = node_get_by_hex_id(rp->nickname);
-    else
-      node = node_get_by_id(rp->identity_digest);
-    if (!node) {
-      if (err_msg_out) {
-        tor_asprintf(&err_msg,
-                     "Relay nickname %s in INTRODUCE2 cell does not have a "
-                     "descriptor.", rp->nickname);
-      }
-      extend_info_free(rp);
-      rp = NULL;
-      goto err;
-    }
-    new_extend_info = extend_info_from_node(
-                            node,
-                            rend_service_allow_direct_connection(
-                                                              get_options()));
+    extend_info_t *new_extend_info = NULL;
+    int direct_conn = rend_service_allow_direct_connection(get_options());
+    new_extend_info = find_rp_extend_info_from_consensus(rp, direct_conn);
     if (!new_extend_info) {
       if (err_msg_out) {
-        const char *alternate_reason = "";
-        if (rend_service_allow_direct_connection(get_options())) {
-          /* hopefully the client will try another rend point we can connect to
-           */
-          alternate_reason = ", or we cannot connect directly to it";
-        }
         tor_asprintf(&err_msg,
-                  "Relay IP in INTRODUCE2 cell does not have a descriptor%s.",
-                  alternate_reason);
+                  "Relay in INTRODUCE2 cell does not have a descriptor.");
       }
       extend_info_free(rp);
       rp = NULL;
