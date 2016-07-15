@@ -10,7 +10,7 @@
       clients.
       Implements proposal #260, completes ticket #17178. Patch by teor & asn.
   o Minor features (onion services, circuit building):
-    - Hidden servics opportunistically upgrade to rend point ntor onion keys
+    - Hidden services opportunistically upgrade to rend point ntor onion keys
       from relay descriptors. When the relay descriptor is not available,
       they fall back to the TAP key supplied in the INTRODUCE cell.
       Related to ticket #19163, bugfix on Tor 0.2.4.8-alpha.
