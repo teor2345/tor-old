@@ -1424,6 +1424,19 @@ rend_check_authorization(rend_service_t *service,
   return 1;
 }
 
+/* Can this service make a direct connection to rp?
+ * It must be a single onion service, and the firewall rules must allow rp. */
+static int
+rend_service_use_direct_connection(const or_options_t* options,
+                                   const extend_info_t* rp)
+{
+  /* The prefer_ipv6 argument to fascist_firewall_allows_address_addr is
+   * ignored, because pref_only is 0. */
+  return (rend_service_allow_direct_connection(options) &&
+          fascist_firewall_allows_address_addr(&rp->addr, rp->port,
+                                               FIREWALL_OR_CONNECTION, 0, 0));
+}
+
 /******
  * Handle cells
  ******/
@@ -1758,6 +1771,27 @@ rend_service_receive_introduction(origin_circuit_t *circuit,
   return status;
 }
 
+/** Given rp, an extend_info from an INTRODUCE2 cell, find the rendezvous
+ * point in the consensus. If for_direct_connect is true, check if it's
+ * reachable via a direct connection based on our firewall rules (including
+ * IPv6). If it's not in the consensus, or not reachable, return NULL.
+ * Return a newly allocated extend_info_t* for the rendezvous point. */
+static extend_info_t *
+find_rp_extend_info_from_consensus(const extend_info_t* rp,
+                                   int for_direct_connect)
+{
+  const node_t *node;
+  if (tor_digest_is_zero(rp->identity_digest))
+    node = node_get_by_hex_id(rp->nickname);
+  else
+    node = node_get_by_id(rp->identity_digest);
+  if (!node) {
+    return NULL;
+  }
+
+  return extend_info_from_node(node, for_direct_connect);
+}
+
 /** Given a parsed and decrypted INTRODUCE2, find the rendezvous point or
  * return NULL and an error string if we can't. Return a newly allocated
  * extend_info_t* for the rendezvous point. */
@@ -1769,6 +1803,7 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
   char *err_msg = NULL;
   const char *rp_nickname = NULL;
   const node_t *node = NULL;
+  const or_options_t *options = get_options();
 
   if (!intro) {
     if (err_msg_out)
@@ -1814,6 +1849,80 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
     }
 
     goto err;
+  }
+
+  /* rp must be non-NULL here, because extend_info_dup never returns NULL, and
+   * all other cases goto err if rp is NULL. */
+  tor_assert(rp);
+
+  /* If the rp extend_info is missing an onion or ntor key, try to find the
+   * rendezvous point in the consensus, and use those details. But if we can't
+   * find it, just use what we have. */
+
+  if (!rp->onion_key || !extend_info_supports_ntor(rp)) {
+    /* Do we want to use a direct connection for this rendezvous point? */
+    const int direct_conn = rend_service_allow_direct_connection(options);
+    extend_info_t *new_extend_info = NULL;
+    new_extend_info = find_rp_extend_info_from_consensus(rp, direct_conn);
+    /* Retry with a 3-hop path, perhaps the firewall rules prevent us
+     * connecting directly. */
+    if (!new_extend_info && direct_conn) {
+      log_info(LD_REND, "Single Onion Service could not connect directly "
+               "to client-supplied rendezvous point %s.",
+               safe_str_client(extend_info_describe(rp)));
+      new_extend_info = find_rp_extend_info_from_consensus(rp, 0);
+    }
+    if (new_extend_info) {
+      /* Replace the old extend_info with the one we've just looked up.
+       * This ensures we have an ntor key if the node is in our consensus.
+       * There are two possible drawbacks to doing this:
+       * - we replace a newer TAP key with an older TAP key. This is ok,
+       *   because we are guaranteed an ntor key, so we won't use TAP.
+       * - we replace a newer IP and port with older IP and port. This is
+       *   problematic, because the client has just built a circuit to this
+       *   rend point, and so it is more likely to have an accurate IP
+       *   than our consensus. On the other hand, if we believe the IP in the
+       *   consensus, we defend ourselves against client bugs and arbitrary
+       *   rendezvous IP address attacks. */
+      extend_info_free(rp);
+      rp = new_extend_info;
+    }
+  }
+  tor_assert(rp != NULL);
+
+  /* Will we actually use a direct connection for this rendezvous point? */
+  const int use_direct_conn = rend_service_use_direct_connection(options, rp);
+
+  /* We eventually want all hops to be using ntor, but we can't do ntor if the
+   * node isn't in the consensus, and the INTRODUCE cell doesn't contain an
+   * ntor key. This is normal at the moment, but we still want to log it. */
+  if (!extend_info_supports_ntor(rp)) {
+    if (rp->onion_key) {
+      log_debug(LD_REND, "Using TAP for %s hop to rendezvous point %s.",
+                use_direct_conn ? "single" : "final",
+                safe_str_client(extend_info_describe(rp)));
+    } else {
+      /* A single onion service will use CREATE_FAST for a direct connection,
+       * but will fail if the firewall rules make it use a 3-hop path.
+       * A hidden service will always fail, because it can't extend without
+       * a TAP or ntor key. */
+      char *msg = NULL;
+      tor_asprintf(&msg, "No TAP or ntor onion key for %s hop to rendezvous "
+                   "point %s.",
+                   use_direct_conn ? "single" : "final",
+                   safe_str_client(extend_info_describe(rp)));
+      if (use_direct_conn) {
+        log_info(LD_REND, "%s", msg);
+        tor_free(msg);
+      } else {
+        if (err_msg_out) {
+          err_msg = msg;
+        }
+        extend_info_free(rp);
+        rp = NULL;
+        goto err;
+      }
+    }
   }
 
   /* Make sure the RP we are being asked to connect to is _not_ a private
