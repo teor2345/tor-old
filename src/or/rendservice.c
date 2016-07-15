@@ -20,6 +20,7 @@
 #include "main.h"
 #include "networkstatus.h"
 #include "nodelist.h"
+#include "policies.h"
 #include "rendclient.h"
 #include "rendcommon.h"
 #include "rendservice.h"
@@ -1775,7 +1776,13 @@ rend_service_receive_introduction(origin_circuit_t *circuit,
   for (i=0;i<MAX_REND_FAILURES;i++) {
     int flags = CIRCLAUNCH_NEED_CAPACITY | CIRCLAUNCH_IS_INTERNAL;
     if (circ_needs_uptime) flags |= CIRCLAUNCH_NEED_UPTIME;
-    if (rend_service_allow_direct_connection(options)) {
+    /* A Single Onion Service only asks for a direct connection if its
+     * firewall rules permit direct connections to the address.
+     * The prefer_ipv6 argument to fascist_firewall_allows_address_addr is
+     * ignored, because pref_only is 0. */
+    if (rend_service_allow_direct_connection(options) &&
+        fascist_firewall_allows_address_addr(&rp->addr, rp->port,
+                                             FIREWALL_OR_CONNECTION, 0, 0)) {
           flags = flags | CIRCLAUNCH_ONEHOP_TUNNEL;
     }
     launched = circuit_launch_by_extend_info(
@@ -1950,6 +1957,14 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
     extend_info_t *new_extend_info = NULL;
     int direct_conn = rend_service_allow_direct_connection(get_options());
     new_extend_info = find_rp_extend_info_from_consensus(rp, direct_conn);
+    /* Retry with a 3-hop path, perhaps the firewall rules prevent us
+     * connecting directly. */
+    if (!new_extend_info && direct_conn) {
+      log_debug(LD_REND, "Single Onion Service could not connect directly "
+                "to client-supplied rendezvous point %s.",
+                safe_str_client(extend_info_describe(rp)));
+      new_extend_info = find_rp_extend_info_from_consensus(rp, 0);
+    }
     if (!new_extend_info) {
       if (err_msg_out) {
         tor_asprintf(&err_msg,
