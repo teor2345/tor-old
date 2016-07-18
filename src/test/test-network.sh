@@ -95,7 +95,7 @@ do
       echo "$myname: Please update your chutney using 'git pull', and set \
 \$CHUTNEY_PATH"
       # continue processing arguments during a dry run
-      if [ "$NETWORK_DRY_RUN" != true]; then
+      if [ "$NETWORK_DRY_RUN" != true ]; then
           exit 2
       fi
     ;;
