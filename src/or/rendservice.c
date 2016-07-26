@@ -1945,13 +1945,9 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
     goto err;
   }
 
-  if (!rp) {
-    if (err_msg_out) {
-      tor_asprintf(&err_msg,
-                   "INTRODUCE2 cell produced a NULL rend point.");
-    }
-    goto err;
-  }
+  /* rp must be non-NULL here, because extend_info_dup never returns NULL, and
+   * all other cases goto err if rp is NULL. */
+  tor_assert(rp);
 
   if (!rp->onion_key || !extend_info_supports_ntor(rp)) {
     extend_info_t *new_extend_info = NULL;
