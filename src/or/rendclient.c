@@ -1323,6 +1323,10 @@ rend_client_get_random_intro_impl(const rend_cache_entry_t *entry,
   const or_options_t *options = get_options();
   smartlist_t *usable_nodes;
   int n_excluded = 0;
+  int n_tap_only = 0;
+  int consensus_is_useless = 0;
+
+ retry_entire_list:
 
   /* We'll keep a separate list of the usable nodes.  If this becomes empty,
    * no nodes are usable.  */
@@ -1336,7 +1340,21 @@ rend_client_get_random_intro_impl(const rend_cache_entry_t *entry,
                       SMARTLIST_DEL_CURRENT(usable_nodes, ip);
                     });
 
+ /* Try one more node */
  again:
+
+  if (smartlist_len(usable_nodes) == 0 && n_tap_only) {
+    /* We can still succeed by using the TAP keys from the HS descriptor */
+    log_info(LD_REND, "All introduction points for hidden service are not in "
+             "the consensus. Retrying selection using TAP keys.");
+    consensus_is_useless = 1;
+    smartlist_free(usable_nodes);
+    usable_nodes = NULL;
+    n_excluded = 0;
+    n_tap_only = 0;
+    goto retry_entire_list;
+  }
+
   if (smartlist_len(usable_nodes) == 0) {
     if (n_excluded && get_options()->StrictNodes && warnings) {
       /* We only want to warn if StrictNodes is really set. Otherwise
@@ -1357,9 +1375,12 @@ rend_client_get_random_intro_impl(const rend_cache_entry_t *entry,
     smartlist_del(usable_nodes, i);
     goto again;
   }
-  /* Add TAP and ntor onion keys to the extend_info if they are missing */
-  if (!intro->extend_info->onion_key ||
-      !extend_info_supports_ntor(intro->extend_info)) {
+  /* Add TAP and ntor onion keys to the extend_info if they are missing,
+   * but not if we've already tried to find ntor keys for every intro point
+   * in the consensus, and we know the consensus is useless */
+  if (!consensus_is_useless &&
+      (!intro->extend_info->onion_key ||
+       !extend_info_supports_ntor(intro->extend_info))) {
     const node_t *node;
     extend_info_t *new_extend_info;
     if (tor_digest_is_zero(intro->extend_info->identity_digest))
@@ -1369,6 +1390,9 @@ rend_client_get_random_intro_impl(const rend_cache_entry_t *entry,
     if (!node) {
       log_info(LD_REND, "Unknown router with nickname '%s'; trying another.",
                intro->extend_info->nickname);
+      if (intro->extend_info->onion_key) {
+        n_tap_only++;
+      }
       smartlist_del(usable_nodes, i);
       goto again;
     }
@@ -1385,6 +1409,9 @@ rend_client_get_random_intro_impl(const rend_cache_entry_t *entry,
       log_info(LD_REND, "We don't have a descriptor for the intro-point relay "
                "'%s'%s; trying another.",
                extend_info_describe(intro->extend_info), alternate_reason);
+      if (intro->extend_info->onion_key) {
+        n_tap_only++;
+      }
       smartlist_del(usable_nodes, i);
       goto again;
     } else {
@@ -1408,6 +1435,45 @@ rend_client_get_random_intro_impl(const rend_cache_entry_t *entry,
     n_excluded++;
     smartlist_del(usable_nodes, i);
     goto again;
+  }
+  /* Check if we have the onion keys we need to talk to this router */
+#ifdef ENABLE_TOR2WEB_MODE
+  /* To make a direct connection, we must be in Tor2web mode, and the firewall
+   * rules must allow the intro IP and port.
+   * The prefer_ipv6 argument to fascist_firewall_allows_address_addr is
+   * ignored, because pref_only is 0. */
+  int use_direct_conn = (options->Tor2webMode &&
+                         fascist_firewall_allows_address_addr(
+                                                    &intro->extend_info->addr,
+                                                    intro->extend_info->port,
+                                                    FIREWALL_OR_CONNECTION,
+                                                    0, 0));
+#else
+  int use_direct_conn = 0;
+#endif
+
+  /* We eventually want all hops to be using ntor, but we can't do ntor if the
+   * node isn't in the consensus, and the HS descriptor doesn't contain an
+   * ntor key. This is normal at the moment, but we still want to log it. */
+  if (!extend_info_supports_ntor(intro->extend_info)) {
+    if (intro->extend_info->onion_key) {
+      log_debug(LD_REND, "Using TAP for %s hop to introduction point %s.",
+                use_direct_conn ? "single" : "final",
+                safe_str_client(extend_info_describe(intro->extend_info)));
+    } else {
+      /* Tor2web will use CREATE_FAST for a direct connection,
+       * but will fail if the firewall rules make it use a 3-hop path.
+       * An anonymous client will always fail, because it can't extend without
+       * a TAP or ntor key. */
+      log_info(LD_REND, "No TAP or ntor onion key for %s hop to introduction "
+               "point %s.",
+               use_direct_conn ? "single" : "final",
+               safe_str_client(extend_info_describe(intro->extend_info)));
+      if (!use_direct_conn) {
+        smartlist_del(usable_nodes, i);
+        goto again;
+      }
+    }
   }
 
   smartlist_free(usable_nodes);
