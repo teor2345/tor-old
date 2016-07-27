@@ -788,8 +788,23 @@ should_use_create_fast_for_circuit(origin_circuit_t *circ)
   tor_assert(circ->cpath);
   tor_assert(circ->cpath->extend_info);
 
-  if (!extend_info_supports_ntor(circ->cpath->extend_info))
-    return 1; /* our hand is forced: only a create_fast will work. */
+  if (!extend_info_supports_ntor(circ->cpath->extend_info)) {
+    if (circ->base_.purpose == CIRCUIT_PURPOSE_S_CONNECT_REND ||
+        circ->base_.purpose == CIRCUIT_PURPOSE_C_INTRODUCING) {
+      if (circ->cpath->extend_info->onion_key) {
+        /* We don't have ntor, but we can use TAP for this circuit purpose. */
+        return 0;
+      } else {
+        /* We don't have ntor or TAP,
+         * so our hand is forced: only a create_fast will work. */
+        return 1;
+      }
+    } else {
+      /* We can't use TAP for this circuit purpose, and we don't have ntor,
+       * so our hand is forced: only a create_fast will work. */
+      return 1;
+    }
+  }
   if (public_server_mode(options)) {
     /* We're a server, and we know an ntor onion key. We can choose.
      * Prefer to blend our circuit into the other circuits we are
