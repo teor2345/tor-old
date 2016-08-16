@@ -1929,18 +1929,17 @@ router_check_descriptor_address_port_consistency(uint32_t ipv4h_desc_addr,
         tor_addr_from_ipv4h(&desc_addr, ipv4h_desc_addr);
         tor_addr_to_str(desc_addr_str, &desc_addr, TOR_ADDR_BUF_LEN, 0);
 
+        const char *listener_str = (listener_type == CONN_TYPE_OR_LISTENER ?
+"OR" : "Dir");
         log_warn(LD_CONFIG, "The configured IPv4 %sPort address %s does not "
-                 "match the address %s in the descriptor. Please configure "
-                 "the matching IPv4 addresses for this Tor relay as "
-                 "Address <IPv4 address> in the torrc configuration file if "
-                 "you have multiple public IP addresses. If you are behind a "
-                 "NAT and have the right ports forwarded, you can ignore this "
-                 "warning or, to remove it, use 2 %sPort lines with options "
-                 "NoListen (for the public IPv4 address line) and NoAdvertise "
-                 "(for the internal NAT IPv4 address line).",
-                 listener_type ? "OR" : "Dir",
-                 port_addr_str, desc_addr_str,
-                 listener_type ? "OR" : "Dir");
+                 "match the discovered address %s in the descriptor. If you "
+                 "have a static public IPv4 address, set 'Address <IPv4>' in "
+                 "your torrc, otherwise, Tor will guess your address. If you "
+                 "are behind a NAT, use two %sPort lines: '%sPort <Port> "
+                 "NoListen' (for the public port) and '%sPort <Port> "
+                 "NoAdvertise' (for the internal NAT IPv4 address and port).",
+                 listener_str, port_addr_str, desc_addr_str, listener_str,
+                 listener_str, listener_str);
       }
 }
 
