@@ -1028,6 +1028,9 @@ rend_services_are_single_onion_poisoned(const smartlist_t *service_list)
 static int
 poison_single_onion_hidden_service_dir(const rend_service_t *service)
 {
+  /* We must only poison directories if we're in Single Onion mode */
+  assert(rend_service_allow_direct_connection(get_options()));
+
   int fd;
   int retval = -1;
   char *poison_fname = NULL;
@@ -1079,6 +1082,9 @@ poison_single_onion_hidden_service_dir(const rend_service_t *service)
 int
 rend_service_poison_all_single_onion_dirs(const smartlist_t *service_list)
 {
+  /* We must only poison directories if we're in Single Onion mode */
+  assert(rend_service_allow_direct_connection(get_options()));
+
   const smartlist_t *s_list;
   /* If no special service list is provided, then just use the global one. */
   if (!service_list) {

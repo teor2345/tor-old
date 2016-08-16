@@ -498,10 +498,37 @@ test_hs_auth_cookies(void *arg)
   return;
 }
 
+static int mock_get_options_calls = 0;
+static or_options_t *mock_options = NULL;
+
+static void
+reset_options(or_options_t *options, int *get_options_calls)
+{
+  memset(options, 0, sizeof(or_options_t));
+  options->TestingTorNetwork = 1;
+
+  *get_options_calls = 0;
+}
+
+static const or_options_t *
+mock_get_options(void)
+{
+  ++mock_get_options_calls;
+  tor_assert(mock_options);
+  return mock_options;
+}
+
 /* Test that single onion poisoning works. */
 static void
 test_single_onion_poisoning(void *arg)
 {
+  or_options_t opt;
+  mock_options = &opt;
+  reset_options(mock_options, &mock_get_options_calls);
+  mock_options->OnionServiceSingleHopMode = 1;
+  mock_options->OnionServiceNonAnonymousMode = 1;
+  MOCK(get_options, mock_get_options);
+
   int ret = -1;
   rend_service_t *service_1 = tor_malloc_zero(sizeof(rend_service_t));
   char *dir1 = tor_strdup(get_fname("test_hs_dir1"));
@@ -544,6 +571,7 @@ test_single_onion_poisoning(void *arg)
   rend_service_free(service_1);
   rend_service_free(service_2);
   smartlist_free(services);
+  UNMOCK(get_options);
 }
 
 struct testcase_t hs_tests[] = {
