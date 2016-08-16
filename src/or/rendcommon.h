@@ -97,8 +97,11 @@ int rend_non_anonymous_mode_enabled(const or_options_t *options);
     tor_assert((options)); \
     tor_assert((circ)); \
     tor_assert((circ)->build_state); \
-    tor_assert((is_dir) || rend_allow_direct_connection((options)) || \
-               (circ)->build_state->onehop_tunnel == 0); \
+    if (!(is_dir)) { \
+      if (!rend_allow_direct_connection((options))) { \
+        tor_assert((circ)->build_state->onehop_tunnel == 0); \
+      } \
+    } \
   STMT_END
 
 #endif
