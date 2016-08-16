@@ -1930,14 +1930,14 @@ router_check_descriptor_address_port_consistency(uint32_t ipv4h_desc_addr,
         tor_addr_to_str(desc_addr_str, &desc_addr, TOR_ADDR_BUF_LEN, 0);
 
         const char *listener_str = (listener_type == CONN_TYPE_OR_LISTENER ?
-"OR" : "Dir");
+                                    "OR" : "Dir");
         log_warn(LD_CONFIG, "The configured IPv4 %sPort address %s does not "
                  "match the discovered address %s in the descriptor. If you "
                  "have a static public IPv4 address, set 'Address <IPv4>' in "
                  "your torrc, otherwise, Tor will guess your address. If you "
                  "are behind a NAT, use two %sPort lines: '%sPort <Port> "
-                 "NoListen' (for the public port) and '%sPort <IPv4>:<Port> "
-                 "NoAdvertise' (for the internal NAT IPv4 address and port).",
+                 "NoListen' (for the public port) and '%sPort <Port> "
+                 "NoAdvertise' (for the internal NAT port).",
                  listener_str, port_addr_str, desc_addr_str, listener_str,
                  listener_str, listener_str);
       }
