@@ -1896,6 +1896,53 @@ router_pick_published_address,(const or_options_t *options, uint32_t *addr))
   return 0;
 }
 
+/* Like router_check_descriptor_address_consistency, but specifically for the
+ * ORPort or DirPort.
+ * listener_type is either CONN_TYPE_OR_LISTENER or CONN_TYPE_DIR_LISTENER. */
+static void
+router_check_descriptor_address_port_consistency(uint32_t ipv4h_desc_addr,
+                                                 int listener_type)
+{
+  assert(listener_type == CONN_TYPE_OR_LISTENER ||
+         listener_type == CONN_TYPE_DIR_LISTENER);
+
+  /* The first advertised Port may be the magic constant CFG_AUTO_PORT.
+   */
+  int port_v4_cfg = get_first_advertised_port_by_type_af(listener_type,
+                                                         AF_INET);
+  if (port_v4_cfg != 0 &&
+      !port_exists_by_type_addr32h_port(listener_type,
+                                        ipv4h_desc_addr, port_v4_cfg, 1)) {
+        const tor_addr_t *port_addr = get_first_advertised_addr_by_type_af(
+                                                                listener_type,
+                                                                AF_INET);
+        /* If we're building a descriptor with no advertised address,
+         * something is terribly wrong. */
+        assert(port_addr);
+
+        tor_addr_t desc_addr;
+        char port_addr_str[TOR_ADDR_BUF_LEN];
+        char desc_addr_str[TOR_ADDR_BUF_LEN];
+
+        tor_addr_to_str(port_addr_str, port_addr, TOR_ADDR_BUF_LEN, 0);
+
+        tor_addr_from_ipv4h(&desc_addr, ipv4h_desc_addr);
+        tor_addr_to_str(desc_addr_str, &desc_addr, TOR_ADDR_BUF_LEN, 0);
+
+        const char *listener_str = (listener_type == CONN_TYPE_OR_LISTENER ?
+                                    "OR" : "Dir");
+        log_warn(LD_CONFIG, "The configured IPv4 %sPort address %s does not "
+                 "match the discovered address %s in the descriptor. If you "
+                 "have a static public IPv4 address, set 'Address <IPv4>' in "
+                 "your torrc, otherwise, Tor will guess your address. If you "
+                 "are behind a NAT, use two %sPort lines: '%sPort <Port> "
+                 "NoListen' (for the public port) and '%sPort <Port> "
+                 "NoAdvertise' (for the internal NAT port).",
+                 listener_str, port_addr_str, desc_addr_str, listener_str,
+                 listener_str, listener_str);
+      }
+}
+
 /* Tor relays only have one IPv4 address in the descriptor, which is derived
  * from the Address torrc option, or guessed using various methods in
  * router_pick_published_address().
@@ -1921,68 +1968,10 @@ router_pick_published_address,(const or_options_t *options, uint32_t *addr))
 static void
 router_check_descriptor_address_consistency(uint32_t ipv4h_desc_addr)
 {
-
-  /* The first configured ORPort and DirPort, which may be CFG_AUTO_PORT. */
-  int orport_v4_cfg = get_first_advertised_port_by_type_af(
-                                                        CONN_TYPE_OR_LISTENER,
-                                                        AF_INET);
-  int dirport_v4_cfg = get_first_advertised_port_by_type_af(
-                                                        CONN_TYPE_DIR_LISTENER,
-                                                        AF_INET);
-
-  if (orport_v4_cfg != 0 &&
-      !port_exists_by_type_addr32h_port(CONN_TYPE_OR_LISTENER,
-                                        ipv4h_desc_addr, orport_v4_cfg, 1)) {
-      const tor_addr_t *port_addr = get_first_advertised_addr_by_type_af(
-                                                        CONN_TYPE_OR_LISTENER,
-                                                        AF_INET);
-      tor_addr_t desc_addr;
-      char port_addr_str[TOR_ADDR_BUF_LEN];
-      char desc_addr_str[TOR_ADDR_BUF_LEN];
-
-      tor_addr_to_str(port_addr_str, port_addr, TOR_ADDR_BUF_LEN, 0);
-
-      tor_addr_from_ipv4h(&desc_addr, ipv4h_desc_addr);
-      tor_addr_to_str(desc_addr_str, &desc_addr, TOR_ADDR_BUF_LEN, 0);
-
-      log_warn(LD_CONFIG, "The configured IPv4 ORPort address %s does not "
-               "match the address %s in the descriptor. Please configure "
-               "the matching IPv4 addresses for this Tor relay as "
-               "Address <IPv4 address> in the torrc configuration file if "
-               "you have multiple public IP addresses. If you are behind a "
-               "NAT and have the right ports forwarded, you can ignore this "
-               "warning or, to remove it, use 2 ORPort lines with options "
-               "NoListen (for the public IPv4 address line) and NoAdvertise "
-               "(for the internal NAT IPv4 address line).",
-               port_addr_str, desc_addr_str);
-    }
-
-  if (dirport_v4_cfg != 0 &&
-      !port_exists_by_type_addr32h_port(CONN_TYPE_DIR_LISTENER,
-                                        ipv4h_desc_addr, dirport_v4_cfg, 1)) {
-      const tor_addr_t *port_addr = get_first_advertised_addr_by_type_af(
-                                                        CONN_TYPE_DIR_LISTENER,
-                                                        AF_INET);
-      tor_addr_t desc_addr;
-      char port_addr_str[TOR_ADDR_BUF_LEN];
-      char desc_addr_str[TOR_ADDR_BUF_LEN];
-
-      tor_addr_to_str(port_addr_str, port_addr, TOR_ADDR_BUF_LEN, 0);
-
-      tor_addr_from_ipv4h(&desc_addr, ipv4h_desc_addr);
-      tor_addr_to_str(desc_addr_str, &desc_addr, TOR_ADDR_BUF_LEN, 0);
-
-      log_warn(LD_CONFIG, "The configured IPv4 DirPort address %s does not "
-               "match the address %s in the descriptor. Please configure "
-               "the matching IPv4 addresses for this Tor relay as "
-               "Address <IPv4 address> in the torrc configuration file if "
-               "you have multiple public IP addresses. If you are behind a "
-               "NAT and have the right ports forwarded, you can ignore this "
-               "warning or, to remove it, use 2 DirPort lines with options "
-               "NoListen (for the public IPv4 address line) and NoAdvertise "
-               "(for the internal NAT IPv4 address line).",
-               port_addr_str, desc_addr_str);
-    }
+  router_check_descriptor_address_port_consistency(ipv4h_desc_addr,
+                                                   CONN_TYPE_OR_LISTENER);
+  router_check_descriptor_address_port_consistency(ipv4h_desc_addr,
+                                                   CONN_TYPE_DIR_LISTENER);
 }
 
 /** Build a fresh routerinfo, signed server descriptor, and extra-info document
