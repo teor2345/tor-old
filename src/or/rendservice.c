@@ -1523,6 +1523,19 @@ rend_check_authorization(rend_service_t *service,
   return 1;
 }
 
+/* Can this service make a direct connection to rp?
+ * It must be a single onion service, and the firewall rules must allow rp. */
+static int
+rend_service_use_direct_connection(const or_options_t* options,
+                                   const extend_info_t* rp)
+{
+  /* The prefer_ipv6 argument to fascist_firewall_allows_address_addr is
+   * ignored, because pref_only is 0. */
+  return (rend_service_allow_direct_connection(options) &&
+          fascist_firewall_allows_address_addr(&rp->addr, rp->port,
+                                               FIREWALL_OR_CONNECTION, 0, 0));
+}
+
 /******
  * Handle cells
  ******/
@@ -1776,13 +1789,9 @@ rend_service_receive_introduction(origin_circuit_t *circuit,
   for (i=0;i<MAX_REND_FAILURES;i++) {
     int flags = CIRCLAUNCH_NEED_CAPACITY | CIRCLAUNCH_IS_INTERNAL;
     if (circ_needs_uptime) flags |= CIRCLAUNCH_NEED_UPTIME;
-    /* A Single Onion Service only asks for a direct connection if its
-     * firewall rules permit direct connections to the address.
-     * The prefer_ipv6 argument to fascist_firewall_allows_address_addr is
-     * ignored, because pref_only is 0. */
-    if (rend_service_allow_direct_connection(options) &&
-        fascist_firewall_allows_address_addr(&rp->addr, rp->port,
-                                             FIREWALL_OR_CONNECTION, 0, 0)) {
+    /* A Single Onion Service only uses a direct connection if its
+     * firewall rules permit direct connections to the address. */
+    if (rend_service_use_direct_connection(options, rp)) {
           flags = flags | CIRCLAUNCH_ONEHOP_TUNNEL;
     }
     launched = circuit_launch_by_extend_info(
