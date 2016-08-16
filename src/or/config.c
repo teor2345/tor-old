@@ -2755,6 +2755,91 @@ warn_about_relative_paths(or_options_t *options)
   }
 }
 
+/* Validate options related to OnionServiceSingleHopMode.
+ * Modifies some options that are incompatible with OnionServiceSingleHopMode.
+ * On failure returns -1, and sets *msg to an error string.
+ * Returns 0 on success. */
+STATIC int
+options_validate_single_onion(or_options_t *options, char **msg)
+{
+  /* You must set OnionServiceNonAnonymousMode to 1 to use
+   * OnionServiceSingleHopMode */
+  if (options->OnionServiceSingleHopMode &&
+      !rend_service_non_anonymous_mode_enabled(options)) {
+    REJECT("OnionServiceSingleHopMode does not provide any server anonymity. "
+           "It must be used with OnionServiceNonAnonymousMode set to 1.");
+  }
+
+  /* If you have OnionServiceNonAnonymousMode set, you must use
+   * OnionServiceSingleHopMode. */
+  if (rend_service_non_anonymous_mode_enabled(options) &&
+      !options->OnionServiceSingleHopMode) {
+    REJECT("OnionServiceNonAnonymousMode must be used with "
+           "OnionServiceSingleHopMode set to 1.");
+  }
+
+  /* If you run an anonymous client with an active Single Onion service, the
+   * client loses anonymity. */
+  const int client_port_set = (options->SocksPort_set ||
+                               options->TransPort_set ||
+                               options->NATDPort_set ||
+                               options->DNSPort_set);
+  if (options->OnionServiceSingleHopMode && client_port_set &&
+      !options->Tor2webMode) {
+    REJECT("OnionServiceSingleHopMode is incompatible with using Tor as an "
+           "anonymous client. Please set Socks/Trans/NATD/DNSPort to 0, or "
+           "OnionServiceSingleHopMode to 0, or use the non-anonymous "
+           "Tor2webMode.");
+  }
+
+  /* If you run a hidden service in non-anonymous mode, the hidden service
+   * loses anonymity, even if SOCKSPort / Tor2web mode isn't used. */
+  if (!options->OnionServiceSingleHopMode && options->RendConfigLines
+      && options->Tor2webMode) {
+    REJECT("Non-anonymous (Tor2web) mode is incompatible with using Tor as a "
+           "hidden service. Please remove all HiddenServiceDir lines, or use "
+           "a version of tor compiled without --enable-tor2web-mode, or use "
+           "the non-anonymous OnionServiceSingleHopMode.");
+  }
+
+  if (options->OnionServiceSingleHopMode
+      && options->LearnCircuitBuildTimeout) {
+    /* LearnCircuitBuildTimeout and OnionServiceSingleHopMode are incompatible
+     * in two ways:
+     *
+     * - LearnCircuitBuildTimeout results in a low CBT, which
+     *   Single Onion use of one-hop intro and rendezvous circuits lowers
+     *   much further, producing *far* too many timeouts.
+     *
+     * - The adaptive CBT code does not update its timeout estimate
+     *   using build times for single-hop circuits.
+     *
+     * If we fix both of these issues someday, we should test
+     * OnionServiceSingleHopMode with LearnCircuitBuildTimeout on again. */
+    log_notice(LD_CONFIG,"OnionServiceSingleHopMode is enabled; turning "
+               "LearnCircuitBuildTimeout off.");
+    options->LearnCircuitBuildTimeout = 0;
+  }
+
+  if (options->OnionServiceSingleHopMode
+      && options->UseEntryGuards) {
+    /* Single Onion services do not (and should not) use entry guards
+     * in any meaningful way.  Further, Single Onions causes the hidden
+     * service code to do things which break the path bias
+     * detector, and it's far easier to turn off entry guards (and
+     * thus the path bias detector with it) than to figure out how to
+     * make a piece of code which cannot possibly help Single Onions,
+     * compatible with OnionServiceSingleHopMode.
+     */
+    log_notice(LD_CONFIG,
+               "OnionServiceSingleHopMode is enabled; disabling "
+               "UseEntryGuards.");
+    options->UseEntryGuards = 0;
+  }
+
+  return 0;
+}
+
 /** Return 0 if every setting in <b>options</b> is reasonable, is a
  * permissible transition from <b>old_options</b>, and none of the
  * testing-only settings differ from <b>default_options</b> unless in
@@ -3250,80 +3335,9 @@ options_validate(or_options_t *old_options, or_options_t *options,
     options->PredictedPortsRelevanceTime = MAX_PREDICTED_CIRCS_RELEVANCE;
   }
 
-  /* You must set OnionServiceNonAnonymousMode to 1 to use
-   * OnionServiceSingleHopMode */
-  if (options->OnionServiceSingleHopMode &&
-      !rend_service_non_anonymous_mode_enabled(options)) {
-    REJECT("OnionServiceSingleHopMode does not provide any server anonymity. "
-           "It must be used with OnionServiceNonAnonymousMode set to 1.");
-  }
-
-  /* If you have OnionServiceNonAnonymousMode set, you must use
-   * OnionServiceSingleHopMode. */
-  if (rend_service_non_anonymous_mode_enabled(options) &&
-      !options->OnionServiceSingleHopMode) {
-    REJECT("OnionServiceNonAnonymousMode must be used with "
-           "OnionServiceSingleHopMode set to 1.");
-  }
-
-  /* If you run an anonymous client with an active Single Onion service, the
-   * client loses anonymity. */
-  const int client_port_set = (options->SocksPort_set ||
-                               options->TransPort_set ||
-                               options->NATDPort_set ||
-                               options->DNSPort_set);
-  if (options->OnionServiceSingleHopMode && client_port_set &&
-      !options->Tor2webMode) {
-    REJECT("OnionServiceSingleHopMode is incompatible with using Tor as an "
-           "anonymous client. Please set Socks/Trans/NATD/DNSPort to 0, or "
-           "OnionServiceSingleHopMode to 0, or use the non-anonymous "
-           "Tor2webMode.");
-  }
-
-  /* If you run a hidden service in non-anonymous mode, the hidden service
-   * loses anonymity, even if SOCKSPort / Tor2web mode isn't used. */
-  if (!options->OnionServiceSingleHopMode && options->RendConfigLines
-      && options->Tor2webMode) {
-    REJECT("Non-anonymous (Tor2web) mode is incompatible with using Tor as a "
-           "hidden service. Please remove all HiddenServiceDir lines, or use "
-           "a version of tor compiled without --enable-tor2web-mode, or use "
-           "the non-anonymous OnionServiceSingleHopMode.");
-  }
-
-  if (options->OnionServiceSingleHopMode
-      && options->LearnCircuitBuildTimeout) {
-    /* LearnCircuitBuildTimeout and OnionServiceSingleHopMode are incompatible
-     * in two ways:
-     *
-     * - LearnCircuitBuildTimeout results in a low CBT, which
-     *   Single Onion use of one-hop intro and rendezvous circuits lowers
-     *   much further, producing *far* too many timeouts.
-     *
-     * - The adaptive CBT code does not update its timeout estimate
-     *   using build times for single-hop circuits.
-     *
-     * If we fix both of these issues someday, we should test
-     * OnionServiceSingleHopMode with LearnCircuitBuildTimeout on again. */
-    log_notice(LD_CONFIG,"OnionServiceSingleHopMode is enabled; turning "
-               "LearnCircuitBuildTimeout off.");
-    options->LearnCircuitBuildTimeout = 0;
-  }
-
-  if (options->OnionServiceSingleHopMode
-      && options->UseEntryGuards) {
-    /* Single Onion services do not (and should not) use entry guards
-     * in any meaningful way.  Further, Single Onions causes the hidden
-     * service code to do things which break the path bias
-     * detector, and it's far easier to turn off entry guards (and
-     * thus the path bias detector with it) than to figure out how to
-     * make a piece of code which cannot possibly help Single Onions,
-     * compatible with OnionServiceSingleHopMode.
-     */
-    log_notice(LD_CONFIG,
-               "OnionServiceSingleHopMode is enabled; disabling "
-               "UseEntryGuards.");
-    options->UseEntryGuards = 0;
-  }
+  /* Check the Single Onion Service options */
+  if (options_validate_single_onion(options, msg) == -1)
+    return -1;
 
 #ifdef ENABLE_TOR2WEB_MODE
   if (options->Tor2webMode && options->LearnCircuitBuildTimeout) {
