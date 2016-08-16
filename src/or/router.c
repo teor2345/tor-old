@@ -1933,11 +1933,12 @@ router_check_descriptor_address_port_consistency(uint32_t ipv4h_desc_addr,
                                     "OR" : "Dir");
         log_warn(LD_CONFIG, "The configured IPv4 %sPort address %s does not "
                  "match the discovered address %s in the descriptor. If you "
-                 "have a static public IPv4 address, set 'Address <IPv4>' in "
-                 "your torrc, otherwise, Tor will guess your address. If you "
-                 "are behind a NAT, use two %sPort lines: '%sPort <Port> "
-                 "NoListen' (for the public port) and '%sPort <Port> "
-                 "NoAdvertise' (for the internal NAT port).",
+                 "have multiple static public IP addresses, configure the one "
+                 "you want to assign to this relay by setting 'Address <IP>' "
+                 "and 'OutboundBindAddress <IP> in your torrc in addition to "
+                 "'%sPort <IP>:<Port>. If you are behind a NAT, use two %sPort "
+                 "lines: '%sPort <Port> NoListen' (for the public port) and "
+                 "'%sPort <Port> NoAdvertise' (for the internal NAT port).",
                  listener_str, port_addr_str, desc_addr_str, listener_str,
                  listener_str, listener_str);
       }
