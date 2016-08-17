@@ -1464,11 +1464,12 @@ rend_client_get_random_intro_impl(const rend_cache_entry_t *entry,
       /* Tor2web will use CREATE_FAST for a direct connection,
        * but will fail if the firewall rules make it use a 3-hop path.
        * An anonymous client will always fail, because it can't extend without
-       * a TAP or ntor key. */
-      log_info(LD_REND, "No TAP or ntor onion key for %s hop to introduction "
-               "point %s.",
-               use_direct_conn ? "single" : "final",
-               safe_str_client(extend_info_describe(intro->extend_info)));
+       * a TAP or ntor key. A HS descriptor with no onion keys is a protocol
+       * violation. */
+      log_fn(LOG_PROTOCOL_WARN, LD_REND, "No TAP or ntor onion key for %s hop "
+             "to introduction point %s.",
+             use_direct_conn ? "single" : "final",
+             safe_str_client(extend_info_describe(intro->extend_info)));
       if (!use_direct_conn) {
         smartlist_del(usable_nodes, i);
         goto again;
