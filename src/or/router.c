@@ -1933,9 +1933,10 @@ router_check_descriptor_address_port_consistency(uint32_t ipv4h_desc_addr,
                                     "OR" : "Dir");
         log_warn(LD_CONFIG, "The IPv4 %sPort address %s does not match the "
                  "descriptor address %s. If you have a static public IPv4 "
-                 "address, use 'Address <IPv4>'. If you are behind a NAT, use "
-                 "two %sPort lines: '%sPort <PublicPort> NoListen' and "
-                 "'%sPort <InternalPort> NoAdvertise'.",
+                 "address, use 'Address <IPv4>' and 'OutboundBindAddress "
+                 "<IPv4>'. If you are behind a NAT, use two %sPort lines: "
+                 "'%sPort <PublicPort> NoListen' and '%sPort <InternalPort> "
+                 "NoAdvertise'.",
                  listener_str, port_addr_str, desc_addr_str, listener_str,
                  listener_str, listener_str);
       }
