@@ -1345,8 +1345,8 @@ rend_client_get_random_intro_impl(const rend_cache_entry_t *entry,
 
   if (smartlist_len(usable_nodes) == 0 && n_tap_only) {
     /* We can still succeed by using the TAP keys from the HS descriptor */
-    log_info(LD_REND, "All introduction points for hidden service are not in "
-             "the consensus. Retrying selection using TAP keys.");
+    log_info(LD_REND, "Could not find any introduction point ntor keys in the "
+             "consensus. Retrying selection using TAP keys.");
     consensus_is_useless = 1;
     smartlist_free(usable_nodes);
     usable_nodes = NULL;
