@@ -1798,7 +1798,7 @@ rend_service_receive_introduction(origin_circuit_t *circuit,
     /* A Single Onion Service only uses a direct connection if its
      * firewall rules permit direct connections to the address. */
     if (rend_service_use_direct_connection(options, rp)) {
-          flags = flags | CIRCLAUNCH_ONEHOP_TUNNEL;
+      flags = flags | CIRCLAUNCH_ONEHOP_TUNNEL;
     }
     launched = circuit_launch_by_extend_info(
                         CIRCUIT_PURPOSE_S_CONNECT_REND, rp, flags);
