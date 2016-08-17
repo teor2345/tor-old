@@ -2508,6 +2508,7 @@ extend_info_addr_is_allowed(const tor_addr_t *addr)
 int
 extend_info_supports_ntor(const extend_info_t* ei)
 {
+  tor_assert(ei);
   /* Valid ntor keys have at least one non-zero byte */
   return !tor_mem_is_zero(
                           (const char*)ei->curve25519_onion_key.public_key,
