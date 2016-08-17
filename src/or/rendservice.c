@@ -4063,11 +4063,7 @@ rend_service_allow_direct_connection(const or_options_t *options)
 int
 rend_service_reveal_startup_time(const or_options_t *options)
 {
-  if (options->OnionServiceSingleHopMode) {
-    return 1;
-  }
-
-  return 0;
+  return rend_service_allow_direct_connection(options);
 }
 
 /* Is non-anonymous mode enabled using the OnionServiceNonAnonymousMode
