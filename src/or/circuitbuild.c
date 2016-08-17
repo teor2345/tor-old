@@ -434,8 +434,7 @@ onion_populate_cpath(origin_circuit_t *circ)
     /* Multi-hop paths from clients to intro points, and hidden services to
      * rend points might not support ntor, if they're not in the consensus we
      * have. */
-    if (circ->base_.purpose == CIRCUIT_PURPOSE_S_CONNECT_REND ||
-        circ->base_.purpose == CIRCUIT_PURPOSE_C_INTRODUCING) {
+    if (circuit_can_use_tap(circ)) {
       /* These circuit types must have a chosen exit */
       if (BUG(!circ->build_state->chosen_exit)) {
         return -1;
@@ -788,25 +787,13 @@ should_use_create_fast_for_circuit(origin_circuit_t *circ)
   tor_assert(circ->cpath);
   tor_assert(circ->cpath->extend_info);
 
-  if (!extend_info_supports_ntor(circ->cpath->extend_info)) {
-    if (circ->base_.purpose == CIRCUIT_PURPOSE_S_CONNECT_REND ||
-        circ->base_.purpose == CIRCUIT_PURPOSE_C_INTRODUCING) {
-      if (circ->cpath->extend_info->onion_key) {
-        /* We don't have ntor, but we can use TAP for this circuit purpose. */
-        return 0;
-      } else {
-        /* We don't have ntor or TAP,
-         * so our hand is forced: only a create_fast will work. */
-        return 1;
-      }
-    } else {
-      /* We can't use TAP for this circuit purpose, and we don't have ntor,
-       * so our hand is forced: only a create_fast will work. */
-      return 1;
-    }
+  if (!circuit_has_usable_onion_key(circ)) {
+    /* We don't have ntor, and we don't have or can't use TAP,
+     * so our hand is forced: only a create_fast will work. */
+    return 1;
   }
   if (public_server_mode(options)) {
-    /* We're a server, and we know an ntor onion key. We can choose.
+    /* We're a server, and we have a usable onion key. We can choose.
      * Prefer to blend our circuit into the other circuits we are
      * creating on behalf of others. */
     return 0;
@@ -2505,6 +2492,15 @@ extend_info_addr_is_allowed(const tor_addr_t *addr)
   return 0;
 }
 
+/* Does ei have a valid TAP key? */
+int
+extend_info_supports_tap(const extend_info_t* ei)
+{
+  tor_assert(ei);
+  /* Valid TAP keys are not NULL */
+  return ei->onion_key != NULL;
+}
+
 /* Does ei have a valid ntor key? */
 int
 extend_info_supports_ntor(const extend_info_t* ei)
@@ -2514,4 +2510,47 @@ extend_info_supports_ntor(const extend_info_t* ei)
   return !tor_mem_is_zero(
                           (const char*)ei->curve25519_onion_key.public_key,
                           CURVE25519_PUBKEY_LEN);
+}
+
+/* Is circuit purpose allowed to use the deprecated TAP encryption protocol?
+ * The hidden service protocol still uses TAP for some connections, because
+ * ntor onion keys aren't included in HS descriptors or INTRODUCE cells. */
+static int
+circuit_purpose_can_use_tap_impl(uint8_t purpose)
+{
+  return (purpose == CIRCUIT_PURPOSE_S_CONNECT_REND ||
+          purpose == CIRCUIT_PURPOSE_C_INTRODUCING);
+}
+
+/* Is circ allowed to use the deprecated TAP encryption protocol?
+ * The hidden service protocol still uses TAP for some connections, because
+ * ntor onion keys aren't included in HS descriptors or INTRODUCE cells. */
+int
+circuit_can_use_tap(const origin_circuit_t *circ)
+{
+  tor_assert(circ);
+  tor_assert(circ->cpath);
+  tor_assert(circ->cpath->extend_info);
+  return (circuit_purpose_can_use_tap_impl(circ->base_.purpose) &&
+          extend_info_supports_tap(circ->cpath->extend_info));
+}
+
+/* Does circ have an onion key which it's allowed to use? */
+int
+circuit_has_usable_onion_key(const origin_circuit_t *circ)
+{
+  tor_assert(circ);
+  tor_assert(circ->cpath);
+  tor_assert(circ->cpath->extend_info);
+  return (extend_info_supports_ntor(circ->cpath->extend_info) ||
+          circuit_can_use_tap(circ));
+}
+
+/* Does ei have an onion key which it would prefer to use?
+ * Currently, we prefer ntor keys*/
+int
+extend_info_has_preferred_onion_key(const extend_info_t* ei)
+{
+  tor_assert(ei);
+  return extend_info_supports_ntor(ei);
 }
