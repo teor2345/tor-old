@@ -881,13 +881,14 @@ circuit_pick_extend_handshake(uint8_t *cell_type_out,
    * The checks below exist to make sure removing TAP support will work. */
 
   /* It is an error to extend if there is no previous node. */
-  BUG(!node_prev);
+  tor_assert_nonfatal(node_prev);
   /* It is an error for a node with a descriptor to not have an ntor key. */
-  BUG(node_prev && node_has_descriptor(node_prev) &&
-      !node_has_curve25519_onion_key(node_prev));
+  if (node_prev && node_has_descriptor(node_prev)) {
+    tor_assert_nonfatal(node_has_curve25519_onion_key(node_prev));
+  }
   /* It is an error for a node with a known version to be so old it does not
    * support ntor. */
-  BUG(!routerstatus_version_supports_ntor(node_prev->rs, 1));
+  tor_assert_nonfatal(routerstatus_version_supports_ntor(node_prev->rs, 1));
 
   /* Assume relays without tor versions or routerstatuses support ntor.
    * The authorities enforce ntor support, and assuming and failing is better
