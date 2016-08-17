@@ -1855,11 +1855,11 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
    * all other cases goto err if rp is NULL. */
   tor_assert(rp);
 
-  /* If the rp extend_info is missing an onion or ntor key, try to find the
+  /* If the rp extend_info is missing an ntor onion key, try to find the
    * rendezvous point in the consensus, and use those details. But if we can't
    * find it, just use what we have. */
 
-  if (!rp->onion_key || !extend_info_supports_ntor(rp)) {
+  if (!extend_info_has_preferred_onion_key(rp)) {
     /* Do we want to use a direct connection for this rendezvous point? */
     const int direct_conn = rend_service_allow_direct_connection(options);
     extend_info_t *new_extend_info = NULL;
@@ -1897,7 +1897,7 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
    * node isn't in the consensus, and the INTRODUCE cell doesn't contain an
    * ntor key. This is normal at the moment, but we still want to log it. */
   if (!extend_info_supports_ntor(rp)) {
-    if (rp->onion_key) {
+    if (extend_info_supports_tap(rp)) {
       log_debug(LD_REND, "Using TAP for %s hop to rendezvous point %s.",
                 use_direct_conn ? "single" : "final",
                 safe_str_client(extend_info_describe(rp)));
@@ -1905,14 +1905,15 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
       /* A single onion service will use CREATE_FAST for a direct connection,
        * but will fail if the firewall rules make it use a 3-hop path.
        * A hidden service will always fail, because it can't extend without
-       * a TAP or ntor key. */
+       * a TAP or ntor key. Sending an INTRODUCE cell with no onion keys is
+       * a protocol violation. */
       char *msg = NULL;
       tor_asprintf(&msg, "No TAP or ntor onion key for %s hop to rendezvous "
                    "point %s.",
                    use_direct_conn ? "single" : "final",
                    safe_str_client(extend_info_describe(rp)));
       if (use_direct_conn) {
-        log_info(LD_REND, "%s", msg);
+        log_fn(LOG_PROTOCOL_WARN, LD_REND, "%s", msg);
         tor_free(msg);
       } else {
         if (err_msg_out) {
