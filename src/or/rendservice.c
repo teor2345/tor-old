@@ -2756,7 +2756,8 @@ rend_service_launch_establish_intro(rend_service_t *service,
   origin_circuit_t *launched;
   int flags = CIRCLAUNCH_NEED_UPTIME|CIRCLAUNCH_IS_INTERNAL;
 
-  if (rend_service_allow_direct_connection(get_options())) {
+  /* Are we in single onion mode? Can we connect directly? */
+  if (rend_service_use_direct_connection(get_options(), intro->extend_info)) {
     flags = flags | CIRCLAUNCH_ONEHOP_TUNNEL;
   }
 
@@ -3628,6 +3629,8 @@ rend_consider_services_intro_points(void)
   int i;
   time_t now;
   const or_options_t *options = get_options();
+  /* Are we in single onion mode? */
+  const int allow_direct = rend_service_allow_direct_connection(get_options());
   /* List of nodes we need to _exclude_ when choosing a new node to
    * establish an intro point to. */
   smartlist_t *exclude_nodes;
@@ -3723,8 +3726,24 @@ rend_consider_services_intro_points(void)
       router_crn_flags_t flags = CRN_NEED_UPTIME|CRN_NEED_DESC;
       if (get_options()->AllowInvalid_ & ALLOW_INVALID_INTRODUCTION)
         flags |= CRN_ALLOW_INVALID;
+      router_crn_flags_t direct_flags = flags;
+      direct_flags |= CRN_PREF_ADDR;
+      direct_flags |= CRN_DIRECT_CONN;
+
       node = router_choose_random_node(exclude_nodes,
-                                       options->ExcludeNodes, flags);
+                                       options->ExcludeNodes,
+                                       allow_direct ? direct_flags : flags);
+      /* If we are in single onion mode, retry node selection for a 3-hop
+       * path */
+      if (allow_direct && !node) {
+        log_info(LD_REND,
+                 "Unable to find an intro point that we can connect to "
+                 "directly for %s, falling back to a 3-hop path.",
+                 safe_str_client(service->service_id));
+        node = router_choose_random_node(exclude_nodes,
+                                         options->ExcludeNodes, flags);
+      }
+
       if (!node) {
         log_warn(LD_REND,
                  "We only have %d introduction points established for %s; "
@@ -3737,9 +3756,13 @@ rend_consider_services_intro_points(void)
       /* Add the choosen node to the exclusion list in order to avoid to
        * pick it again in the next iteration. */
       smartlist_add(exclude_nodes, (void*)node);
+      /* Are we in single onion mode? Can we connect directly to this node? */
+      const int use_direct = fascist_firewall_allows_node(
+                                                        node,
+                                                        FIREWALL_OR_CONNECTION,
+                                                        0);
       intro = tor_malloc_zero(sizeof(rend_intro_point_t));
-      intro->extend_info = extend_info_from_node(node,
-                                rend_service_allow_direct_connection(options));
+      intro->extend_info = extend_info_from_node(node, use_direct);
       intro->intro_key = crypto_pk_new();
       const int fail = crypto_pk_generate_key(intro->intro_key);
       tor_assert(!fail);
