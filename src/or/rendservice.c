@@ -4068,11 +4068,7 @@ rend_service_set_connection_addr_port(edge_connection_t *conn,
 int
 rend_service_allow_direct_connection(const or_options_t *options)
 {
-  if (options->OnionServiceSingleHopMode) {
-    return 1;
-  }
-
-  return 0;
+  return options->OnionServiceSingleHopMode ? 1 : 0;
 }
 
 /* Do the options allow us to reveal the exact startup time of the onion
@@ -4091,10 +4087,6 @@ rend_service_reveal_startup_time(const or_options_t *options)
 int
 rend_service_non_anonymous_mode_enabled(const or_options_t *options)
 {
-  if (options->OnionServiceNonAnonymousMode) {
-    return 1;
-  }
-
-  return 0;
+  return options->OnionServiceNonAnonymousMode ? 1 : 0;
 }
 

@@ -1533,7 +1533,7 @@ rend_parse_service_authorization(const or_options_t *options,
 int
 rend_client_allow_direct_connection(const or_options_t *options)
 {
-  return options->Tor2webMode;
+  return options->Tor2webMode ? 1 : 0;
 }
 
 /* Was non-anonymous mode enabled via NON_ANONYMOUS_MODE_ENABLED at
