@@ -1529,16 +1529,16 @@ rend_check_authorization(rend_service_t *service,
   return 1;
 }
 
-/* Can this service make a direct connection to rp?
- * It must be a single onion service, and the firewall rules must allow rp. */
+/* Can this service make a direct connection to ei?
+ * It must be a single onion service, and the firewall rules must allow ei. */
 static int
 rend_service_use_direct_connection(const or_options_t* options,
-                                   const extend_info_t* rp)
+                                   const extend_info_t* ei)
 {
   /* The prefer_ipv6 argument to fascist_firewall_allows_address_addr is
    * ignored, because pref_only is 0. */
   return (rend_service_allow_direct_connection(options) &&
-          fascist_firewall_allows_address_addr(&rp->addr, rp->port,
+          fascist_firewall_allows_address_addr(&ei->addr, ei->port,
                                                FIREWALL_OR_CONNECTION, 0, 0));
 }
 
@@ -1912,9 +1912,10 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
       goto err;
     }
 
-    rp = extend_info_from_node(node,
-                               rend_service_allow_direct_connection(
-                                                              get_options()));
+    /* Are we in single onion mode? */
+    const int allow_direct = rend_service_allow_direct_connection(
+                                                                get_options());
+    rp = extend_info_from_node(node, allow_direct);
     if (!rp) {
       if (err_msg_out) {
         tor_asprintf(&err_msg,
