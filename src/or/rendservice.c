@@ -1940,13 +1940,9 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
     goto err;
   }
 
-  if (!rp) {
-    if (err_msg_out) {
-      tor_asprintf(&err_msg,
-                   "INTRODUCE2 cell produced a NULL rend point.");
-    }
-    goto err;
-  }
+  /* rp is always set here: extend_info_dup guarantees a non-NULL result, and
+   * the other cases goto err. */
+  tor_assert(rp);
 
   /* Make sure the RP we are being asked to connect to is _not_ a private
    * address unless it's allowed. Let's avoid to build a circuit to our
