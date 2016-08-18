@@ -1308,6 +1308,23 @@ rend_client_get_random_intro(const rend_data_t *rend_query)
   return NULL;
 }
 
+#ifdef ENABLE_TOR2WEB_MODE
+/* Can this client make a direct connection to ei?
+ * It must be in Tor2web mode, and the firewall rules must allow ei. */
+static int
+rend_client_use_direct_connection(const or_options_t* options,
+                                  const extend_info_t* ei)
+{
+  /* The prefer_ipv6 argument to fascist_firewall_allows_address_addr is
+   * ignored, because pref_only is 0. */
+  return (options->Tor2webMode &&
+          fascist_firewall_allows_address_addr(&intro->extend_info->addr,
+                                               intro->extend_info->port,
+                                               FIREWALL_OR_CONNECTION,
+                                               0, 0));
+}
+#endif
+
 /** As rend_client_get_random_intro, except assume that StrictNodes is set
  * iff <b>strict</b> is true. If <b>warnings</b> is false, don't complain
  * to the user when we're out of nodes, even if StrictNodes is true.
@@ -1438,15 +1455,8 @@ rend_client_get_random_intro_impl(const rend_cache_entry_t *entry,
   /* Check if we have the onion keys we need to talk to this router */
 #ifdef ENABLE_TOR2WEB_MODE
   /* To make a direct connection, we must be in Tor2web mode, and the firewall
-   * rules must allow the intro IP and port.
-   * The prefer_ipv6 argument to fascist_firewall_allows_address_addr is
-   * ignored, because pref_only is 0. */
-  int use_direct_conn = (options->Tor2webMode &&
-                         fascist_firewall_allows_address_addr(
-                                                    &intro->extend_info->addr,
-                                                    intro->extend_info->port,
-                                                    FIREWALL_OR_CONNECTION,
-                                                    0, 0));
+   * rules must allow the intro IP and port. */
+  int use_direct_conn = rend_client_use_direct_connection(intro->extend_info);
 #else
   int use_direct_conn = 0;
 #endif
