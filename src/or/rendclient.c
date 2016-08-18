@@ -1529,11 +1529,11 @@ rend_parse_service_authorization(const or_options_t *options,
 
 /* Do the options allow clients to make direct connections to introduction or
  * rendezvous points?
- * Returns true if tor was compiled with NON_ANONYMOUS_MODE_ENABLED. */
+ * Returns true if tor is in Tor2web mode */
 int
 rend_client_allow_direct_connection(const or_options_t *options)
 {
-  return rend_client_non_anonymous_mode_enabled(options);
+  return options->Tor2webMode;
 }
 
 /* Was non-anonymous mode enabled via NON_ANONYMOUS_MODE_ENABLED at
