@@ -1024,7 +1024,9 @@ rend_services_are_single_onion_poisoned(const smartlist_t *service_list)
 
 /*** Helper for rend_service_poison_all_single_onion_dirs(). When in single
  * onion mode, add a file to each hidden service directory that marks it as a
- * single onion hidden service. */
+ * single onion hidden service. Returns 0 when a directory is successfully
+ * poisoned, or if it is already poisoned. Returns -1 on a failure to read
+ * the directory or write the poison file. */
 static int
 poison_single_onion_hidden_service_dir(const rend_service_t *service)
 {
@@ -1102,6 +1104,11 @@ rend_service_poison_all_single_onion_dirs(const smartlist_t *service_list)
       return -1;
     }
   } SMARTLIST_FOREACH_END(s);
+
+  /* The keys for these services are linked to the server IP address */
+  log_notice(LD_REND, "The configured onion service directories have been "
+             "used in single onion mode. They can not be used for anonymous "
+             "hidden services.");
 
   return 0;
 }
