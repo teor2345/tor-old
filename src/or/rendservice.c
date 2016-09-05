@@ -1542,11 +1542,23 @@ static int
 rend_service_use_direct_connection(const or_options_t* options,
                                    const extend_info_t* ei)
 {
-  /* The prefer_ipv6 argument to fascist_firewall_allows_address_addr is
+  /* We'll connect directly all reachabke addresses, whether preferred or not.
+   * The prefer_ipv6 argument to fascist_firewall_allows_address_addr is
    * ignored, because pref_only is 0. */
   return (rend_service_allow_direct_connection(options) &&
           fascist_firewall_allows_address_addr(&ei->addr, ei->port,
                                                FIREWALL_OR_CONNECTION, 0, 0));
+}
+
+/* Like rend_service_use_direct_connection, but to a node. */
+static int
+rend_service_use_direct_connection_node(const or_options_t* options,
+                                        const node_t* node)
+{
+  /* We'll connect directly all reachabke addresses, whether preferred or not.
+   */
+  return (rend_service_allow_direct_connection(options) &&
+          fascist_firewall_allows_node(node, FIREWALL_OR_CONNECTION, 0));
 }
 
 /******
@@ -3759,10 +3771,8 @@ rend_consider_services_intro_points(void)
        * pick it again in the next iteration. */
       smartlist_add(exclude_nodes, (void*)node);
       /* Are we in single onion mode? Can we connect directly to this node? */
-      const int use_direct = fascist_firewall_allows_node(
-                                                        node,
-                                                        FIREWALL_OR_CONNECTION,
-                                                        0);
+      const int use_direct = rend_service_use_direct_connection_node(options,
+                                                                     node);
       intro = tor_malloc_zero(sizeof(rend_intro_point_t));
       intro->extend_info = extend_info_from_node(node, use_direct);
       intro->intro_key = crypto_pk_new();
