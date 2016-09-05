@@ -117,7 +117,7 @@ typedef struct rend_service_t {
   int max_streams_close_circuit;
 } rend_service_t;
 
-void rend_service_free(rend_service_t *service);
+STATIC void rend_service_free(rend_service_t *service);
 
 #endif
 

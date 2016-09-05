@@ -153,7 +153,7 @@ rend_authorized_client_strmap_item_free(void *authorized_client)
 
 /** Release the storage held by <b>service</b>.
  */
-void
+STATIC void
 rend_service_free(rend_service_t *service)
 {
   if (!service)
