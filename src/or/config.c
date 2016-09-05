@@ -3500,7 +3500,8 @@ options_validate(or_options_t *old_options, or_options_t *options,
 #endif
     }
     log_fn(severity, LD_CONFIG, "You disabled LearnCircuitBuildTimeout, but "
-           "didn't a CircuitBuildTimeout. I'll pick a plausible default.");
+           "didn't specify a CircuitBuildTimeout. I'll pick a plausible "
+           "default.");
   }
 
   if (options->PathBiasNoticeRate > 1.0) {
