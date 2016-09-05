@@ -1881,8 +1881,7 @@ pick_rendezvous_node(router_crn_flags_t flags)
   } else {
     log_info(LD_REND,
              "Unable to find a random rendezvous point that we can connect to "
-             "directly for %s, falling back to a 3-hop path.",
-             safe_str_client(service->service_id));
+             "directly, falling back to a 3-hop path.");
   }
 #endif
 
