@@ -3767,8 +3767,8 @@ rend_consider_services_intro_points(void)
                  n_intro_points_to_open);
         break;
       }
-      /* Add the choosen node to the exclusion list in order to avoid to
-       * pick it again in the next iteration. */
+      /* Add the choosen node to the exclusion list in order to avoid picking
+       * it again in the next iteration. */
       smartlist_add(exclude_nodes, (void*)node);
       /* Are we in single onion mode? Can we connect directly to this node? */
       const int use_direct = rend_service_use_direct_connection_node(options,
