@@ -1735,6 +1735,10 @@ options_act(const or_options_t *old_options)
      hidden service directories, so that we never accidentally launch the
      non-anonymous hidden services thinking they are anonymous. */
   if (running_tor && options->OnionServiceSingleHopMode) {
+    if (options->RendConfigLines && !num_rend_services()) {
+      log_warn(LD_BUG,"Error: hidden services configured, but not parsed.");
+      return -1;
+    }
     if (rend_service_poison_all_single_onion_dirs(NULL) < 0) {
       log_warn(LD_GENERAL,"Failed to mark hidden services as Single Onion.");
       return -1;
