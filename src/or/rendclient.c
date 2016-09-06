@@ -151,8 +151,8 @@ rend_client_send_introduction(origin_circuit_t *introcirc,
   tor_assert(rendcirc->rend_data);
   tor_assert(!rend_cmp_service_ids(introcirc->rend_data->onion_address,
                                    rendcirc->rend_data->onion_address));
-  assert_circ_onehop_ok(introcirc, 0, options);
-  assert_circ_onehop_ok(rendcirc, 0, options);
+  assert_circ_anonymity_ok(introcirc, options);
+  assert_circ_anonymity_ok(rendcirc, options);
 
   r = rend_cache_lookup_entry(introcirc->rend_data->onion_address, -1,
                               &entry);
@@ -400,7 +400,7 @@ rend_client_introduction_acked(origin_circuit_t *circ,
 
   tor_assert(circ->build_state);
   tor_assert(circ->build_state->chosen_exit);
-  assert_circ_onehop_ok(circ, 0, options);
+  assert_circ_anonymity_ok(circ, options);
   tor_assert(circ->rend_data);
 
   /* For path bias: This circuit was used successfully. Valid
@@ -415,7 +415,7 @@ rend_client_introduction_acked(origin_circuit_t *circ,
     log_info(LD_REND,"Received ack. Telling rend circ...");
     rendcirc = circuit_get_ready_rend_circ_by_rend_data(circ->rend_data);
     if (rendcirc) { /* remember the ack */
-      assert_circ_onehop_ok(rendcirc, 0, options);
+      assert_circ_anonymity_ok(rendcirc, options);
       circuit_change_purpose(TO_CIRCUIT(rendcirc),
                              CIRCUIT_PURPOSE_C_REND_READY_INTRO_ACKED);
       /* Set timestamp_dirty, because circuit_expire_building expects
