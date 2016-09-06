@@ -3391,7 +3391,7 @@ options_validate(or_options_t *old_options, or_options_t *options,
   }
 
   /* Check the Single Onion Service options */
-  if (options_validate_single_onion(options, msg) == -1)
+  if (options_validate_single_onion(options, msg) < 0)
     return -1;
 
 #ifdef ENABLE_TOR2WEB_MODE
