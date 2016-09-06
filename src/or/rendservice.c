@@ -1545,7 +1545,7 @@ rend_service_use_direct_connection(const or_options_t* options,
   /* We'll connect directly all reachabke addresses, whether preferred or not.
    * The prefer_ipv6 argument to fascist_firewall_allows_address_addr is
    * ignored, because pref_only is 0. */
-  return (rend_service_allow_direct_connection(options) &&
+  return (rend_service_allow_non_anonymous_connection(options) &&
           fascist_firewall_allows_address_addr(&ei->addr, ei->port,
                                                FIREWALL_OR_CONNECTION, 0, 0));
 }
@@ -1557,7 +1557,7 @@ rend_service_use_direct_connection_node(const or_options_t* options,
 {
   /* We'll connect directly all reachabke addresses, whether preferred or not.
    */
-  return (rend_service_allow_direct_connection(options) &&
+  return (rend_service_allow_non_anonymous_connection(options) &&
           fascist_firewall_allows_node(node, FIREWALL_OR_CONNECTION, 0));
 }
 
@@ -2775,7 +2775,7 @@ rend_service_launch_establish_intro(rend_service_t *service,
   extend_info_t *direct_ei = NULL;
 
   /* Are we in single onion mode? */
-  if (rend_service_allow_direct_connection(options)) {
+  if (rend_service_allow_non_anonymous_connection(options)) {
     /* Do we have a descriptor for the node?
      * We've either just chosen it from the consensus, or we've just reviewed
      * our intro points to see which ones are still valid, and deleted the ones
