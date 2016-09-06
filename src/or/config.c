@@ -4409,6 +4409,13 @@ options_transition_allowed(const or_options_t *old,
     return -1;
   }
 
+  if (old->OnionServiceNonAnonymousMode !=
+      new_val->OnionServiceNonAnonymousMode) {
+    *msg = tor_strdup("While Tor is running, changing "
+                      "OnionServiceNonAnonymousMode is not allowed.");
+    return -1;
+  }
+
   if (old->DisableDebuggerAttachment &&
       !new_val->DisableDebuggerAttachment) {
     *msg = tor_strdup("While Tor is running, disabling "
