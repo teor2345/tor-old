@@ -4121,8 +4121,8 @@ rend_service_set_connection_addr_port(edge_connection_t *conn,
     return -2;
 }
 
-/* Do the options allow services to make direct connections to introduction or
- * rendezvous points?
+/* Do the options allow onion services to make direct (non-anonymous)
+ * connections to introduction or rendezvous points?
  * Returns true if tor is in OnionServiceSingleHopMode. */
 int
 rend_service_allow_non_anonymous_connection(const or_options_t *options)
