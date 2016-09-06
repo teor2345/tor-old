@@ -2844,8 +2844,9 @@ options_validate_single_onion(or_options_t *options, char **msg)
    * OnionServiceSingleHopMode. */
   if (rend_service_non_anonymous_mode_enabled(options) &&
       !options->OnionServiceSingleHopMode) {
-    REJECT("OnionServiceNonAnonymousMode must be used with "
-           "OnionServiceSingleHopMode set to 1.");
+    REJECT("OnionServiceNonAnonymousMode does not provide any server "
+           "anonymity. It must be used with OnionServiceSingleHopMode set to "
+           "1.");
   }
 
   /* If you run an anonymous client with an active Single Onion service, the
