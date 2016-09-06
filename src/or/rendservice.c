@@ -1031,7 +1031,7 @@ static int
 poison_single_onion_hidden_service_dir(const rend_service_t *service)
 {
   /* We must only poison directories if we're in Single Onion mode */
-  assert(rend_service_allow_non_anonymous_connection(get_options()));
+  tor_assert(rend_service_allow_non_anonymous_connection(get_options()));
 
   int fd;
   int retval = -1;
@@ -1085,7 +1085,7 @@ int
 rend_service_poison_all_single_onion_dirs(const smartlist_t *service_list)
 {
   /* We must only poison directories if we're in Single Onion mode */
-  assert(rend_service_allow_non_anonymous_connection(get_options()));
+  tor_assert(rend_service_allow_non_anonymous_connection(get_options()));
 
   const smartlist_t *s_list;
   /* If no special service list is provided, then just use the global one. */
