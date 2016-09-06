@@ -1790,6 +1790,12 @@ test_policies_fascist_firewall_choose_address(void *arg)
   CHECK_CHOSEN_ADDR_RN(fake_rs, fake_node, FIREWALL_DIR_CONNECTION, 1, 1,
                        ipv4_dir_ap);
 
+  /* When a rs has no node, it defaults to IPv4. */
+  CHECK_CHOSEN_ADDR_RS(fake_rs, FIREWALL_OR_CONNECTION, 0, 1, ipv4_or_ap);
+  CHECK_CHOSEN_ADDR_RS(fake_rs, FIREWALL_OR_CONNECTION, 1, 1, ipv4_or_ap);
+  CHECK_CHOSEN_ADDR_RS(fake_rs, FIREWALL_DIR_CONNECTION, 0, 1, ipv4_dir_ap);
+  CHECK_CHOSEN_ADDR_RS(fake_rs, FIREWALL_DIR_CONNECTION, 1, 1, ipv4_dir_ap);
+
   /* Choose an address with IPv6 on */
   memset(&mock_options, 0, sizeof(or_options_t));
   mock_options.ClientUseIPv4 = 0;
@@ -1806,6 +1812,12 @@ test_policies_fascist_firewall_choose_address(void *arg)
                        ipv6_dir_ap);
   CHECK_CHOSEN_ADDR_RN(fake_rs, fake_node, FIREWALL_DIR_CONNECTION, 1, 1,
                        ipv6_dir_ap);
+
+  /* When a rs has no node, it defaults to IPv4. */
+  CHECK_CHOSEN_ADDR_RS(fake_rs, FIREWALL_OR_CONNECTION, 0, 1, ipv6_or_ap);
+  CHECK_CHOSEN_ADDR_RS(fake_rs, FIREWALL_OR_CONNECTION, 1, 1, ipv6_or_ap);
+  CHECK_CHOSEN_ADDR_RS(fake_rs, FIREWALL_DIR_CONNECTION, 0, 1, ipv6_dir_ap);
+  CHECK_CHOSEN_ADDR_RS(fake_rs, FIREWALL_DIR_CONNECTION, 1, 1, ipv6_dir_ap);
 
   /* Choose an address with ClientUseIPv4 0.
    * This means "use IPv6" regardless of the other settings. */
@@ -1824,6 +1836,12 @@ test_policies_fascist_firewall_choose_address(void *arg)
                        ipv6_dir_ap);
   CHECK_CHOSEN_ADDR_RN(fake_rs, fake_node, FIREWALL_DIR_CONNECTION, 1, 1,
                        ipv6_dir_ap);
+
+  /* When a rs has no node, it should use IPv6 here. */
+  CHECK_CHOSEN_ADDR_RS(fake_rs, FIREWALL_OR_CONNECTION, 0, 1, ipv6_or_ap);
+  CHECK_CHOSEN_ADDR_RS(fake_rs, FIREWALL_OR_CONNECTION, 1, 1, ipv6_or_ap);
+  CHECK_CHOSEN_ADDR_RS(fake_rs, FIREWALL_DIR_CONNECTION, 0, 1, ipv6_dir_ap);
+  CHECK_CHOSEN_ADDR_RS(fake_rs, FIREWALL_DIR_CONNECTION, 1, 1, ipv6_dir_ap);
 
   /* Choose an address with ORPort_set 1 (server mode).
    * This means "use IPv4" regardless of the other settings. */
@@ -1846,6 +1864,12 @@ test_policies_fascist_firewall_choose_address(void *arg)
                        ipv4_dir_ap);
   CHECK_CHOSEN_ADDR_RN(fake_rs, fake_node, FIREWALL_DIR_CONNECTION, 1, 1,
                        ipv4_dir_ap);
+
+  /* When a rs has no node, it should use IPv6 here. */
+  CHECK_CHOSEN_ADDR_RS(fake_rs, FIREWALL_OR_CONNECTION, 0, 1, ipv4_or_ap);
+  CHECK_CHOSEN_ADDR_RS(fake_rs, FIREWALL_OR_CONNECTION, 1, 1, ipv4_or_ap);
+  CHECK_CHOSEN_ADDR_RS(fake_rs, FIREWALL_DIR_CONNECTION, 0, 1, ipv4_dir_ap);
+  CHECK_CHOSEN_ADDR_RS(fake_rs, FIREWALL_DIR_CONNECTION, 1, 1, ipv4_dir_ap);
 
  done:
   UNMOCK(get_options);
