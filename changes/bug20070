@@ -1,0 +1,5 @@
+  o Minor bugfixes (logging):
+    - When we are unable to choose a reachable address for a hard-coded
+      authority or fallback, and we have a descriptor for that relay,
+      log a more informative message.
+      Fixes bug 20070; bugfix on 0.2.8.1-alpha. Patch by teor.

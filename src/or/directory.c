@@ -689,16 +689,39 @@ directory_choose_address_routerstatus(const routerstatus_t *status,
   /* We rejected all addresses in the relay's status. This means we can't
    * connect to it. */
   if (!have_or && !have_dir) {
-    static int logged_backtrace = 0;
-    log_info(LD_BUG, "Rejected all OR and Dir addresses from %s when "
-             "launching an outgoing directory connection to: IPv4 %s OR %d "
-             "Dir %d IPv6 %s OR %d Dir %d", routerstatus_describe(status),
-             fmt_addr32(status->addr), status->or_port,
-             status->dir_port, fmt_addr(&status->ipv6_addr),
-             status->ipv6_orport, status->dir_port);
-    if (!logged_backtrace) {
-      log_backtrace(LOG_INFO, LD_BUG, "Addresses came from");
-      logged_backtrace = 1;
+    /* If an authority or fallback directory has a hard-coded IPv6 address,
+     * but we receive a descriptor without that address, Tor will believe the
+     * descriptor, and end up here. */
+    const node_t *node = node_get_by_id(status->identity_digest);
+    if (node) {
+      tor_addr_port_t ipv4_orport_ap;
+      tor_addr_port_t ipv4_dirport_ap;
+      tor_addr_port_t ipv6_orport_ap;
+
+      node_get_prim_orport(node, &ipv4_orport_ap);
+      node_get_pref_dirport(node, &ipv4_dirport_ap);
+      node_get_pref_ipv6_orport(node, &ipv6_orport_ap);
+      char *ipv6_addr_str = tor_addr_to_str_dup(&ipv6_orport_ap.addr);
+
+      log_info(LD_DIR, "Hard-coded routerstatus %s would have allowed us to "
+               "connect, but the descriptor did not. Routerstatus: IPv4 "
+               "OR %d Dir %d IPv6 %s OR %d. Node: %s OR %d Dir %d IPv6 %s "
+               "OR %d.", routerstatus_describe(status), status->or_port,
+               status->dir_port, fmt_addr(&status->ipv6_addr),
+               status->ipv6_orport, node_describe(node), ipv4_orport_ap.port,
+               ipv4_dirport_ap.port, ipv6_addr_str, ipv6_orport_ap.port);
+      tor_free(ipv6_addr_str);
+    } else {
+      static int logged_backtrace = 0;
+      log_info(LD_BUG, "Rejected all OR and Dir addresses from %s when "
+               "launching an outgoing directory connection to: IPv4 OR %d "
+               "Dir %d IPv6 %s OR %d", routerstatus_describe(status),
+               status->or_port, status->dir_port,
+               fmt_addr(&status->ipv6_addr), status->ipv6_orport);
+      if (!logged_backtrace) {
+        log_backtrace(LOG_INFO, LD_BUG, "Addresses came from");
+        logged_backtrace = 1;
+      }
     }
     return -1;
   }
