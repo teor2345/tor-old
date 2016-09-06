@@ -2862,8 +2862,9 @@ test_options_validate__single_onion(void *ignored)
                                 );
   ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
   tt_int_op(ret, OP_EQ, -1);
-  tt_str_op(msg, OP_EQ, "OnionServiceNonAnonymousMode must be used with "
-            "OnionServiceSingleHopMode set to 1.");
+  tt_str_op(msg, OP_EQ, "OnionServiceNonAnonymousMode does not provide any "
+            "server anonymity. It must be used with OnionServiceSingleHopMode "
+            "set to 1.");
   tor_free(msg);
   free_options_test_data(tdata);
 
@@ -2872,8 +2873,9 @@ test_options_validate__single_onion(void *ignored)
                                 );
   ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
   tt_int_op(ret, OP_EQ, -1);
-  tt_str_op(msg, OP_EQ, "OnionServiceNonAnonymousMode must be used with "
-            "OnionServiceSingleHopMode set to 1.");
+  tt_str_op(msg, OP_EQ, "OnionServiceNonAnonymousMode does not provide any "
+            "server anonymity. It must be used with OnionServiceSingleHopMode "
+            "set to 1.");
   free_options_test_data(tdata);
 
   tdata = get_options_test_data(TEST_OPTIONS_DEFAULT_VALUES
