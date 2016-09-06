@@ -1555,7 +1555,14 @@ rend_parse_service_authorization(const or_options_t *options,
 int
 rend_client_allow_direct_connection(const or_options_t *options)
 {
+  /* Tor2web support needs to be compiled in to a tor binary. */
+#ifdef NON_ANONYMOUS_MODE_ENABLED
+  /* Tor2web */
   return options->Tor2webMode ? 1 : 0;
+#else
+  (void)options;
+  return 0;
+#endif
 }
 
 /* Was non-anonymous mode enabled via NON_ANONYMOUS_MODE_ENABLED at
