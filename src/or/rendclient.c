@@ -1553,7 +1553,7 @@ rend_parse_service_authorization(const or_options_t *options,
  * rendezvous points?
  * Returns true if tor is in Tor2web mode */
 int
-rend_client_allow_direct_connection(const or_options_t *options)
+rend_client_allow_non_anonymous_connection(const or_options_t *options)
 {
   /* Tor2web support needs to be compiled in to a tor binary. */
 #ifdef NON_ANONYMOUS_MODE_ENABLED

@@ -2017,7 +2017,7 @@ onion_pick_cpath_exit(origin_circuit_t *circ, extend_info_t *exit_ei)
 
   if (state->onehop_tunnel) {
     log_debug(LD_CIRC, "Launching a one-hop circuit for dir tunnel%s.",
-              (rend_allow_direct_connection(get_options()) ?
+              (rend_allow_non_anonymous_connection(get_options()) ?
                ", or intro or rendezvous connection" : ""));
     state->desired_path_len = 1;
   } else {

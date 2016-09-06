@@ -1068,14 +1068,14 @@ rend_auth_decode_cookie(const char *cookie_in, uint8_t *cookie_out,
 }
 
 /* Is this a rend client or server that allows direct connections?
- * Prefer rend_client_allow_direct_connection() or
- * rend_service_allow_direct_connection() whenever possible, so that checks
- * are specific to Single Onion Services or Tor2web. */
+ * Prefer rend_client_allow_non_anonymous_connection() or
+ * rend_service_allow_non_anonymous_connection() whenever possible, so that
+ * checks are specific to Single Onion Services or Tor2web. */
 int
-rend_allow_direct_connection(const or_options_t* options)
+rend_allow_non_anonymous_connection(const or_options_t* options)
 {
-  return (rend_client_allow_direct_connection(options)
-          || rend_service_allow_direct_connection(options));
+  return (rend_client_allow_non_anonymous_connection(options)
+          || rend_service_allow_non_anonymous_connection(options));
 }
 
 /* Is this a rend client or server in non-anonymous mode?

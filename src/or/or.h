@@ -3710,7 +3710,7 @@ typedef struct {
    * Onion servers easily locatable, but clients remain location-anonymous.
    * OnionServiceSingleHopMode requires OnionServiceNonAnonymousMode to be set
    * to 1.
-   * Use rend_service_allow_direct_connection() or
+   * Use rend_service_allow_non_anonymous_connection() or
    * rend_service_reveal_startup_time() instead of using this option directly.
    */
   int OnionServiceSingleHopMode;

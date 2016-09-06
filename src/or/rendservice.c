@@ -1031,7 +1031,7 @@ static int
 poison_single_onion_hidden_service_dir(const rend_service_t *service)
 {
   /* We must only poison directories if we're in Single Onion mode */
-  assert(rend_service_allow_direct_connection(get_options()));
+  assert(rend_service_allow_non_anonymous_connection(get_options()));
 
   int fd;
   int retval = -1;
@@ -1085,7 +1085,7 @@ int
 rend_service_poison_all_single_onion_dirs(const smartlist_t *service_list)
 {
   /* We must only poison directories if we're in Single Onion mode */
-  assert(rend_service_allow_direct_connection(get_options()));
+  assert(rend_service_allow_non_anonymous_connection(get_options()));
 
   const smartlist_t *s_list;
   /* If no special service list is provided, then just use the global one. */
@@ -1932,7 +1932,7 @@ find_rp_for_intro(const rend_intro_cell_t *intro,
     }
 
     /* Are we in single onion mode? */
-    const int allow_direct = rend_service_allow_direct_connection(
+    const int allow_direct = rend_service_allow_non_anonymous_connection(
                                                                 get_options());
     rp = extend_info_from_node(node, allow_direct);
     if (!rp) {
@@ -3686,7 +3686,8 @@ rend_consider_services_intro_points(void)
   time_t now;
   const or_options_t *options = get_options();
   /* Are we in single onion mode? */
-  const int allow_direct = rend_service_allow_direct_connection(get_options());
+  const int allow_direct = rend_service_allow_non_anonymous_connection(
+                                                                get_options());
   /* List of nodes we need to _exclude_ when choosing a new node to
    * establish an intro point to. */
   smartlist_t *exclude_nodes;
@@ -4124,7 +4125,7 @@ rend_service_set_connection_addr_port(edge_connection_t *conn,
  * rendezvous points?
  * Returns true if tor is in OnionServiceSingleHopMode. */
 int
-rend_service_allow_direct_connection(const or_options_t *options)
+rend_service_allow_non_anonymous_connection(const or_options_t *options)
 {
   return options->OnionServiceSingleHopMode ? 1 : 0;
 }
@@ -4137,7 +4138,7 @@ rend_service_allow_direct_connection(const or_options_t *options)
 int
 rend_service_reveal_startup_time(const or_options_t *options)
 {
-  return rend_service_allow_direct_connection(options);
+  return rend_service_allow_non_anonymous_connection(options);
 }
 
 /* Is non-anonymous mode enabled using the OnionServiceNonAnonymousMode
