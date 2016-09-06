@@ -2314,8 +2314,16 @@ connection_ap_handshake_send_begin(entry_connection_t *ap_conn)
 
   begin_type = ap_conn->use_begindir ?
                  RELAY_COMMAND_BEGIN_DIR : RELAY_COMMAND_BEGIN;
-  assert_circ_onehop_ok(circ, (begin_type == RELAY_COMMAND_BEGIN_DIR),
-                        get_options());
+
+  /* We can't check directory connections for anonymity here, because we don't
+   * have access to the directory purpose. Directory connection path anonymity
+   * is checked earlier, in directory_initiate_command_rend(). */
+  if (begin_type == RELAY_COMMAND_BEGIN) {
+    /* This connection is a standard OR connection.
+     * Make sure its path length is anonymous, or that we're in a
+     * non-anonymous mode. */
+    assert_circ_anonymity_ok(circ, get_options());
+  }
 
   if (connection_edge_send_command(edge_conn, begin_type,
                   begin_type == RELAY_COMMAND_BEGIN ? payload : NULL,

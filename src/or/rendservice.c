@@ -1610,7 +1610,7 @@ rend_service_receive_introduction(origin_circuit_t *circuit,
     goto err;
   }
 
-  assert_circ_onehop_ok(circuit, 0, options);
+  assert_circ_anonymity_ok(circuit, options);
   tor_assert(circuit->rend_data);
 
   /* We'll use this in a bazillion log messages */
@@ -2901,7 +2901,7 @@ rend_service_intro_has_opened(origin_circuit_t *circuit)
   int reason = END_CIRC_REASON_TORPROTOCOL;
 
   tor_assert(circuit->base_.purpose == CIRCUIT_PURPOSE_S_ESTABLISH_INTRO);
-  assert_circ_onehop_ok(circuit, 0, get_options());
+  assert_circ_anonymity_ok(circuit, get_options());
   tor_assert(circuit->cpath);
   tor_assert(circuit->rend_data);
 
@@ -3098,7 +3098,7 @@ rend_service_rendezvous_has_opened(origin_circuit_t *circuit)
   tor_assert(circuit->base_.purpose == CIRCUIT_PURPOSE_S_CONNECT_REND);
   tor_assert(circuit->cpath);
   tor_assert(circuit->build_state);
-  assert_circ_onehop_ok(circuit, 0, get_options());
+  assert_circ_anonymity_ok(circuit, get_options());
   tor_assert(circuit->rend_data);
 
   /* Declare the circuit dirty to avoid reuse, and for path-bias */
