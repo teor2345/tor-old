@@ -18,6 +18,7 @@
 #include "circuitlist.h"
 #include "circuitmux.h"
 #include "circuitmux_ewma.h"
+#include "circuitstats.h"
 #include "config.h"
 #include "connection.h"
 #include "connection_edge.h"
@@ -2874,25 +2875,6 @@ options_validate_single_onion(or_options_t *options, char **msg)
   }
 
   if (options->OnionServiceSingleHopMode
-      && options->LearnCircuitBuildTimeout) {
-    /* LearnCircuitBuildTimeout and OnionServiceSingleHopMode are incompatible
-     * in two ways:
-     *
-     * - LearnCircuitBuildTimeout results in a low CBT, which
-     *   Single Onion use of one-hop intro and rendezvous circuits lowers
-     *   much further, producing *far* too many timeouts.
-     *
-     * - The adaptive CBT code does not update its timeout estimate
-     *   using build times for single-hop circuits.
-     *
-     * If we fix both of these issues someday, we should test
-     * OnionServiceSingleHopMode with LearnCircuitBuildTimeout on again. */
-    log_notice(LD_CONFIG,"OnionServiceSingleHopMode is enabled; turning "
-               "LearnCircuitBuildTimeout off.");
-    options->LearnCircuitBuildTimeout = 0;
-  }
-
-  if (options->OnionServiceSingleHopMode
       && options->UseEntryGuards) {
     /* Single Onion services do not (and should not) use entry guards
      * in any meaningful way.  Further, Single Onions causes the hidden
@@ -3411,24 +3393,6 @@ options_validate(or_options_t *old_options, or_options_t *options,
     return -1;
 
 #ifdef ENABLE_TOR2WEB_MODE
-  if (options->Tor2webMode && options->LearnCircuitBuildTimeout) {
-    /* LearnCircuitBuildTimeout and Tor2webMode are incompatible in
-     * two ways:
-     *
-     * - LearnCircuitBuildTimeout results in a low CBT, which
-     *   Tor2webMode's use of one-hop rendezvous circuits lowers
-     *   much further, producing *far* too many timeouts.
-     *
-     * - The adaptive CBT code does not update its timeout estimate
-     *   using build times for single-hop circuits.
-     *
-     * If we fix both of these issues someday, we should test
-     * Tor2webMode with LearnCircuitBuildTimeout on again. */
-    log_notice(LD_CONFIG,"Tor2webMode is enabled; turning "
-               "LearnCircuitBuildTimeout off.");
-    options->LearnCircuitBuildTimeout = 0;
-  }
-
   if (options->Tor2webMode && options->UseEntryGuards) {
     /* tor2web mode clients do not (and should not) use entry guards
      * in any meaningful way.  Further, tor2web mode causes the hidden
