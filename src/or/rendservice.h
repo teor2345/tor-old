@@ -165,8 +165,10 @@ void rend_service_port_config_free(rend_service_port_config_t *p);
 
 void rend_authorized_client_free(rend_authorized_client_t *client);
 
-int rend_services_are_single_onion_poisoned(const smartlist_t *service_list);
-int rend_service_poison_all_single_onion_dirs(const smartlist_t *service_list);
+int rend_service_list_verify_single_onion_poison(
+                                              const smartlist_t *service_list,
+                                              const or_options_t *options);
+int rend_service_poison_new_single_onion_dirs(const smartlist_t *service_list);
 
 /** Return value from rend_service_add_ephemeral. */
 typedef enum {

@@ -1010,11 +1010,33 @@ service_is_single_onion_poisoned(const rend_service_t *service)
   return 0;
 }
 
-/** Return True if any of the active hidden services have been poisoned by
- * OnionServiceSingleHopMode. If a <b>service_list</b> is provided, treat it
+/* Return 1 if the private key file for service exists and has a non-zero size,
+ * and 0 otherwise. */
+static int
+rend_service_private_key_exists(const rend_service_t *service)
+{
+  char *private_key_path = rend_service_path(service, private_key_fname);
+  const file_status_t private_key_status = file_status(private_key_path);
+  tor_free(private_key_path);
+  /* Only non-empty regular private key files could have been used before. */
+  return private_key_status == FN_FILE;
+}
+
+/** Check the single onion service poison state of all existing hidden service
+ * directories:
+ * - If each service is poisoned, and we are in OnionServiceSingleHopMode,
+ *   return 0,
+ * - If each service is not poisoned, and we are not in
+ *   OnionServiceSingleHopMode, return 0,
+ * - Otherwise, the poison state is invalid, and a service that was created in
+ *   one mode is being used in the other, return -1.
+ * Hidden service directories without keys are not checked for consistency.
+ * When their keys are created, they will be poisoned (if needed).
+ * If a <b>service_list</b> is provided, treat it
  * as the list of hidden services (used in unittests). */
 int
-rend_services_are_single_onion_poisoned(const smartlist_t *service_list)
+rend_service_list_verify_single_onion_poison(const smartlist_t *service_list,
+                                             const or_options_t *options)
 {
   const smartlist_t *s_list;
   /* If no special service list is provided, then just use the global one. */
@@ -1028,22 +1050,27 @@ rend_services_are_single_onion_poisoned(const smartlist_t *service_list)
     s_list = service_list;
   }
 
+  int consistent = 1;
   SMARTLIST_FOREACH_BEGIN(s_list, const rend_service_t *, s) {
-    if (service_is_single_onion_poisoned(s)) {
-      return 1;
+    if (service_is_single_onion_poisoned(s) !=
+        rend_service_allow_non_anonymous_connection(options) &&
+        rend_service_private_key_exists(s)) {
+      consistent = 0;
     }
   } SMARTLIST_FOREACH_END(s);
 
-  return 0;
+  return consistent ? 0 : -1;
 }
 
-/*** Helper for rend_service_poison_all_single_onion_dirs(). When in single
- * onion mode, add a file to each hidden service directory that marks it as a
+/*** Helper for rend_service_poison_new_single_onion_dirs(). When in single
+ * onion mode, add a file to this hidden service directory that marks it as a
  * single onion hidden service. Returns 0 when a directory is successfully
  * poisoned, or if it is already poisoned. Returns -1 on a failure to read
- * the directory or write the poison file. */
+ * the directory or write the poison file, or if there is an existing private
+ * key file in the directory. (The service should have been poisoned when the
+ * key was created.) */
 static int
-poison_single_onion_hidden_service_dir(const rend_service_t *service)
+poison_new_single_onion_hidden_service_dir(const rend_service_t *service)
 {
   /* We must only poison directories if we're in Single Onion mode */
   tor_assert(rend_service_allow_non_anonymous_connection(get_options()));
@@ -1057,6 +1084,13 @@ poison_single_onion_hidden_service_dir(const rend_service_t *service)
     return 0;
   }
 
+  /* Make sure we're only poisoning new hidden service directories */
+  if (rend_service_private_key_exists(service)) {
+    log_warn(LD_BUG, "Tried to single onion poison a service directory after "
+             "the private key was created.");
+    return -1;
+  }
+
   poison_fname = rend_service_sos_poison_path(service);
 
   switch (file_status(poison_fname)) {
@@ -1067,6 +1101,8 @@ poison_single_onion_hidden_service_dir(const rend_service_t *service)
     goto done;
   case FN_FILE: /* single onion poison file already exists. NOP. */
   case FN_EMPTY: /* single onion poison file already exists. NOP. */
+    log_debug(LD_FS, "Tried to re-poison a single onion poisoned file \"%s\"",
+              poison_fname);
     break;
   case FN_NOENT:
     fd = tor_open_cloexec(poison_fname, O_RDWR|O_CREAT|O_TRUNC, 0600);
@@ -1090,13 +1126,15 @@ poison_single_onion_hidden_service_dir(const rend_service_t *service)
 }
 
 /** We just got launched in OnionServiceSingleHopMode. That's a non-anoymous
- * mode for hidden services; hence we should mark all hidden service
+ * mode for hidden services; hence we should mark all new hidden service
  * directories appropriately so that they are never launched as
- * location-private hidden services again. If a <b>service_list</b> is
- * provided, treat it as the list of hidden services (used in unittests).
+ * location-private hidden services again. (New directories don't have private
+ * key files.)
+ * If a <b>service_list</b> is provided, treat it as the list of hidden
+ * services (used in unittests).
  * Return 0 on success, -1 on fail. */
 int
-rend_service_poison_all_single_onion_dirs(const smartlist_t *service_list)
+rend_service_poison_new_single_onion_dirs(const smartlist_t *service_list)
 {
   /* We must only poison directories if we're in Single Onion mode */
   tor_assert(rend_service_allow_non_anonymous_connection(get_options()));
@@ -1114,8 +1152,10 @@ rend_service_poison_all_single_onion_dirs(const smartlist_t *service_list)
   }
 
   SMARTLIST_FOREACH_BEGIN(s_list, const rend_service_t *, s) {
-    if (poison_single_onion_hidden_service_dir(s) < 0) {
-      return -1;
+    if (!rend_service_private_key_exists(s)) {
+      if (poison_new_single_onion_hidden_service_dir(s) < 0) {
+        return -1;
+      }
     }
   } SMARTLIST_FOREACH_END(s);
 

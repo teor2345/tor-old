@@ -525,11 +525,10 @@ test_single_onion_poisoning(void *arg)
   or_options_t opt;
   mock_options = &opt;
   reset_options(mock_options, &mock_get_options_calls);
-  mock_options->OnionServiceSingleHopMode = 1;
-  mock_options->OnionServiceNonAnonymousMode = 1;
   MOCK(get_options, mock_get_options);
 
   int ret = -1;
+  mock_options->DataDirectory = tor_strdup(get_fname("test_data_dir"));
   rend_service_t *service_1 = tor_malloc_zero(sizeof(rend_service_t));
   char *dir1 = tor_strdup(get_fname("test_hs_dir1"));
   rend_service_t *service_2 = tor_malloc_zero(sizeof(rend_service_t));
@@ -538,13 +537,29 @@ test_single_onion_poisoning(void *arg)
 
   (void) arg;
 
-  /* Poison these two services and make sure that they are poisoned. */
+  /* No services, no problem! */
+  mock_options->OnionServiceSingleHopMode = 0;
+  mock_options->OnionServiceNonAnonymousMode = 0;
+  ret = rend_service_list_verify_single_onion_poison(services, mock_options);
+  tt_assert(ret == 0);
+
+  /* Either way, no problem. */
+  mock_options->OnionServiceSingleHopMode = 1;
+  mock_options->OnionServiceNonAnonymousMode = 1;
+  ret = rend_service_list_verify_single_onion_poison(services, mock_options);
+  tt_assert(ret == 0);
+
+  /* Create directories for both services */
 
 #ifdef _WIN32
+  ret = mkdir(mock_options->DataDirectory);
+  tt_assert(ret == 0);
   ret = mkdir(dir1);
   tt_assert(ret == 0);
   ret = mkdir(dir2);
 #else
+  ret = mkdir(mock_options->DataDirectory, 0700);
+  tt_assert(ret == 0);
   ret = mkdir(dir1, 0700);
   tt_assert(ret == 0);
   ret = mkdir(dir2, 0700);
@@ -554,24 +569,136 @@ test_single_onion_poisoning(void *arg)
   service_1->directory = dir1;
   service_2->directory = dir2;
   smartlist_add(services, service_1);
+  /* But don't add the second service yet. */
+
+  /* Service directories, but no previous keys, no problem! */
+  mock_options->OnionServiceSingleHopMode = 0;
+  mock_options->OnionServiceNonAnonymousMode = 0;
+  ret = rend_service_list_verify_single_onion_poison(services, mock_options);
+  tt_assert(ret == 0);
+
+  /* Either way, no problem. */
+  mock_options->OnionServiceSingleHopMode = 1;
+  mock_options->OnionServiceNonAnonymousMode = 1;
+  ret = rend_service_list_verify_single_onion_poison(services, mock_options);
+  tt_assert(ret == 0);
+
+  /* Poison! Poison! Poison!
+   * This can only be done in OnionServiceSingleHopMode. */
+  mock_options->OnionServiceSingleHopMode = 1;
+  mock_options->OnionServiceNonAnonymousMode = 1;
+  ret = rend_service_poison_new_single_onion_dirs(services);
+  tt_assert(ret == 0);
+  /* Poisoning twice is a no-op. */
+  ret = rend_service_poison_new_single_onion_dirs(services);
+  tt_assert(ret == 0);
+
+  /* Poisoned service directories, but no previous keys, no problem! */
+  mock_options->OnionServiceSingleHopMode = 0;
+  mock_options->OnionServiceNonAnonymousMode = 0;
+  ret = rend_service_list_verify_single_onion_poison(services, mock_options);
+  tt_assert(ret == 0);
+
+  /* Either way, no problem. */
+  mock_options->OnionServiceSingleHopMode = 1;
+  mock_options->OnionServiceNonAnonymousMode = 1;
+  ret = rend_service_list_verify_single_onion_poison(services, mock_options);
+  tt_assert(ret == 0);
+
+  /* Now add some keys, and we'll have a problem. */
+  ret = rend_service_load_all_keys(services);
+  tt_assert(ret == 0);
+
+  /* Poisoned service directories with previous keys are not allowed. */
+  mock_options->OnionServiceSingleHopMode = 0;
+  mock_options->OnionServiceNonAnonymousMode = 0;
+  ret = rend_service_list_verify_single_onion_poison(services, mock_options);
+  tt_assert(ret < 0);
+
+  /* But they are allowed if we're in non-anonymous mode. */
+  mock_options->OnionServiceSingleHopMode = 1;
+  mock_options->OnionServiceNonAnonymousMode = 1;
+  ret = rend_service_list_verify_single_onion_poison(services, mock_options);
+  tt_assert(ret == 0);
+
+  /* Re-poisoning directories with existing keys is a no-op, because
+   * directories with existing keys are ignored. */
+  mock_options->OnionServiceSingleHopMode = 1;
+  mock_options->OnionServiceNonAnonymousMode = 1;
+  ret = rend_service_poison_new_single_onion_dirs(services);
+  tt_assert(ret == 0);
+  /* And it keeps the poison. */
+  ret = rend_service_list_verify_single_onion_poison(services, mock_options);
+  tt_assert(ret == 0);
+
+  /* Now add the second service: it has no key and no poison file */
   smartlist_add(services, service_2);
 
-  /* Not poisoned yet. Test this */
-  ret = rend_services_are_single_onion_poisoned(services);
-  tor_assert(!ret);
+  /* A new service, and an existing poisoned service. Not ok. */
+  mock_options->OnionServiceSingleHopMode = 0;
+  mock_options->OnionServiceNonAnonymousMode = 0;
+  ret = rend_service_list_verify_single_onion_poison(services, mock_options);
+  tt_assert(ret < 0);
 
-  /* Poison! Poison! Poison! */
-  rend_service_poison_all_single_onion_dirs(services);
+  /* But ok to add in non-anonymous mode. */
+  mock_options->OnionServiceSingleHopMode = 1;
+  mock_options->OnionServiceNonAnonymousMode = 1;
+  ret = rend_service_list_verify_single_onion_poison(services, mock_options);
+  tt_assert(ret == 0);
 
-  /* Poisoning test */
-  ret = rend_services_are_single_onion_poisoned(services);
-  tor_assert(ret);
+  /* Now remove the poisoning from the first service, and we have the opposite
+   * problem. */
+  char *poison_path = rend_service_sos_poison_path(service_1);
+  ret = unlink(poison_path);
+  tor_free(poison_path);
+  tt_assert(ret == 0);
+
+  /* Unpoisoned service directories with previous keys are ok, as are empty
+   * directories. */
+  mock_options->OnionServiceSingleHopMode = 0;
+  mock_options->OnionServiceNonAnonymousMode = 0;
+  ret = rend_service_list_verify_single_onion_poison(services, mock_options);
+  tt_assert(ret == 0);
+
+  /* But the existing unpoisoned key is not ok in non-anonymous mode, even if
+   * there is an empty service. */
+  mock_options->OnionServiceSingleHopMode = 1;
+  mock_options->OnionServiceNonAnonymousMode = 1;
+  ret = rend_service_list_verify_single_onion_poison(services, mock_options);
+  tt_assert(ret < 0);
+
+  /* Poisoning directories with existing keys is a no-op, because directories
+   * with existing keys are ignored. But the new directory should poison. */
+  mock_options->OnionServiceSingleHopMode = 1;
+  mock_options->OnionServiceNonAnonymousMode = 1;
+  ret = rend_service_poison_new_single_onion_dirs(services);
+  tt_assert(ret == 0);
+  /* And the old directory remains unpoisoned. */
+  ret = rend_service_list_verify_single_onion_poison(services, mock_options);
+  tt_assert(ret < 0);
+
+  /* And the new directory should be ignored, because it has no key. */
+  mock_options->OnionServiceSingleHopMode = 0;
+  mock_options->OnionServiceNonAnonymousMode = 0;
+  ret = rend_service_list_verify_single_onion_poison(services, mock_options);
+  tt_assert(ret == 0);
+
+  /* Re-poisoning directories without existing keys is a no-op. */
+  mock_options->OnionServiceSingleHopMode = 1;
+  mock_options->OnionServiceNonAnonymousMode = 1;
+  ret = rend_service_poison_new_single_onion_dirs(services);
+  tt_assert(ret == 0);
+  /* And the old directory remains unpoisoned. */
+  ret = rend_service_list_verify_single_onion_poison(services, mock_options);
+  tt_assert(ret < 0);
 
  done:
+  /* TODO: should we delete the directories here? */
   rend_service_free(service_1);
   rend_service_free(service_2);
   smartlist_free(services);
   UNMOCK(get_options);
+  tor_free(mock_options->DataDirectory);
 }
 
 struct testcase_t hs_tests[] = {
