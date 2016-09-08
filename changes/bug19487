@@ -1,0 +1,6 @@
+  o Minor bugfixes (pluggable transports, reachability):
+    - Stop applying ReachableAddresses to bridges with pluggable
+      transports. Reachable addresses can be configured in a
+      transport-specific way.
+      Fixes bug 19487; bugfix on 2d33d192fc4d in tor-0.2.8.2-alpha.
+      Patch by teor.

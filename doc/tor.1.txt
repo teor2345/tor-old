@@ -750,7 +750,8 @@ The following options are useful only for clients (that is, if
     rather than connecting to the bridge directly. Some transports use a
     transport-specific method to work out the remote address to connect to.
     These transports typically ignore the "IP:ORPort" specified in the bridge
-    line.
+    line. Tor connects directly to pluggable transports, regardless of
+    **ReachableAddresses** and related settings.
 
 [[LearnCircuitBuildTimeout]] **LearnCircuitBuildTimeout** **0**|**1**::
     If 0, CircuitBuildTimeout adaptive learning is disabled. (Default: 1)
@@ -896,7 +897,13 @@ The following options are useful only for clients (that is, if
     example, \'ReachableAddresses 99.0.0.0/8, reject 18.0.0.0/8:80, accept
     \*:80' means that your firewall allows connections to everything inside net
     99, rejects port 80 connections to net 18, and accepts connections to port
-    80 otherwise. (Default: \'accept \*:*'.)
+    80 otherwise. +
++
+    **ReachableAddresses** only restricts direct client connections to relays
+    and bridges. **ReachableAddresses** is ignored for proxies and pluggable
+    transports: they have their own ways of configuring or discovering
+    reachable addresses.
+    (Default: \'accept \*:*'.)
 
 [[ReachableDirAddresses]] **ReachableDirAddresses** __ADDR__[/__MASK__][:__PORT__]...::
     Like **ReachableAddresses**, a list of addresses and ports. Tor will obey
@@ -909,14 +916,15 @@ The following options are useful only for clients (that is, if
     Like **ReachableAddresses**, a list of addresses and ports. Tor will obey
     these restrictions when connecting to Onion Routers, using TLS/SSL. If not
     set explicitly then the value of **ReachableAddresses** is used. If
-    **HTTPSProxy** is set then these connections will go through that proxy. +
+    **HTTPSProxy**, **SOCKS4Proxy** or **SOCKS5Proxy** are set, then these
+    connections will go through that proxy. +
  +
     The separation between **ReachableORAddresses** and
     **ReachableDirAddresses** is only interesting when you are connecting
-    through proxies (see **HTTPProxy** and **HTTPSProxy**). Most proxies limit
-    TLS connections (which Tor uses to connect to Onion Routers) to port 443,
-    and some limit HTTP GET requests (which Tor uses for fetching directory
-    information) to port 80.
+    through proxies (see **HTTPProxy**, **HTTPSProxy**, **SOCKS4Proxy** and
+    **SOCKS5Proxy**). Most proxies limit TLS connections (which Tor uses to
+    connect to Onion Routers) to port 443, and some limit HTTP GET requests
+    (which Tor uses for fetching directory information) to port 80.
 
 [[HidServAuth]] **HidServAuth** __onion-address__ __auth-cookie__ [__service-name__]::
     Client authorization for a hidden service. Valid onion addresses contain 16
@@ -1522,16 +1530,16 @@ The following options are useful only for clients (that is, if
     .60, and 100, respectively.
 
 [[ClientUseIPv4]] **ClientUseIPv4** **0**|**1**::
-    If this option is set to 0, Tor will avoid connecting to directory servers
-    and entry nodes over IPv4. Note that clients with an IPv4
-    address in a **Bridge**, proxy, or pluggable transport line will try
-    connecting over IPv4 even if **ClientUseIPv4** is set to 0. (Default: 1)
+    If this option is set to 0, Tor will avoid directly connecting to directory
+    servers, entry nodes, and bridges over IPv4. **ClientUseIPv4** is ignored
+    for proxies and pluggable transports: they have their own ways of
+    configuring or discovering reachable addresses. (Default: 1)
 
 [[ClientUseIPv6]] **ClientUseIPv6** **0**|**1**::
-    If this option is set to 1, Tor might connect to directory servers or
-    entry nodes over IPv6. Note that clients configured with an IPv6 address
-    in a **Bridge**, proxy, or pluggable transport line will try connecting
-    over IPv6 even if **ClientUseIPv6** is set to 0. (Default: 0)
+    If this option is set to 1, Tor might connect directly to directory
+    servers, entry nodes, or bridges over IPv6. **ClientUseIPv6** is ignored
+    for proxies and pluggable transports: they have their own ways of
+    configuring or discovering reachable addresses. (Default: 0)
 
 [[ClientPreferIPv6DirPort]] **ClientPreferIPv6DirPort** **0**|**1**|**auto**::
     If this option is set to 1, Tor prefers a directory port with an IPv6

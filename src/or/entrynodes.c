@@ -2156,9 +2156,11 @@ launch_direct_bridge_descriptor_fetch(bridge_info_t *bridge)
   }
 
   /* Until we get a descriptor for the bridge, we only know one address for
-   * it. */
+   * it. If the bridge is using a pluggable transport, that address could
+   * be a dummy address. */
   if (!fascist_firewall_allows_address_addr(&bridge->addr, bridge->port,
-                                            FIREWALL_OR_CONNECTION, 0, 0)) {
+                                            FIREWALL_OR_CONNECTION, 0, 0)
+      && !bridge->transport_name) {
     log_notice(LD_CONFIG, "Tried to fetch a descriptor directly from a "
                "bridge, but that bridge is not reachable through our "
                "firewall.");
@@ -2230,15 +2232,29 @@ fetch_bridge_descriptors(const or_options_t *options, time_t now)
           !fascist_firewall_allows_address_addr(&bridge->addr, bridge->port,
                                                 FIREWALL_OR_CONNECTION, 0,
                                                 0)) {
+        /* Some bridges with pluggable transports use a dummy address, so we
+         * ignore the firewall settings for these bridges. There's no way for
+         * tor to tell the transport what addresses it is allowed to connect
+         * to; this must be managed in the pluggable transport config. */
         log_notice(LD_DIR, "Bridge at '%s' isn't reachable by our "
-                   "firewall policy. %s.",
+                   "firewall policy. %s%s%s.",
                    fmt_addrport(&bridge->addr, bridge->port),
-                   can_use_bridge_authority ?
-                     "Asking bridge authority instead" : "Skipping");
-        if (can_use_bridge_authority)
-          ask_bridge_directly = 0;
-        else
-          continue;
+                   (bridge->transport_name ?
+                    "It uses a transport " : ""),
+                   (bridge->transport_name ?
+                    bridge->transport_name : ""),
+                   (can_use_bridge_authority ?
+                    " Asking bridge authority instead" :
+                    (bridge->transport_name ?
+                     " Trying anyway" :
+                     " Skipping")));
+          /* If we're not sure we can reach the bridge directly, the bridge
+           * authority is more reliable. (And we'll retry on failure.)
+           * Otherwise, try bridges with transports and see if they work. */
+          if (can_use_bridge_authority)
+            ask_bridge_directly = 0;
+          else if (!bridge->transport_name)
+            continue;
       }
 
       if (ask_bridge_directly) {
