@@ -1301,7 +1301,6 @@ rend_service_load_keys(rend_service_t *s)
   }
 #endif
 
-
   /* If client authorization is configured, load or generate keys. */
   if (s->auth_type != REND_NO_AUTH) {
     if (rend_service_load_auth_keys(s, fname) < 0) {
