@@ -1880,8 +1880,8 @@ pick_rendezvous_node(router_crn_flags_t flags)
     return node;
   } else {
     log_info(LD_REND,
-             "Unable to find a random rendezvous point that we can connect to "
-             "directly, falling back to a 3-hop path.");
+             "Unable to find a random rendezvous point that is reachable via "
+             "a direct connection, falling back to a 3-hop path.");
   }
 #endif
 
