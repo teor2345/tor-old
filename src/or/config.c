@@ -3451,7 +3451,7 @@ options_validate(or_options_t *old_options, or_options_t *options,
   /* Single Onion Services: non-anonymous hidden services */
   if (rend_service_non_anonymous_mode_enabled(options)) {
     log_warn(LD_CONFIG,
-             "OnionServiceNonAnonymousNode is set. Every hidden service on "
+             "HiddenServiceNonAnonymousMode is set. Every hidden service on "
              "this tor instance is NON-ANONYMOUS. If "
              "the HiddenServiceNonAnonymousMode option is changed, Tor will "
              "refuse to launch hidden services from the same directories, to "
