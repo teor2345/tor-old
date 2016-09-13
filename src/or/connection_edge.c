@@ -27,6 +27,7 @@
 #include "control.h"
 #include "dns.h"
 #include "dnsserv.h"
+#include "directory.h"
 #include "dirserv.h"
 #include "hibernate.h"
 #include "main.h"
