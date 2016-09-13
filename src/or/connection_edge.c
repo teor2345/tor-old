@@ -2271,6 +2271,7 @@ connection_ap_handshake_send_begin(entry_connection_t *ap_conn)
   char payload[CELL_PAYLOAD_SIZE];
   int payload_len;
   int begin_type;
+  const or_options_t *options = get_options();
   origin_circuit_t *circ;
   edge_connection_t *edge_conn = ENTRY_TO_EDGE_CONN(ap_conn);
   connection_t *base_conn = TO_CONN(edge_conn);
@@ -2315,14 +2316,30 @@ connection_ap_handshake_send_begin(entry_connection_t *ap_conn)
   begin_type = ap_conn->use_begindir ?
                  RELAY_COMMAND_BEGIN_DIR : RELAY_COMMAND_BEGIN;
 
-  /* We can't check directory connections for anonymity here, because we don't
-   * have access to the directory purpose. Directory connection path anonymity
-   * is checked earlier, in directory_initiate_command_rend(). */
+  /* Check that circuits are anonymised, based on their type. */
   if (begin_type == RELAY_COMMAND_BEGIN) {
     /* This connection is a standard OR connection.
      * Make sure its path length is anonymous, or that we're in a
      * non-anonymous mode. */
-    assert_circ_anonymity_ok(circ, get_options());
+    assert_circ_anonymity_ok(circ, options);
+  } else if (begin_type == RELAY_COMMAND_BEGIN_DIR) {
+    /* This connection is a begindir directory connection.
+     * Look at the linked directory connection to access the directory purpose.
+     * (This must be non-NULL, because we're doing begindir.) */
+    tor_assert(base_conn->linked);
+    connection_t *linked_dir_conn_base = base_conn->linked_conn;
+    tor_assert(linked_dir_conn_base);
+    /* Sensitive directory connections must have an anonymous path length.
+     * Otherwise, directory connections are typically one-hop.
+     * This matches the earlier check for directory connection path anonymity
+     * in directory_initiate_command_rend(). */
+    if (is_sensitive_dir_purpose(linked_dir_conn_base->purpose)) {
+      assert_circ_anonymity_ok(circ, options);
+    }
+  } else {
+    /* This code was written for the two connection types BEGIN and BEGIN_DIR
+     */
+    tor_assert_unreached();
   }
 
   if (connection_edge_send_command(edge_conn, begin_type,

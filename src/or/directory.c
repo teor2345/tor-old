@@ -1085,7 +1085,7 @@ directory_initiate_command(const tor_addr_t *or_addr, uint16_t or_port,
  * <b>dir_purpose</b> reveals sensitive information about a Tor
  * instance's client activities.  (Such connections must be performed
  * through normal three-hop Tor circuits.) */
-static int
+int
 is_sensitive_dir_purpose(uint8_t dir_purpose)
 {
   return ((dir_purpose == DIR_PURPOSE_HAS_FETCHED_RENDDESC_V2) ||
