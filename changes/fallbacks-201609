@@ -1,0 +1,8 @@
+  o Minor feature (fallback directories):
+    - Provide bandwidth and consensus weight for each candidate fallback in
+      updateFallbackDirs.py.
+      Closes ticket NNNNN; patch by teor.
+  o Minor bugfix (fallback directories):
+    - Stop failing when OUTPUT_COMMENTS is True in updateFallbackDirs.py.
+      Closes ticket NNNNN; bugfix on commit 9998343 in tor-0.2.8.3-alpha;
+      patch by teor.
