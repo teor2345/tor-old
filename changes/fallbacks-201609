@@ -1,7 +1,14 @@
-  o Minor feature (fallback directories):
+  o Minor features (fallback directories):
     - Provide bandwidth and consensus weight for each candidate fallback in
       updateFallbackDirs.py.
       Closes ticket NNNNN; patch by teor.
+    - Require fallback directories to have the same address and port for
+      6 months. (We expect to regenerate the fallback list each major Tor
+      release.) Relays whose OnionOO stability timer is reset on restart by
+      bug NNNNN should upgrade to Tor 0.2.8.7 or later, which has a fix for
+      this issue.
+      Closes ticket NNNNN; removes short-term fix in e220214
+      in tor-0.2.8.2-alpha; patch by teor.
   o Minor bugfix (fallback directories):
     - Stop failing when OUTPUT_COMMENTS is True in updateFallbackDirs.py.
       Closes ticket NNNNN; bugfix on commit 9998343 in tor-0.2.8.3-alpha;
