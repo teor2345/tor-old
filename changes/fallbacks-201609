@@ -1,4 +1,6 @@
   o Minor features (fallback directories):
+    - Select 200 fallback directories for each release.
+      Closes ticket NNNNN; patch by teor.
     - Provide bandwidth and consensus weight for each candidate fallback in
       updateFallbackDirs.py.
       Closes ticket NNNNN; patch by teor.
