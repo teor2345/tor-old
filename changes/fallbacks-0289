@@ -1,0 +1,4 @@
+  o Minor feature (fallback directory mirrors):
+    - Remove 1 fallback that is no longer suitable, leaving 80 of the 100
+      fallbacks originally introduced in Tor 0.2.8.2-alpha in March 2016.
+      Closes ticket #20243; patch by teor.

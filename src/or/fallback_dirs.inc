@@ -26,8 +26,10 @@ URL: https:onionoo.torproject.orguptime?first_seen_days=7-&flag=V2Dir&type=relay
  */
 "5.39.92.199:80 orport=443 id=0BEA4A88D069753218EAAAD6D22EA87B9A1319D6"
 " weight=10",
-"5.196.88.122:9030 orport=9001 id=0C2C599AFCB26F5CFC2C7592435924C1D63D9484"
-" weight=10",
+/* Fallback was on 0.2.8.8 list, but will move hosts in 2017
+ * "5.196.88.122:9030 orport=9001 id=0C2C599AFCB26F5CFC2C7592435924C1D63D9484"
+ * " weight=10",
+ */
 "178.62.197.82:80 orport=443 id=0D3EBA17E1C78F1E9900BABDB23861D46FCAF163"
 " weight=10",
 /* Fallback was on 0.2.8.6 list, but down for a week before 0.2.9
