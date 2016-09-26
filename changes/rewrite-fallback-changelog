@@ -1,0 +1,4 @@
+  o Minor enhancements (changelog):
+    - Rewrite the fallback directory mirror list changelog entries to mention
+      fallback numbers, releases, and dates. This assists in tracking fallback
+      attrition. Closes task 20242. Reported by arma, patch by teor.
