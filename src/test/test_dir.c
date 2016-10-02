@@ -17,6 +17,8 @@
 #define RELAY_PRIVATE
 
 #include "or.h"
+#define BUFFERS_PRIVATE
+#include "buffers.h"
 #include "confparse.h"
 #include "config.h"
 #include "crypto_ed25519.h"
@@ -5390,6 +5392,160 @@ test_dir_find_dl_schedule(void* data)
   mock_options = NULL;
 }
 
+#define MAX_FUZZ_SIZE (2*(MAX_HEADERS_SIZE + MAX_DIR_UL_SIZE))
+
+static int
+mock_directory_handle_command_get(dir_connection_t *conn,
+                                      const char *headers,
+                                      const char *body,
+                                      size_t body_len)
+{
+  (void)conn;
+
+  printf("Method:\nGET\n");
+
+  if (headers) {
+    printf("Header-Length:\n%zu\n", strlen(headers));
+    tt_assert(strlen(headers) >= 0);
+    tt_assert(strlen(headers) < MAX_FUZZ_SIZE);
+    printf("Headers:\n%s\n", headers);
+  }
+
+  printf("Body-Length:\n%zu\n", body_len);
+  tt_assert(body_len >= 0);
+  tt_assert(body_len < MAX_FUZZ_SIZE);
+  if (body) {
+    tt_assert(strlen(body) >= 0);
+    tt_assert(strlen(body) < MAX_FUZZ_SIZE);
+    printf("Body:\n%s\n", body);
+  }
+
+ done:
+  /* Always succeed */
+  return 0;
+}
+
+static int
+mock_directory_handle_command_post(dir_connection_t *conn,
+                                       const char *headers,
+                                       const char *body,
+                                       size_t body_len)
+{
+  (void)conn;
+
+  printf("Method:\nPOST\n");
+
+  if (headers) {
+    printf("Header-Length:\n%zu\n", strlen(headers));
+    tt_assert(strlen(headers) >= 0);
+    tt_assert(strlen(headers) < MAX_FUZZ_SIZE);
+    printf("Headers:\n%s\n", headers);
+  }
+
+  printf("Body-Length:\n%zu\n", body_len);
+  tt_assert(body_len >= 0);
+  tt_assert(body_len < MAX_FUZZ_SIZE);
+  if (body) {
+    tt_assert(strlen(body) >= 0);
+    tt_assert(strlen(body) < MAX_FUZZ_SIZE);
+    printf("Body:\n%s\n", body);
+  }
+
+ done:
+  /* Always succeed */
+  return 0;
+}
+
+/* Read a directory command (including HTTP headers) from stdin, parse it, and
+ * output what tor parsed */
+static void
+test_dir_handle_command(void* data)
+{
+  (void)data;
+
+  dir_connection_t dir_conn;
+  int rv = -1;
+  ssize_t data_size = -1;
+  char *stdin_buf = tor_malloc(MAX_FUZZ_SIZE+1);
+
+  /* directory_handle_command checks some tor options
+   * just make them all 0 */
+  mock_options = tor_malloc(sizeof(or_options_t));
+  reset_options(mock_options, &mock_get_options_calls);
+  MOCK(get_options, mock_get_options);
+
+  /* Set up the fake handler functions */
+  MOCK(directory_handle_command_get, mock_directory_handle_command_get);
+  MOCK(directory_handle_command_post, mock_directory_handle_command_post);
+
+  /* Set up the fake connection */
+  memset(&dir_conn, 0, sizeof(dir_connection_t));
+  dir_conn.base_.type = CONN_TYPE_DIR;
+/*
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+  while (__AFL_LOOP(1000)) {
+#endif
+*/
+
+  /* Initialise the data structures */
+  memset(stdin_buf, 0, MAX_FUZZ_SIZE+1);
+
+  /* Apparently tor sets this before directory_handle_command() is called. */
+  dir_conn.base_.address = tor_strdup("replace-this-address.example.com");
+
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+  __AFL_INIT();
+#endif
+
+  /* Read the data */
+  data_size = read(STDIN_FILENO, stdin_buf, MAX_FUZZ_SIZE);
+  tt_assert(data_size != -1);
+  tt_assert(data_size <= MAX_FUZZ_SIZE);
+  stdin_buf[data_size] = '\0';
+  tt_assert(strlen(stdin_buf) >= 0);
+  tt_assert(strlen(stdin_buf) <= MAX_FUZZ_SIZE);
+
+  printf("Input-Length:\n%zu\n", data_size);
+  printf("Input:\n%s\n", stdin_buf);
+
+  /* Copy the stdin data into the buffer */
+  tor_assert(data_size >= 0);
+  dir_conn.base_.inbuf = buf_new_with_data(stdin_buf, (size_t)data_size);
+  if (!dir_conn.base_.inbuf) {
+    printf("Zero-Length-Input\n");
+    goto done;
+  }
+
+  /* Parse the headers */
+  rv = directory_handle_command(&dir_conn);
+
+  /* Report the parsed origin address */
+  if (dir_conn.base_.address) {
+    printf("Address:\n%s\n", dir_conn.base_.address);
+  }
+
+  printf("Result:\n%d\n", rv);
+
+ done:
+  tor_free(dir_conn.base_.address);
+
+  buf_free(dir_conn.base_.inbuf);
+  dir_conn.base_.inbuf = NULL;
+
+  /*
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+  }
+#endif
+*/
+  UNMOCK(directory_handle_command_get);
+  UNMOCK(directory_handle_command_post);
+
+  tor_free(mock_options);
+  UNMOCK(get_options);
+
+  tor_free(stdin_buf);
+}
+
 #define DIR_LEGACY(name)                             \
   { #name, test_dir_ ## name , TT_FORK, NULL, NULL }
 
@@ -5443,6 +5599,7 @@ struct testcase_t dir_tests[] = {
   DIR_ARG(find_dl_schedule, TT_FORK, "ba"),
   DIR_ARG(find_dl_schedule, TT_FORK, "cf"),
   DIR_ARG(find_dl_schedule, TT_FORK, "ca"),
+  DIR(handle_command, 0),
   END_OF_TESTCASES
 };
 
