@@ -149,16 +149,26 @@ STATIC int handle_get_hs_descriptor_v3(dir_connection_t *conn,
 
 #endif
 
+#if defined(DIRECTORY_PRIVATE) || defined(TOR_UNIT_TESTS)
+
+STATIC int directory_handle_command(dir_connection_t *conn);
+
+#endif
+
 #ifdef TOR_UNIT_TESTS
 /* Used only by test_dir.c */
 
 STATIC int parse_http_url(const char *headers, char **url);
 STATIC dirinfo_type_t dir_fetch_type(int dir_purpose, int router_purpose,
                                      const char *resource);
-STATIC int directory_handle_command_get(dir_connection_t *conn,
-                                        const char *headers,
-                                        const char *req_body,
-                                        size_t req_body_len);
+MOCK_DECL(STATIC int, directory_handle_command_get,(dir_connection_t *conn,
+                                                    const char *headers,
+                                                    const char *req_body,
+                                                    size_t req_body_len));
+MOCK_DECL(STATIC int, directory_handle_command_post,(dir_connection_t *conn,
+                                                     const char *headers,
+                                                     const char *body,
+                                                     size_t body_len));
 STATIC int download_status_schedule_get_delay(download_status_t *dls,
                                               const smartlist_t *schedule,
                                               int min_delay, int max_delay,

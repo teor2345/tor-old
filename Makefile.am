@@ -147,6 +147,11 @@ test-full: need-stem-path need-chutney-path check test-network test-stem
 
 test-full-online: need-stem-path need-chutney-path check test-network test-stem-full
 
+fuzz: all
+	@echo "Running deterministic fuzzing test cases:"
+	src/test/fuzz_testcases.sh $(FUZZ_BINARY_DIR) $(fuzz_testcase_dir) $(FUZZ_BINARY_NAMES)
+	@echo "For more fuzzing options, see doc/HACKING/Fuzzing.md"
+
 reset-gcov:
 	rm -f $(top_builddir)/src/*/*.gcda $(top_builddir)/src/*/*/*.gcda
 
