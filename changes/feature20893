@@ -1,0 +1,3 @@
+  o Minor features (security):
+    - Add a directory protocol fuzzing harness to tor.
+      Closes ticket 20893.
