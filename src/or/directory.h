@@ -149,6 +149,12 @@ STATIC int handle_get_hs_descriptor_v3(dir_connection_t *conn,
 
 #endif
 
+#if defined(DIRECTORY_PRIVATE) || defined(TOR_UNIT_TESTS)
+
+STATIC int directory_handle_command(dir_connection_t *conn);
+
+#endif
+
 #ifdef TOR_UNIT_TESTS
 /* Used only by test_dir.c */
 
