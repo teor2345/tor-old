@@ -194,6 +194,8 @@ uptime-*.json
 /src/test/test-switch-id.exe
 /src/test/test-timers.exe
 /src/test/test_workqueue.exe
+# ignore fuzzing output directories
+/src/test/fuzz/*_findings
 
 # /src/tools/
 /src/tools/tor-checkkey
