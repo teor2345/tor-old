@@ -823,7 +823,7 @@ circuit_pick_create_handshake(uint8_t *cell_type_out,
                               uint16_t *handshake_type_out,
                               const extend_info_t *ei)
 {
-  /* XXXX030 Remove support for deciding to use TAP. */
+  /* XXXX030 Remove support for deciding to use TAP (and EXTEND?). */
   if (extend_info_supports_ntor(ei)) {
     *cell_type_out = CELL_CREATE2;
     *handshake_type_out = ONION_HANDSHAKE_TYPE_NTOR;
@@ -842,7 +842,15 @@ circuit_pick_create_handshake(uint8_t *cell_type_out,
  * Note that TAP handshakes are only used for extend handshakes:
  *  - from clients to intro points, and
  *  - from hidden services to rend points.
- * This is checked in onion_populate_cpath. */
+ * This is checked in onion_populate_cpath.
+ * node can be NULL in at least these cases:
+ *  - node was present in the consensus when the path was selected, but was
+ *    removed from the consensus while the circuit was being built, or
+ *  - node was an introduction point not in the consensus that returned a NAK,
+ *    and we called rend_client_reextend_intro_circuit() to a new intro point,
+ *    (The corresponding service case rend_service_relaunch_rendezvous() opens
+ *    an entirely new circuit for the retry.)
+ */
 static void
 circuit_pick_extend_handshake(uint8_t *cell_type_out,
                               uint8_t *create_cell_type_out,
@@ -851,27 +859,22 @@ circuit_pick_extend_handshake(uint8_t *cell_type_out,
                               const extend_info_t *ei)
 {
   uint8_t t;
+  /* ntor handshakes can be encapsulated in extend cells, if the previous
+   * hop doesn't support EXTEND2 cells, but the extend_info supports ntor. */
   circuit_pick_create_handshake(&t, handshake_type_out, ei);
 
-  /* XXXX030 Remove support for deciding to use TAP. */
+  /* XXXX030 Remove support for deciding to use TAP (and EXTEND?). */
 
-  /* It is an error to extend if there is no previous node. */
-  if (BUG(node_prev == NULL)) {
-    *cell_type_out = RELAY_COMMAND_EXTEND;
-    *create_cell_type_out = CELL_CREATE;
-    return;
-  }
+  /* Tor ignores relays if they don't support EXTEND2 cells. If we have a
+   * reference to node_prev, it must support EXTEND2. */
+  if (node_prev)
+    tor_assert_nonfatal(routerstatus_version_supports_ntor(node_prev->rs, 1));
 
-  /* It is an error for a node with a known version to be so old it does not
-   * support ntor. */
-  tor_assert_nonfatal(routerstatus_version_supports_ntor(node_prev->rs, 1));
-
-  /* Assume relays without tor versions or routerstatuses support ntor.
-   * The authorities enforce ntor support, and assuming and failing is better
-   * than allowing a malicious node to perform a protocol downgrade to TAP. */
-  if (*handshake_type_out != ONION_HANDSHAKE_TYPE_TAP &&
+  /* Use EXTEND2 if we are sure it is supported, and we are using an ntor
+   * handshake. Otherwise, fall back to using EXTEND. */
+  if (node_prev && *handshake_type_out != ONION_HANDSHAKE_TYPE_TAP &&
       (node_has_curve25519_onion_key(node_prev) ||
-       (routerstatus_version_supports_ntor(node_prev->rs, 1)))) {
+       (routerstatus_version_supports_ntor(node_prev->rs, 0)))) {
     *cell_type_out = RELAY_COMMAND_EXTEND2;
     *create_cell_type_out = CELL_CREATE2;
   } else {

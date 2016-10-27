@@ -1,0 +1,5 @@
+  o Minor bugfixes (circuits):
+    - Remove a BUG warning in circuit_pick_extend_handshake when the previous
+      hop is not in the consensus. Stop assuming that nodes with unknown
+      versions support EXTEND2 cells.
+      Bugfix on commit 10aa913 from 19163 in 0.2.9.3-alpha. Fixes bug 20472.
