@@ -868,13 +868,14 @@ circuit_pick_extend_handshake(uint8_t *cell_type_out,
   /* Tor ignores relays if they don't support EXTEND2 cells. If we have a
    * reference to node_prev, it must support EXTEND2. */
   if (node_prev)
-    tor_assert_nonfatal(routerstatus_version_supports_ntor(node_prev->rs, 1));
+    tor_assert_nonfatal(routerstatus_version_supports_extend2_cells(
+                                                          node_prev->rs, 1));
 
   /* Use EXTEND2 if we are sure it is supported, and we are using an ntor
    * handshake. Otherwise, fall back to using EXTEND. */
   if (node_prev && *handshake_type_out != ONION_HANDSHAKE_TYPE_TAP &&
       (node_has_curve25519_onion_key(node_prev) ||
-       (routerstatus_version_supports_ntor(node_prev->rs, 0)))) {
+       (routerstatus_version_supports_extend2_cells(node_prev->rs, 0)))) {
     *cell_type_out = RELAY_COMMAND_EXTEND2;
     *create_cell_type_out = CELL_CREATE2;
   } else {
