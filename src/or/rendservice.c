@@ -225,15 +225,29 @@ rend_service_free_all(void)
   rend_service_list = NULL;
 }
 
-/** Validate <b>service</b> and add it to rend_service_list if possible.
+/** Validate <b>service</b> and add it to <b>service_list</b>, or to
+ * the global rend_service_list if <b>service_list</b> is NULL.
  * Return 0 on success.  On failure, free <b>service</b> and return -1.
  * Takes ownership of <b>service</b>.
  */
 static int
-rend_add_service(rend_service_t *service)
+rend_add_service(smartlist_t *service_list, rend_service_t *service)
 {
   int i;
   rend_service_port_config_t *p;
+
+  smartlist_t *s_list;
+  /* If no special service list is provided, then just use the global one. */
+  if (!service_list) {
+    if (BUG(!rend_service_list)) {
+      /* No global HS list, which is a failure. */
+      return -1;
+    }
+
+    s_list = rend_service_list;
+  } else {
+    s_list = service_list;
+  }
 
   service->intro_nodes = smartlist_new();
   service->expiring_nodes = smartlist_new();
@@ -256,7 +270,8 @@ rend_add_service(rend_service_t *service)
   }
 
   if (service->auth_type != REND_NO_AUTH &&
-      smartlist_len(service->clients) == 0) {
+      (!service->clients ||
+       smartlist_len(service->clients) == 0)) {
     log_warn(LD_CONFIG, "Hidden service (%s) with client authorization but no "
                         "clients.",
              rend_service_escaped_dir(service));
@@ -264,7 +279,7 @@ rend_add_service(rend_service_t *service)
     return -1;
   }
 
-  if (!smartlist_len(service->ports)) {
+  if (!service->ports || !smartlist_len(service->ports)) {
     log_warn(LD_CONFIG, "Hidden service (%s) with no ports configured.",
              rend_service_escaped_dir(service));
     rend_service_free(service);
@@ -288,7 +303,7 @@ rend_add_service(rend_service_t *service)
      */
     if (!rend_service_is_ephemeral(service)) {
       /* Skip dupe for ephemeral services. */
-      SMARTLIST_FOREACH(rend_service_list, rend_service_t*, ptr,
+      SMARTLIST_FOREACH(s_list, rend_service_t*, ptr,
                         dupe = dupe ||
                                !strcmp(ptr->directory, service->directory));
       if (dupe) {
@@ -323,7 +338,7 @@ rend_add_service(rend_service_t *service)
 #endif /* defined(HAVE_SYS_UN_H) */
       }
     }
-    smartlist_add(rend_service_list, service);
+    smartlist_add(s_list, service);
     return 0;
   }
   /* NOTREACHED */
@@ -453,22 +468,40 @@ rend_service_port_config_free(rend_service_port_config_t *p)
   tor_free(p);
 }
 
-/* Check the directory for <b>service</b>, and add the service to the global
- * list if <b>validate_only</b> is false.
+/* Check the directory for <b>service</b>, and add the service to
+ * <b>service_list</b>, or to the global list if <b>service_list</b> is NULL.
+ * Only add the service to the list if <b>validate_only</b> is false.
  * If <b>validate_only</b> is true, free the service.
  * If <b>service</b> is NULL, ignore it, and return 0.
  * Returns 0 on success, and -1 on failure.
  * Takes ownership of <b>service</b>, either freeing it, or adding it to the
  * global service list.
  */
-static int
-rend_service_check_dir_and_add(const or_options_t *options,
+STATIC int
+rend_service_check_dir_and_add(smartlist_t *service_list,
+                               const or_options_t *options,
                                rend_service_t *service,
                                int validate_only)
 {
   if (!service) {
     /* It is ok for a service to be NULL, this means there are no services */
     return 0;
+  }
+
+  smartlist_t *s_list = NULL;
+  /* If no special service list is provided, then just use the global one. */
+  if (!service_list) {
+    if (!rend_service_list) {
+      /* No global HS list, which is a failure if we plan on adding to it */
+      if (BUG(!validate_only)) {
+        return -1;
+      }
+      /* Otherwise, we validate, */
+    }
+
+    s_list = rend_service_list;
+  } else {
+    s_list = service_list;
   }
 
   if (rend_service_check_private_dir(options, service, !validate_only)
@@ -482,8 +515,11 @@ rend_service_check_dir_and_add(const or_options_t *options,
     return 0;
   } else {
     /* rend_add_service takes ownership, either adding or freeing the service
+     * s_list can not be NULL here - if both service_list and rend_service_list
+     * are NULL, and validate_only is false, we exit earlier in the function
      */
-    return rend_add_service(service);
+    tor_assert(s_list);
+    return rend_add_service(s_list, service);
   }
 }
 
@@ -885,7 +921,7 @@ rend_service_add_ephemeral(crypto_pk_t *pk,
   }
 
   /* Initialize the service. */
-  if (rend_add_service(s)) {
+  if (rend_add_service(NULL, s)) {
     return RSAE_INTERNAL;
   }
   *service_id_out = tor_strdup(s->service_id);
@@ -1322,6 +1358,7 @@ rend_service_check_private_dir(const or_options_t *options,
   }
   /* Check/create directory */
   if (check_private_dir(s->directory, check_opts, options->User) < 0) {
+    log_warn(LD_REND, "Checking service directory %s failed.", s->directory);
     return -1;
   }
   return 0;
