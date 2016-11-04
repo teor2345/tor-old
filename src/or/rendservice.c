@@ -290,7 +290,6 @@ rend_add_service(rend_service_t *service)
         return -1;
       }
     }
-    smartlist_add(rend_service_list, service);
     log_debug(LD_REND,"Configuring service with directory \"%s\"",
               service->directory);
     for (i = 0; i < smartlist_len(service->ports); ++i) {
@@ -309,10 +308,11 @@ rend_add_service(rend_service_t *service)
         log_debug(LD_REND,
                   "Service maps port %d to an AF_UNIX socket, but we "
                   "have no AF_UNIX support on this platform.  This is "
-                  "probably a bug.",
+                  "probably a bug. Ignoring.",
                   p->virtual_port);
 #endif /* defined(HAVE_SYS_UN_H) */
       }
+      smartlist_add(s_list, service);
     }
     return 0;
   }
@@ -450,27 +450,35 @@ rend_service_port_config_free(rend_service_port_config_t *p)
  * If <b>validate_only</b> is true, free the service.
  * If <b>service</b> is NULL, ignore it, and return 0.
  * Returns 0 on success, and -1 on failure.
- * Takes ownership of <b>service</b>.
+ * Takes ownership of <b>service</b>, either freeing it, or adding it to the
+ * global service list.
  */
 static int
 rend_service_check_dir_and_add(const or_options_t *options,
                                rend_service_t *service,
                                int validate_only)
 {
-  if (service) { /* register the one we just finished parsing */
-    if (rend_service_check_private_dir(options, service, !validate_only)
-        < 0) {
-      rend_service_free(service);
-      return -1;
-    }
-
-    if (validate_only)
-      rend_service_free(service);
-    else
-      rend_add_service(service);
+  if (!service) {
+    /* It is ok for a service to be NULL, this means there are no services */
+    return 0;
   }
 
-  return 0;
+  if (rend_service_check_private_dir(options, service, !validate_only)
+      < 0) {
+    rend_service_free(service);
+    return -1;
+  }
+
+  if (validate_only) {
+    rend_service_free(service);
+    return 0;
+  } else {
+    /* rend_add_service takes ownership, either adding or freeing the service
+     */
+    rend_add_service(service);
+    /* Ignore misconfigured services until 030 */
+    return 0;
+  }
 }
 
 /** Set up rend_service_list, based on the values of HiddenServiceDir and
@@ -497,8 +505,8 @@ rend_config_services(const or_options_t *options, int validate_only)
       /* register the service we just finished parsing
        * this code registers every service except the last one parsed,
        * which is registered below the loop */
-      if (rend_service_check_dir_and_add(options, service, !validate_only)
-          < 0) {
+      if (rend_service_check_dir_and_add(NULL, options, service,
+                                         validate_only) < 0) {
           return -1;
       }
       service = tor_malloc_zero(sizeof(rend_service_t));
@@ -708,8 +716,8 @@ rend_config_services(const or_options_t *options, int validate_only)
   /* register the final service after we have finished parsing all services
    * this code only registers the last service, other services are registered
    * within the loop */
-  if (rend_service_check_dir_and_add(options, service, !validate_only)
-      < 0) {
+  if (rend_service_check_dir_and_add(NULL, options, service,
+                                     validate_only) < 0) {
     return -1;
   }
 
