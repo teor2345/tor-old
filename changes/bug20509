@@ -1,0 +1,7 @@
+  o Directory authorities:
+     - Directory authorities will now withhold the Guard flag from
+       relays which are running Tor versions 0.2.9.1-alpha-dev to
+       0.2.9.4-alpha-dev, and 0.3.0.0-alpha-dev. Bug 20499 causes
+       these versions to not update the consensus they will serve,
+       which could prevent clients that use these relays as Guards
+       from being able to connect to the network. See ticket 20509.

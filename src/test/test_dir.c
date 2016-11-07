@@ -3183,6 +3183,30 @@ reset_routerstatus(routerstatus_t *rs,
   rs->addr = ipv4_addr;
 }
 
+static void
+test_dir_broken_guard_versions(void *arg)
+{
+  (void)arg;
+
+#define TEST_GUARD_VERSION(v, r) \
+  tt_int_op(is_broken_guard_version("Tor " v " on Linux"), OP_EQ, r);
+
+  TEST_GUARD_VERSION("0.2.8.9", 0);
+  TEST_GUARD_VERSION("0.2.9.1-alpha", 0);
+  TEST_GUARD_VERSION("0.2.9.1-alpha-dev", 1);
+  TEST_GUARD_VERSION("0.2.9.2-alpha", 1);
+  TEST_GUARD_VERSION("0.2.9.3-alpha", 1);
+  TEST_GUARD_VERSION("0.2.9.4-alpha", 1);
+  TEST_GUARD_VERSION("0.2.9.4-alpha-dev", 1);
+  TEST_GUARD_VERSION("0.2.9.5-alpha", 0);
+  TEST_GUARD_VERSION("0.3.0.0-alpha-dev", 1);
+  TEST_GUARD_VERSION("0.3.0.1-alpha", 0);
+  tt_int_op(is_broken_guard_version("Tor unparseable version"), OP_EQ, 0);
+  tt_int_op(is_broken_guard_version(NULL), OP_EQ, 0);
+
+ done: ;
+}
+
 #define ROUTER_A_ID_STR    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 #define ROUTER_A_IPV4      0xAA008801
 #define ROUTER_B_ID_STR    "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
@@ -5771,6 +5795,7 @@ struct testcase_t dir_tests[] = {
   DIR_LEGACY(clip_unmeasured_bw_kb),
   DIR_LEGACY(clip_unmeasured_bw_kb_alt),
   DIR(fmt_control_ns, 0),
+  DIR(broken_guard_versions, 0),
   DIR(dirserv_set_routerstatus_testing, 0),
   DIR(http_handling, 0),
   DIR(purpose_needs_anonymity_returns_true_for_bridges, 0),

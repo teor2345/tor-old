@@ -2122,6 +2122,45 @@ routers_make_ed_keys_unique(smartlist_t *routers)
   } SMARTLIST_FOREACH_END(ri);
 }
 
+/** Check if the Tor version provided in the platform string <b>platform</b> is
+ * known to be broken in a way that means it should not be used as a Guard.
+ *
+ * Return 0 if it should be good, or 1 if it is known to be broken.
+ */
+STATIC int
+is_broken_guard_version(const char *platform)
+{
+  tor_version_t parsed_platform, parsed_0300_alpha_dev;
+
+  /* assume it's good if we don't know the platform/version */
+  if (platform == NULL)
+    return 0;
+
+  /* assume it's good if we can't parse the version */
+  if (tor_version_parse(platform, &parsed_platform) == -1)
+    return 0;
+
+  /* this version string should always be able to be parsed */
+  if (BUG(tor_version_parse("Tor 0.3.0.0-alpha-dev",
+                            &parsed_0300_alpha_dev) == -1)) {
+    return 0;
+  }
+
+  /* bug #20499 affects versions from 0.2.9.1-alpha-dev
+   * to 0.2.9.4-alpha-dev and version 0.3.0.0-alpha-dev
+   */
+  if (tor_version_compare(&parsed_platform, &parsed_0300_alpha_dev) == 0)
+    return 1;
+
+  if (!tor_version_as_new_as(platform, "Tor 0.2.9.1-alpha-dev"))
+    return 0;
+
+  if (tor_version_as_new_as(platform, "Tor 0.2.9.5-alpha"))
+    return 0;
+
+  return 1;
+}
+
 /** Extract status information from <b>ri</b> and from other authority
  * functions and store it in <b>rs</b>>.
  *
@@ -2154,6 +2193,7 @@ set_routerstatus_from_routerinfo(routerstatus_t *rs,
   rs->is_valid = node->is_valid;
 
   if (node->is_fast && node->is_stable &&
+      !is_broken_guard_version(ri->platform) &&
       ((options->AuthDirGuardBWGuarantee &&
         routerbw_kb >= options->AuthDirGuardBWGuarantee/1000) ||
        routerbw_kb >= MIN(guard_bandwidth_including_exits_kb,
