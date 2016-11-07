@@ -1183,6 +1183,13 @@ consider_adding_dir_servers(const or_options_t *options,
   for (cl = options->FallbackDir; cl; cl = cl->next)
     if (parse_dir_fallback_line(cl->value, 0)<0)
       return -1;
+
+  /* Reset the consensus, because the authorities might have changed */
+  time_t now = time(NULL);
+  networkstatus_reset_warnings();
+  router_reload_consensus_networkstatus();
+  routerlist_retry_directory_downloads(now);
+
   return 0;
 }
 
@@ -1889,6 +1896,11 @@ options_act(const or_options_t *old_options)
       circuit_mark_all_unused_circs();
       circuit_mark_all_dirty_circs_as_unusable();
       revise_trackexithosts = 1;
+
+      /* And reload the consensus, which also updates guards (and bridges) */
+      time_t now = time(NULL);
+      router_reload_consensus_networkstatus();
+      routerlist_retry_directory_downloads(now);
     }
 
     if (!smartlist_strings_eq(old_options->TrackHostExits,
