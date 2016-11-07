@@ -132,6 +132,7 @@ STATIC int dirserv_has_measured_bw(const char *node_id);
 STATIC int
 dirserv_read_guardfraction_file_from_str(const char *guardfraction_file_str,
                                       smartlist_t *vote_routerstatuses);
+STATIC int is_broken_guard_version(const char *platform);
 #endif
 
 int dirserv_read_measured_bandwidths(const char *from_file,
