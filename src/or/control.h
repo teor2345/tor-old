@@ -194,8 +194,12 @@ void control_free_all(void);
 #define EVENT_HS_DESC                 0x0021
 #define EVENT_HS_DESC_CONTENT         0x0022
 #define EVENT_NETWORK_LIVENESS        0x0023
-#define EVENT_PRIVCOUNT               0x0024
-#define EVENT_MAX_                    0x0024
+#define EVENT_PRIVCOUNT_DNS_RESOLVED                0x0024
+#define EVENT_PRIVCOUNT_STREAM_BYTES_TRANSFERRED    0x0025
+#define EVENT_PRIVCOUNT_STREAM_ENDED                0x0026
+#define EVENT_PRIVCOUNT_CIRCUIT_ENDED               0x0027
+#define EVENT_PRIVCOUNT_CONNECTION_ENDED            0x0028
+#define EVENT_MAX_                    0x0028
 
 /* sizeof(control_connection_t.event_mask) in bits, currently a uint64_t */
 #define EVENT_CAPACITY_               0x0040

@@ -575,7 +575,7 @@ command_process_destroy_cell(cell_t *cell, channel_t *chan)
   if (!CIRCUIT_IS_ORIGIN(circ) &&
       chan == TO_OR_CIRCUIT(circ)->p_chan &&
       cell->circ_id == TO_OR_CIRCUIT(circ)->p_circ_id) {
-    if(get_options()->EnablePrivCount && !CIRCUIT_IS_ORIGIN(circ)) {
+    if(!CIRCUIT_IS_ORIGIN(circ)) {
         privcount_circuit_ended(TO_OR_CIRCUIT(circ));
     }
     /* the destroy came from behind */
