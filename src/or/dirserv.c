@@ -2194,8 +2194,9 @@ is_broken_guard_version(const char *platform)
     return 0;
 
   /* this version string should always be able to be parsed */
-  if (BUG(tor_version_parse("Tor 0.3.0.0-alpha-dev",
-                            &parsed_0300_alpha_dev) == -1)) {
+  if (tor_version_parse("Tor 0.3.0.0-alpha-dev",
+                        &parsed_0300_alpha_dev) == -1) {
+    log_warn(LD_BUG, "Unable to parse tor version");
     return 0;
   }
 
