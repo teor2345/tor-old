@@ -296,7 +296,7 @@ rend_add_service(smartlist_t *service_list, rend_service_t *service)
      * lock file.  But this is enough to detect a simple mistake that
      * at least one person has actually made.
      */
-    if (service->directory != NULL) { /* Skip dupe for ephemeral services. */
+    if (service->directory != NULL) {
       /* Skip dupe for ephemeral services. */
       SMARTLIST_FOREACH(s_list, rend_service_t*, ptr,
                         dupe = dupe ||
