@@ -67,8 +67,34 @@ ENABLE_GCC_WARNING(redundant-decls)
 #ifdef HAVE_SYS_SYSCALL_H
 #include <sys/syscall.h>
 #endif
+
+/* Replace Apple's declaration of getentropy with a weakly-linked one.
+ * If on an Apple plaform without weak linking, skip getentropy entirely.
+ * Otherwise, proceed as normal. */
 #ifdef HAVE_SYS_RANDOM_H
+#ifdef HAVE_GETENTROPY
+#ifdef HAVE_AVAILABILITYMACROS_H
+#define TOR_REPLACE_APPLE_GENENTROPY_DECL_WITH_WEAK_IMPORT 1
+#elif __APPLE__
+#define TOR_IGNORE_APPLE_GENENTROPY_DECL 1
+#endif /* HAVE_AVAILABILITYMACROS_H elif __APPLE__ */
+#endif /* HAVE_GETENTROPY */
+#endif /* HAVE_SYS_RANDOM_H */
+
+#ifdef TOR_REPLACE_APPLE_GENENTROPY_DECL_WITH_WEAK_IMPORT
+#include <AvailabilityMacros.h>
+/* Replace Apple's declaration with a weak-linked one */
+int getentropy(void* buffer, size_t size) WEAK_IMPORT_ATTRIBUTE;
+#else
+/* Avoid a compiler warning by skipping the header include when replacing
+ * getentropy */
 #include <sys/random.h>
+#endif
+
+#ifdef TOR_IGNORE_APPLE_GENENTROPY_DECL
+/* If we are on macOS, but don't have AvailabilityMacros.h, be safe, and
+ * ignore getentropy entirely */
+#undef HAVE_GETENTROPY
 #endif
 
 #include "torlog.h"
@@ -2816,8 +2842,14 @@ crypto_strongest_rand_syscall(uint8_t *out, size_t out_len)
 #elif defined(HAVE_GETENTROPY)
   /* getentropy() is what Linux's getrandom() wants to be when it grows up.
    * the only gotcha is that requests are limited to 256 bytes.
+   * macOS introduced this symbol in 10.12. It is weak linked, so on earlier
+   * OS X versions, the symbol is NULL.
    */
-  return getentropy(out, out_len);
+  if (getentropy != NULL) {
+    return getentropy(out, out_len);
+  } else {
+    return -1;
+  }
 #else
   (void) out;
 #endif
