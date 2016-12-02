@@ -563,11 +563,8 @@ rend_config_services(const or_options_t *options, int validate_only)
   int ok = 0;
 
   /* Use a temporary service list, so that we can check the new services'
-   * consistency with existing services, and other new services */
+   * consistency with each other */
   temp_service_list = smartlist_new();
-  if (rend_service_list) {
-    smartlist_add_all(temp_service_list, rend_service_list);
-  }
 
   for (line = options->RendConfigLines; line; line = line->next) {
     if (!strcasecmp(line->key, "HiddenServiceDir")) {
@@ -797,12 +794,10 @@ rend_config_services(const or_options_t *options, int validate_only)
 
   /* Free the newly added services if validating */
   if (validate_only) {
-    if (rend_service_list) {
-      smartlist_subtract(temp_service_list, rend_service_list);
-    }
     SMARTLIST_FOREACH(temp_service_list, rend_service_t *, ptr,
                       rend_service_free(ptr));
     smartlist_free(temp_service_list);
+    temp_service_list = NULL;
     return 0;
   }
 
