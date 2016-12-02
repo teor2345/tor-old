@@ -266,13 +266,11 @@ rend_service_free_all(void)
 
 /** Validate <b>service</b> and add it to <b>service_list</b>, or to
  * the global rend_service_list if <b>service_list</b> is NULL.
- * If validate_only is true, free the service instead of adding it.
  * Return 0 on success.  On failure, free <b>service</b> and return -1.
  * Takes ownership of <b>service</b>.
  */
 static int
-rend_add_service(smartlist_t *service_list, rend_service_t *service,
-                 int validate_only)
+rend_add_service(smartlist_t *service_list, rend_service_t *service)
 {
   int i;
   rend_service_port_config_t *p;
@@ -379,12 +377,8 @@ rend_add_service(smartlist_t *service_list, rend_service_t *service,
     }
   }
   /* The service passed all the checks */
-  if (validate_only) {
-    rend_service_free(service);
-  } else {
-    tor_assert(s_list);
-    smartlist_add(s_list, service);
-  }
+  tor_assert(s_list);
+  smartlist_add(s_list, service);
   return 0;
 }
 
@@ -544,7 +538,7 @@ rend_service_check_dir_and_add(smartlist_t *service_list,
   if (BUG(!s_list)) {
     return -1;
   }
-  return rend_add_service(s_list, service, validate_only);
+  return rend_add_service(s_list, service);
 }
 
 /** Set up rend_service_list, based on the values of HiddenServiceDir and
@@ -961,7 +955,7 @@ rend_service_add_ephemeral(crypto_pk_t *pk,
   }
 
   /* Initialize the service. */
-  if (rend_add_service(NULL, s, 0)) {
+  if (rend_add_service(NULL, s)) {
     return RSAE_INTERNAL;
   }
   *service_id_out = tor_strdup(s->service_id);
