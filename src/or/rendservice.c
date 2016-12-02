@@ -321,72 +321,71 @@ rend_add_service(smartlist_t *service_list, rend_service_t *service,
              rend_service_escaped_dir(service));
     rend_service_free(service);
     return -1;
-  } else {
-    int dupe = 0;
-    /* XXX This duplicate check has two problems:
-     *
-     * a) It's O(n^2), but the same comment from the bottom of
-     *    rend_config_services() should apply.
-     *
-     * b) We only compare directory paths as strings, so we can't
-     *    detect two distinct paths that specify the same directory
-     *    (which can arise from symlinks, case-insensitivity, bind
-     *    mounts, etc.).
-     *
-     * It also can't detect that two separate Tor instances are trying
-     * to use the same HiddenServiceDir; for that, we would need a
-     * lock file.  But this is enough to detect a simple mistake that
-     * at least one person has actually made.
-     */
-    tor_assert(s_list);
-    if (!rend_service_is_ephemeral(service)) {
-      /* Skip dupe for ephemeral services. */
-      SMARTLIST_FOREACH(s_list, rend_service_t*, ptr,
-                        dupe = dupe ||
-                               !strcmp(ptr->directory, service->directory));
-      if (dupe) {
-        log_warn(LD_REND, "Another hidden service is already configured for "
-                 "directory %s.",
-                 rend_service_escaped_dir(service));
-        rend_service_free(service);
-        return -1;
-      }
-    }
-    log_debug(LD_REND,"Configuring service with directory %s",
-              rend_service_escaped_dir(service));
-    for (i = 0; i < smartlist_len(service->ports); ++i) {
-      p = smartlist_get(service->ports, i);
-      if (!(p->is_unix_addr)) {
-        log_debug(LD_REND,
-                  "Service maps port %d to %s",
-                  p->virtual_port,
-                  fmt_addrport(&p->real_addr, p->real_port));
-      } else {
-#ifdef HAVE_SYS_UN_H
-        log_debug(LD_REND,
-                  "Service maps port %d to socket at \"%s\"",
-                  p->virtual_port, p->unix_addr);
-#else
-        log_warn(LD_BUG,
-                 "Service maps port %d to an AF_UNIX socket, but we "
-                 "have no AF_UNIX support on this platform.  This is "
-                 "probably a bug.",
-                 p->virtual_port);
-        rend_service_free(service);
-        return -1;
-#endif /* defined(HAVE_SYS_UN_H) */
-      }
-    }
-    /* The service passed all the checks */
-    if (validate_only) {
-      rend_service_free(service);
-    } else {
-      tor_assert(s_list);
-      smartlist_add(s_list, service);
-    }
-    return 0;
   }
-  /* NOTREACHED */
+
+  /* XXX This duplicate check has two problems:
+   *
+   * a) It's O(n^2), but the same comment from the bottom of
+   *    rend_config_services() should apply.
+   *
+   * b) We only compare directory paths as strings, so we can't
+   *    detect two distinct paths that specify the same directory
+   *    (which can arise from symlinks, case-insensitivity, bind
+   *    mounts, etc.).
+   *
+   * It also can't detect that two separate Tor instances are trying
+   * to use the same HiddenServiceDir; for that, we would need a
+   * lock file.  But this is enough to detect a simple mistake that
+   * at least one person has actually made.
+   */
+  tor_assert(s_list);
+  if (!rend_service_is_ephemeral(service)) {
+    int dupe = 0;
+    /* Skip dupe for ephemeral services. */
+    SMARTLIST_FOREACH(s_list, rend_service_t*, ptr,
+                      dupe = dupe ||
+                      !strcmp(ptr->directory, service->directory));
+    if (dupe) {
+      log_warn(LD_REND, "Another hidden service is already configured for "
+               "directory %s.",
+               rend_service_escaped_dir(service));
+      rend_service_free(service);
+      return -1;
+    }
+  }
+  log_debug(LD_REND,"Configuring service with directory %s",
+            rend_service_escaped_dir(service));
+  for (i = 0; i < smartlist_len(service->ports); ++i) {
+    p = smartlist_get(service->ports, i);
+    if (!(p->is_unix_addr)) {
+      log_debug(LD_REND,
+                "Service maps port %d to %s",
+                p->virtual_port,
+                fmt_addrport(&p->real_addr, p->real_port));
+    } else {
+#ifdef HAVE_SYS_UN_H
+      log_debug(LD_REND,
+                "Service maps port %d to socket at \"%s\"",
+                p->virtual_port, p->unix_addr);
+#else
+      log_warn(LD_BUG,
+               "Service maps port %d to an AF_UNIX socket, but we "
+               "have no AF_UNIX support on this platform.  This is "
+               "probably a bug.",
+               p->virtual_port);
+      rend_service_free(service);
+      return -1;
+#endif /* defined(HAVE_SYS_UN_H) */
+    }
+  }
+  /* The service passed all the checks */
+  if (validate_only) {
+    rend_service_free(service);
+  } else {
+    tor_assert(s_list);
+    smartlist_add(s_list, service);
+  }
+  return 0;
 }
 
 /** Return a new rend_service_port_config_t with its path set to
