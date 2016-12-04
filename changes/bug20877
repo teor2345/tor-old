@@ -1,3 +1,0 @@
-  o Minor bugfixes (fallback directories):
-    - When describing a fallback directory, actually return the string.
-      Fixes bug 20877; bugfix on 0.2.8.3-alpha.
