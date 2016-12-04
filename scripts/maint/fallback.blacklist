@@ -27,11 +27,6 @@
 # https://lists.torproject.org/pipermail/tor-relays/2015-December/008384.html
 80.82.215.199:80 orport=443 id=3BEFAB76461B6B99DCF34C285E933562F5712AE4 ipv6=[2001:4ba0:cafe:a18::1]:443
 
-# https://lists.torproject.org/pipermail/tor-relays/2016-January/008515.html
-# later opt-out in
-# https://lists.torproject.org/pipermail/tor-relays/2016-January/008521.html
-5.9.158.75:80 orport=443 id=F1BE15429B3CE696D6807F4D4A58B1BFEC45C822 ipv6=[2a01:4f8:190:514a::2]:443
-
 # Email sent directly to teor, verified using relay contact info
 5.34.183.168:80 orport=443 id=601C92108A568742A7A6D9473FE3A414F7149070
 217.12.199.208:8080 orport=22 id=BCFB0933367D626715DA32A147F417194A5D48D6
@@ -247,3 +242,8 @@ id=9C8A123081EFBE022EF795630F447839DDFDDDEC
 
 # Fallback was on 0.2.8.6 list, but opted-out before 0.2.9
 144.76.73.140:9030 orport=9001 id=6A640018EABF3DA9BAD9321AA37C2C87BBE1F907
+
+# https://lists.torproject.org/pipermail/tor-relays/2016-December/011114.html
+# no dirport
+86.107.110.34:0 orport=9001 id=A0E3D30A660DB70CA0B6D081BA54D094DED6F28D
+94.242.59.147:80 orport=9001 id=674DCBB0D9C1C4C4DBFB4A9AE024AF59FE4E7F46 ipv6=[2a00:1838:35:42::b648]:9001
