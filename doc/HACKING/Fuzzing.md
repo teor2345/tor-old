@@ -23,7 +23,7 @@ To Run:
 
 AFL has a multi-core mode, check the documentation for details.
 
-OS X requires slightly more preparation, including:
+macOS (OS X) requires slightly more preparation, including:
 * using afl-clang (or afl-clang-fast from the llvm directory)
 * disabling external crash reporting (AFL will guide you through this step)
 
@@ -48,6 +48,15 @@ harness should rejecting invalid inputs without crashing or behaving badly.
 But the fuzzing harness should crash if tor fails an assertion, triggers a
 bug, or accesses memory it shouldn't. This helps fuzzing frameworks detect
 "interesting" cases.
+
+== Triaging Issues
+
+Crashes are usually interesting, particularly if using AFL_HARDEN=1 and --enable-expensive-hardening. Sometimes crashes are due to bugs in the harness code.
+
+Hangs might be interesting, but they might also be spurious machine slowdowns.
+Check if a hang is reproducible before reporting it. Sometimes, processing
+valid inputs may take a second or so, particularly with the fuzzer and
+sanitizers enabled.
 
 == Reporting Issues
 
