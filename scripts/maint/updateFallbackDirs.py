@@ -686,9 +686,9 @@ class Candidate(object):
     if not self._data.has_key('version'):
       logging.info('%s not a candidate: no version field', self._fpr)
       return False
-    if self._data['recommended_version'] in Candidate.STALE_CONSENSUS_VERSIONS:
-      logging.info('%s not a candidate: version delivers stale consensuses',
-                   self._fpr)
+    if self._data['version'] in Candidate.STALE_CONSENSUS_VERSIONS:
+      logging.warning('%s not a candidate: version delivers stale consensuses',
+                      self._fpr)
       return False
     return True
 
