@@ -1152,7 +1152,7 @@ class Candidate(object):
                               fall_back_to_authority = False,
                               document_handler = DocumentHandler.BARE_DOCUMENT,
                               microdescriptor = DOWNLOAD_MICRODESC_CONSENSUS
-                                ).run()
+                                ).run()[0]
     except Exception, stem_error:
       logging.info('Unable to retrieve a consensus from %s: %s', nickname,
                     stem_error)
@@ -1164,8 +1164,10 @@ class Candidate(object):
       status = 'too slow'
       level = logging.WARNING
       download_failed = True
-    elif datetime.datetime.now() > consensus.valid_until:
-      status = 'outdated consensus'
+    elif datetime.datetime.utcnow() > consensus.valid_until:
+      time_since_expiry = (datetime.datetime.utcnow() -
+                           consensus.valid_until).total_seconds()
+      status = 'outdated consensus, expired %ds ago'%(int(time_since_expiry))
       level = logging.WARNING
       download_failed = True
     else:
