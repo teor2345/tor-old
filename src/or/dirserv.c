@@ -2133,7 +2133,7 @@ routers_make_ed_keys_unique(smartlist_t *routers)
  * - There's an IPv6 OR port, and
  * - it's reachable.
  * Otherwise, return False. */
-static int
+int
 routerinfo_has_reachable_ipv6(const or_options_t *options,
                               const node_t *node,
                               const routerinfo_t *ri,
@@ -2888,7 +2888,8 @@ dirserv_generate_networkstatus_vote_obj(crypto_pk_t *private_key,
         vrs->protocols = tor_strdup(
                               protover_compute_for_old_tor(vrs->version));
       }
-      vrs->microdesc = dirvote_format_all_microdesc_vote_lines(ri, now,
+      vrs->microdesc = dirvote_format_all_microdesc_vote_lines(options,
+                                                        ri, node, now,
                                                         microdescriptors);
 
       smartlist_add(routerstatuses, vrs);

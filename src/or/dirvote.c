@@ -3789,7 +3789,9 @@ dirvote_get_vote(const char *fp, int flags)
  * according to <b>consensus_method</b>.
  **/
 microdesc_t *
-dirvote_create_microdescriptor(const routerinfo_t *ri, int consensus_method)
+dirvote_create_microdescriptor(const or_options_t *options,
+                               const routerinfo_t *ri, const node_t *node,
+                               int consensus_method, time_t now)
 {
   microdesc_t *result = NULL;
   char *key = NULL, *summary = NULL, *family = NULL;
@@ -3814,10 +3816,20 @@ dirvote_create_microdescriptor(const routerinfo_t *ri, int consensus_method)
     smartlist_add_asprintf(chunks, "ntor-onion-key %s", kbuf);
   }
 
-  if (consensus_method >= MIN_METHOD_FOR_A_LINES &&
-      !tor_addr_is_null(&ri->ipv6_addr) && ri->ipv6_orport)
+  if (consensus_method >= MIN_METHOD_FOR_REMOVE_UNREACHABLE_IPV6_FROM_MD) {
+    /* Only include the IPv6 address in the microdescriptor if it's reachable.
+     */
+    if (routerinfo_has_reachable_ipv6(options, node, ri, now)) {
+      smartlist_add_asprintf(chunks, "a %s\n",
+                             fmt_addrport(&ri->ipv6_addr, ri->ipv6_orport));
+    }
+  } else if (consensus_method >= MIN_METHOD_FOR_A_LINES &&
+             !tor_addr_is_null(&ri->ipv6_addr) && ri->ipv6_orport) {
+    /* Include the IPv6 address in the microdescriptor regardless of
+     * reachability. */
     smartlist_add_asprintf(chunks, "a %s\n",
                            fmt_addrport(&ri->ipv6_addr, ri->ipv6_orport));
+  }
 
   if (family)
     smartlist_add_asprintf(chunks, "family %s\n", family);
@@ -3923,7 +3935,10 @@ static const struct consensus_method_range_t {
   {MIN_METHOD_FOR_P6_LINES, MIN_METHOD_FOR_NTOR_KEY - 1},
   {MIN_METHOD_FOR_NTOR_KEY, MIN_METHOD_FOR_ID_HASH_IN_MD - 1},
   {MIN_METHOD_FOR_ID_HASH_IN_MD, MIN_METHOD_FOR_ED25519_ID_IN_MD - 1},
-  {MIN_METHOD_FOR_ED25519_ID_IN_MD, MAX_SUPPORTED_CONSENSUS_METHOD},
+  {MIN_METHOD_FOR_ED25519_ID_IN_MD,
+    MIN_METHOD_FOR_REMOVE_UNREACHABLE_IPV6_FROM_MD - 1},
+  {MIN_METHOD_FOR_REMOVE_UNREACHABLE_IPV6_FROM_MD,
+    MAX_SUPPORTED_CONSENSUS_METHOD},
   {-1, -1}
 };
 
@@ -3940,7 +3955,9 @@ typedef struct microdesc_vote_line_t {
  * describe a router's microdescriptor versions in a directory vote.
  * Add the generated microdescriptors to <b>microdescriptors_out</b>. */
 vote_microdesc_hash_t *
-dirvote_format_all_microdesc_vote_lines(const routerinfo_t *ri, time_t now,
+dirvote_format_all_microdesc_vote_lines(const or_options_t *options,
+                                        const routerinfo_t *ri,
+                                        const node_t *node, time_t now,
                                         smartlist_t *microdescriptors_out)
 {
   const struct consensus_method_range_t *cmr;
@@ -3951,7 +3968,8 @@ dirvote_format_all_microdesc_vote_lines(const routerinfo_t *ri, time_t now,
   for (cmr = microdesc_consensus_methods;
        cmr->low != -1 && cmr->high != -1;
        cmr++) {
-    microdesc_t *md = dirvote_create_microdescriptor(ri, cmr->low);
+    microdesc_t *md = dirvote_create_microdescriptor(options, ri, node,
+                                                     cmr->low, now);
     if (md) {
       microdesc_vote_line_t *e =
         tor_malloc_zero(sizeof(microdesc_vote_line_t));

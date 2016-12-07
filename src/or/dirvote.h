@@ -115,6 +115,10 @@
  * instead of 0. See #14881 */
 #define MIN_METHOD_FOR_INIT_BW_WEIGHTS_ONE 26
 
+/** Lowest consensus method that removes unreachable IPv6 addresses from
+ * microdescriptors. */
+#define MIN_METHOD_FOR_REMOVE_UNREACHABLE_IPV6_FROM_MD 27
+
 /** Default bandwidth to clip unmeasured bandwidths to using method >=
  * MIN_METHOD_TO_CLIP_UNMEASURED_BW.  (This is not a consensus method; do not
  * get confused with the above macros.) */
@@ -208,14 +212,19 @@ networkstatus_t *
 dirserv_generate_networkstatus_vote_obj(crypto_pk_t *private_key,
                                         authority_cert_t *cert);
 
-microdesc_t *dirvote_create_microdescriptor(const routerinfo_t *ri,
-                                            int consensus_method);
+microdesc_t *dirvote_create_microdescriptor(const or_options_t *options,
+                                            const routerinfo_t *ri,
+                                            const node_t *node,
+                                            int consensus_method,
+                                            time_t now);
 ssize_t dirvote_format_microdesc_vote_line(char *out, size_t out_len,
                                            const microdesc_t *md,
                                            int consensus_method_low,
                                            int consensus_method_high);
 vote_microdesc_hash_t *dirvote_format_all_microdesc_vote_lines(
+                                        const or_options_t *options,
                                         const routerinfo_t *ri,
+                                        const node_t *node,
                                         time_t now,
                                         smartlist_t *microdescriptors_out);
 

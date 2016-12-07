@@ -107,6 +107,11 @@ cached_dir_t *new_cached_dir(char *s, time_t published);
 
 int validate_recommended_package_line(const char *line);
 
+int routerinfo_has_reachable_ipv6(const or_options_t *options,
+                                  const node_t *node,
+                                  const routerinfo_t *ri,
+                                  time_t now);
+
 #ifdef DIRSERV_PRIVATE
 
 STATIC void dirserv_set_routerstatus_testing(routerstatus_t *rs);

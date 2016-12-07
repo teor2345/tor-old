@@ -391,6 +391,60 @@ static const char test_ri2[] =
   "cf34GXHv61XReJF3AlzNHFpbrPOYmowmhrTULKyMqow=\n"
   "-----END SIGNATURE-----\n";
 
+static const char test_ri3[] =
+  "router test003r 127.0.0.1 5003 0 7003\n"
+  "identity-ed25519\n"
+  "-----BEGIN ED25519 CERT-----\n"
+  "AQQABkntAYuNu5dq7/5TdwxFEsviUP15y/j7Bix4/tnPi+6CGs+LAQAgBAAhk+Or\n"
+  "maKtkpNMTVCLVoVUFfARFIP4dn1QQFnrB7BP/TJX42OOsTKrbv7JzpOy/AOzD2ou\n"
+  "+c0zUrjWmYOkmaspVRTk9QLXrbAVAMyv3ib8Gz7BiqG7zK85tZpc+yVdAw0=\n"
+  "-----END ED25519 CERT-----\n"
+  "master-key-ed25519 IZPjq5mirZKTTE1Qi1aFVBXwERSD+HZ9UEBZ6wewT/0\n"
+  "or-address [::1]:5003\n"
+  "platform Tor 0.2.9.4-alpha-dev on Darwin\n"
+  "proto Cons=1-2 Desc=1-2 DirCache=1 HSDir=1 HSIntro=3 HSRend=1-2 Link=1-4 LinkAuth=1 Microdesc=1-2 Relay=1-2\n"
+  "published 2016-12-07 12:44:12\n"
+  "fingerprint 3695 F7F8 4999 A748 0D29 C1E5 1DC9 C702 C0BB 5B52\n"
+  "uptime 0\n"
+  "bandwidth 1073741824 1073741824 0\n"
+  "extra-info-digest 3F55B602716C5439FAF4A2CD09C47E71A3DEF831 06/qaTGCar26QSASIr8yqBeZhrJ0fuqBpORcU8VW2Nc\n"
+  "onion-key\n"
+  "-----BEGIN RSA PUBLIC KEY-----\n"
+  "MIGJAoGBALFYuaGcVZKpaMSf/vAAdrGsp35ojvxy61+9vlDSZ2pzlad0tVVGV53+\n"
+  "CQwFnhYUOx3DUyDqRuOkFqqSXBPOgg4Y6VO57YWpZXBgebxXv8yWXo6nz+IbnJvt\n"
+  "t1mDKGK+5+cIlvRNKqoqO0TXyYUq/YsCrIL+3zdg5FqCzU2OOlozAgMBAAE=\n"
+  "-----END RSA PUBLIC KEY-----\n"
+  "signing-key\n"
+  "-----BEGIN RSA PUBLIC KEY-----\n"
+  "MIGJAoGBAK+iLM5HiphfvnNkm/J/RbvlRAWbjTojo9Ytv2Bvb2uVaIGBIRoXwO82\n"
+  "wEVEjWq8kn8wXQTO7VyXHtlRMrDkZhdBgbCfDgOmtFnvAopHu5S7cNsl2rpUJ6L3\n"
+  "8qq8eMG1Nx4emWP+BOyca64ngRRH11MLedp9Z7zqtkpViN6fS3hFAgMBAAE=\n"
+  "-----END RSA PUBLIC KEY-----\n"
+  "onion-key-crosscert\n"
+  "-----BEGIN CROSSCERT-----\n"
+  "PojiJrQl2vtk1KNW5pMfAHysQO2SkbSVgOBp6iqHwGfYavuRenUO2DlCHYmp8RDh\n"
+  "i+T/bw11GktZKITpKGqeNDKP2ec3ZMjqwzxIbyWJN/yTXcK1YR891HpqkGLzqjao\n"
+  "hChsuQAbL2FHoAPCG6B6xm7qcZkR8pxq6kkZJAETuLQ=\n"
+  "-----END CROSSCERT-----\n"
+  "ntor-onion-key-crosscert 0\n"
+  "-----BEGIN ED25519 CERT-----\n"
+  "AQoABkfFASGT46uZoq2Sk0xNUItWhVQV8BEUg/h2fVBAWesHsE/9ADRF7VzyQ66X\n"
+  "dbI5IOYWly8Fa/pu7BahLP6zHkYmLBi3OgBe3HayxBsPJuuhY4u0b2ehmpgotwtx\n"
+  "1SJNKinJwQc=\n"
+  "-----END ED25519 CERT-----\n"
+  "hidden-service-dir\n"
+  "ntor-onion-key q0WOwSRCpRVl0oJFbyjxSBOnELNvKCYWopkV8wiM2Vw=\n"
+  "accept *:*\n"
+  "ipv6-policy accept 1-65535\n"
+  "tunnelled-dir-server\n"
+  "router-sig-ed25519 Y+WEZPxZNlVSWBuGcWpzV/w03fGqzwxg7EPgrPYXJkX7GXsSRPFhiDNkbztUO1cF1dkxS0TEAO/gsobD5OMwCw\n"
+  "router-signature\n"
+  "-----BEGIN SIGNATURE-----\n"
+  "WQEkjvR0GJXYUIl4t6yYIwh7Ho07gNURMc+NhQYMVaCBwZ5xkFFe6bHZNQdn+geb\n"
+  "2fHJ8qZxNNPLgLUHs7ThsFmk8RnVXKG+ehDd+GnoIfWt/4BXdpnoy0owQ6/0rCur\n"
+  "uHYq40s9soJc1yLmLwn/StHL1Spb3X0mEUwfthLmQ3o=\n"
+  "-----END SIGNATURE-----\n";
+
 static const char test_md_8[] =
   "onion-key\n"
   "-----BEGIN RSA PUBLIC KEY-----\n"
@@ -441,51 +495,217 @@ static const char test_md2_21[] =
   "ntor-onion-key hbxdRnfVUJJY7+KcT4E3Rs7/zuClbN3hJrjSBiEGMgI=\n"
   "id ed25519 wqfLzgfCtRfYNg88LsL1QpzxS0itapJ1aj6TbnByx/Q\n";
 
+static const char test_md3_13[] =
+  "onion-key\n"
+  "-----BEGIN RSA PUBLIC KEY-----\n"
+  "MIGJAoGBALFYuaGcVZKpaMSf/vAAdrGsp35ojvxy61+9vlDSZ2pzlad0tVVGV53+\n"
+  "CQwFnhYUOx3DUyDqRuOkFqqSXBPOgg4Y6VO57YWpZXBgebxXv8yWXo6nz+IbnJvt\n"
+  "t1mDKGK+5+cIlvRNKqoqO0TXyYUq/YsCrIL+3zdg5FqCzU2OOlozAgMBAAE=\n"
+  "-----END RSA PUBLIC KEY-----\n"
+  "p accept 1-65535\n";
+
+static const char test_md3_14[] =
+  "onion-key\n"
+  "-----BEGIN RSA PUBLIC KEY-----\n"
+  "MIGJAoGBALFYuaGcVZKpaMSf/vAAdrGsp35ojvxy61+9vlDSZ2pzlad0tVVGV53+\n"
+  "CQwFnhYUOx3DUyDqRuOkFqqSXBPOgg4Y6VO57YWpZXBgebxXv8yWXo6nz+IbnJvt\n"
+  "t1mDKGK+5+cIlvRNKqoqO0TXyYUq/YsCrIL+3zdg5FqCzU2OOlozAgMBAAE=\n"
+  "-----END RSA PUBLIC KEY-----\n"
+  "a [::1]:5003\n"
+  "p accept 1-65535\n";
+
+static const char test_md3_15[] =
+  "onion-key\n"
+  "-----BEGIN RSA PUBLIC KEY-----\n"
+  "MIGJAoGBALFYuaGcVZKpaMSf/vAAdrGsp35ojvxy61+9vlDSZ2pzlad0tVVGV53+\n"
+  "CQwFnhYUOx3DUyDqRuOkFqqSXBPOgg4Y6VO57YWpZXBgebxXv8yWXo6nz+IbnJvt\n"
+  "t1mDKGK+5+cIlvRNKqoqO0TXyYUq/YsCrIL+3zdg5FqCzU2OOlozAgMBAAE=\n"
+  "-----END RSA PUBLIC KEY-----\n"
+  "a [::1]:5003\n"
+  "p accept 1-65535\n"
+  "p6 accept 1-65535\n";
+
+static const char test_md3_27_reachable[] =
+  "onion-key\n"
+  "-----BEGIN RSA PUBLIC KEY-----\n"
+  "MIGJAoGBALFYuaGcVZKpaMSf/vAAdrGsp35ojvxy61+9vlDSZ2pzlad0tVVGV53+\n"
+  "CQwFnhYUOx3DUyDqRuOkFqqSXBPOgg4Y6VO57YWpZXBgebxXv8yWXo6nz+IbnJvt\n"
+  "t1mDKGK+5+cIlvRNKqoqO0TXyYUq/YsCrIL+3zdg5FqCzU2OOlozAgMBAAE=\n"
+  "-----END RSA PUBLIC KEY-----\n"
+  "ntor-onion-key q0WOwSRCpRVl0oJFbyjxSBOnELNvKCYWopkV8wiM2Vw=\n"
+  "a [::1]:5003\n"
+  "p accept 1-65535\n"
+  "p6 accept 1-65535\n"
+  "id ed25519 IZPjq5mirZKTTE1Qi1aFVBXwERSD+HZ9UEBZ6wewT/0\n";
+
+static const char test_md3_27_unreachable[] =
+  "onion-key\n"
+  "-----BEGIN RSA PUBLIC KEY-----\n"
+  "MIGJAoGBALFYuaGcVZKpaMSf/vAAdrGsp35ojvxy61+9vlDSZ2pzlad0tVVGV53+\n"
+  "CQwFnhYUOx3DUyDqRuOkFqqSXBPOgg4Y6VO57YWpZXBgebxXv8yWXo6nz+IbnJvt\n"
+  "t1mDKGK+5+cIlvRNKqoqO0TXyYUq/YsCrIL+3zdg5FqCzU2OOlozAgMBAAE=\n"
+  "-----END RSA PUBLIC KEY-----\n"
+  "ntor-onion-key q0WOwSRCpRVl0oJFbyjxSBOnELNvKCYWopkV8wiM2Vw=\n"
+  "p accept 1-65535\n"
+  "p6 accept 1-65535\n"
+  "id ed25519 IZPjq5mirZKTTE1Qi1aFVBXwERSD+HZ9UEBZ6wewT/0\n";
+
 static void
 test_md_generate(void *arg)
 {
+  or_options_t options;
   routerinfo_t *ri;
+  node_t test_node;
+  time_t now = time(NULL);
   microdesc_t *md = NULL;
   (void)arg;
 
+  memset(&options, 0, sizeof(options));
+  memset(&test_node, 0, sizeof(test_node));
+
   ri = router_parse_entry_from_string(test_ri, NULL, 0, 0, NULL, NULL);
   tt_assert(ri);
-  md = dirvote_create_microdescriptor(ri, 8);
+
+  test_node.last_reachable6 = 0;
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 8, now);
+  tt_str_op(md->body, OP_EQ, test_md_8);
+
+  test_node.last_reachable6 = now - 1;
+  microdesc_free(md);
+  md = NULL;
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 8, now);
   tt_str_op(md->body, OP_EQ, test_md_8);
 
   /* XXXX test family lines. */
-  /* XXXX test method 14 for A lines. */
-  /* XXXX test method 15 for P6 lines. */
 
+  test_node.last_reachable6 = 0;
   microdesc_free(md);
   md = NULL;
-  md = dirvote_create_microdescriptor(ri, 16);
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 16, now);
   tt_str_op(md->body, OP_EQ, test_md_16);
 
+  test_node.last_reachable6 = now - 1;
   microdesc_free(md);
   md = NULL;
-  md = dirvote_create_microdescriptor(ri, 18);
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 16, now);
+  tt_str_op(md->body, OP_EQ, test_md_16);
+
+  test_node.last_reachable6 = 0;
+  microdesc_free(md);
+  md = NULL;
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 18, now);
   tt_str_op(md->body, OP_EQ, test_md_18);
 
+  test_node.last_reachable6 = now - 1;
   microdesc_free(md);
   md = NULL;
-  md = dirvote_create_microdescriptor(ri, 21);
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 18, now);
+  tt_str_op(md->body, OP_EQ, test_md_18);
+
+  test_node.last_reachable6 = 0;
+  microdesc_free(md);
+  md = NULL;
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 21, now);
+  tt_str_op(md->body, ==, test_md_18);
+
+  test_node.last_reachable6 = now - 1;
+  microdesc_free(md);
+  md = NULL;
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 21, now);
   tt_str_op(md->body, ==, test_md_18);
 
   routerinfo_free(ri);
   ri = router_parse_entry_from_string(test_ri2, NULL, 0, 0, NULL, NULL);
 
+  test_node.last_reachable6 = 0;
   microdesc_free(md);
   md = NULL;
-  md = dirvote_create_microdescriptor(ri, 18);
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 18, now);
   tt_str_op(md->body, ==, test_md2_18);
 
+  test_node.last_reachable6 = now - 1;
   microdesc_free(md);
   md = NULL;
-  md = dirvote_create_microdescriptor(ri, 21);
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 18, now);
+  tt_str_op(md->body, ==, test_md2_18);
+
+  test_node.last_reachable6 = 0;
+  microdesc_free(md);
+  md = NULL;
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 21, now);
   tt_str_op(md->body, ==, test_md2_21);
   tt_assert(ed25519_pubkey_eq(md->ed25519_identity_pkey,
                               &ri->cache_info.signing_key_cert->signing_key));
+
+  test_node.last_reachable6 = now - 1;
+  microdesc_free(md);
+  md = NULL;
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 21, now);
+  tt_str_op(md->body, ==, test_md2_21);
+  tt_assert(ed25519_pubkey_eq(md->ed25519_identity_pkey,
+                              &ri->cache_info.signing_key_cert->signing_key));
+
+  routerinfo_free(ri);
+  ri = router_parse_entry_from_string(test_ri3, NULL, 0, 0, NULL, NULL);
+
+  /* method 13: no a lines */
+  test_node.last_reachable6 = 0;
+  microdesc_free(md);
+  md = NULL;
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 13, now);
+  tt_str_op(md->body, ==, test_md3_13);
+
+  test_node.last_reachable6 = now - 1;
+  microdesc_free(md);
+  md = NULL;
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 13, now);
+  tt_str_op(md->body, ==, test_md3_13);
+
+  /* method 14: a lines, no p6 lines */
+  test_node.last_reachable6 = 0;
+  microdesc_free(md);
+  md = NULL;
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 14, now);
+  tt_str_op(md->body, ==, test_md3_14);
+
+  test_node.last_reachable6 = now - 1;
+  microdesc_free(md);
+  md = NULL;
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 14, now);
+  tt_str_op(md->body, ==, test_md3_14);
+
+  /* method 15: p6 lines, a lines regardless of reachability */
+  test_node.last_reachable6 = 0;
+  microdesc_free(md);
+  md = NULL;
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 15, now);
+  tt_str_op(md->body, ==, test_md3_15);
+
+  test_node.last_reachable6 = now - 1;
+  microdesc_free(md);
+  md = NULL;
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 15, now);
+  tt_str_op(md->body, ==, test_md3_15);
+
+  /* method 27: a lines depend on reachability */
+  test_node.last_reachable6 = 0;
+  microdesc_free(md);
+  md = NULL;
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 27, now);
+  tt_str_op(md->body, ==, test_md3_27_unreachable);
+
+  test_node.last_reachable6 = now - 1;
+  microdesc_free(md);
+  md = NULL;
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 27, now);
+  tt_str_op(md->body, ==, test_md3_27_unreachable);
+
+  test_node.last_reachable6 = now - 1;
+  options.AuthDirHasIPv6Connectivity = 1;
+  microdesc_free(md);
+  md = NULL;
+  md = dirvote_create_microdescriptor(&options, ri, &test_node, 27, now);
+  tt_str_op(md->body, ==, test_md3_27_reachable);
 
  done:
   microdesc_free(md);
