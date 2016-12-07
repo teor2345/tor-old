@@ -2128,6 +2128,26 @@ routers_make_ed_keys_unique(smartlist_t *routers)
   } SMARTLIST_FOREACH_END(ri);
 }
 
+/* Return true if:
+ * - We're configured as having IPv6 connectivity, and
+ * - There's an IPv6 OR port, and
+ * - it's reachable.
+ * Otherwise, return False. */
+static int
+routerinfo_has_reachable_ipv6(const or_options_t *options,
+                              const node_t *node,
+                              const routerinfo_t *ri,
+                              time_t now)
+{
+  if (options->AuthDirHasIPv6Connectivity == 1 &&
+      !tor_addr_is_null(&ri->ipv6_addr) &&
+      node->last_reachable6 >= now - REACHABLE_TIMEOUT) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
 /** Extract status information from <b>ri</b> and from other authority
  * functions and store it in <b>rs</b>>.
  *
@@ -2188,11 +2208,8 @@ set_routerstatus_from_routerinfo(routerstatus_t *rs,
   rs->or_port = ri->or_port;
   rs->dir_port = ri->dir_port;
   rs->is_v2_dir = ri->supports_tunnelled_dir_requests;
-  if (options->AuthDirHasIPv6Connectivity == 1 &&
-      !tor_addr_is_null(&ri->ipv6_addr) &&
-      node->last_reachable6 >= now - REACHABLE_TIMEOUT) {
-    /* We're configured as having IPv6 connectivity. There's an IPv6
-       OR port and it's reachable so copy it to the routerstatus.  */
+  if (routerinfo_has_reachable_ipv6(options, node, ri, now)) {
+    /* The IPv6 ORPort is usable, so copy it to the routerstatus.  */
     tor_addr_copy(&rs->ipv6_addr, &ri->ipv6_addr);
     rs->ipv6_orport = ri->ipv6_orport;
   }
