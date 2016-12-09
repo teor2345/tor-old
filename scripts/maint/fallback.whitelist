@@ -804,3 +804,9 @@
 
 # https://lists.torproject.org/pipermail/tor-relays/2016-December/011209.html
 5.9.159.14:9030 orport=9001 id=0F100F60C7A63BED90216052324D29B08CFCF797
+
+# Email sent directly to teor, verified using relay contact info
+45.62.255.25:80 orport=443 id=3473ED788D9E63361D1572B7E82EC54338953D2A
+
+# Email sent directly to teor, verified using relay contact info
+217.79.179.177:9030 orport=9001 id=3E53D3979DB07EFD736661C934A1DED14127B684 ipv6=[2001:4ba0:fff9:131:6c4f::90d3]:9001
