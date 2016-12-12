@@ -19,7 +19,7 @@ To Build:
 
 To Run:
   mkdir -p src/test/fuzz/fuzz_dir_testcase src/test/fuzz/fuzz_dir_findings
-  ../afl/afl-fuzz -i src/test/fuzz/fuzz_dir_testcase -o src/test/fuzz/fuzz_dir_findings -- src/test/fuzz_dir
+  ../afl/afl-fuzz -i src/test/fuzz/fuzz_dir_testcase -o src/test/fuzz/fuzz_dir_findings -x src/test/fuzz/fuzz_dir_dictionary/fuzz_dir_http_header.dct -- src/test/fuzz_dir
 
 AFL has a multi-core mode, check the documentation for details.
 
@@ -28,7 +28,9 @@ macOS (OS X) requires slightly more preparation, including:
 * disabling external crash reporting (AFL will guide you through this step)
 
 AFL may also benefit from using dictionary files for text-based inputs: these
-can be placed in src/test/fuzz/fuzz_dir_dictionary/.
+can be placed in src/test/fuzz/fuzz_dir_dictionary/
+- a dictionary containing the tor directory protocol HTTP header tokens is
+  available at fuzz_dir_http_header.dct
 
 Multiple dictionaries can be used with AFL, you should choose a combination of
 dictionaries that targets the code you are fuzzing.
