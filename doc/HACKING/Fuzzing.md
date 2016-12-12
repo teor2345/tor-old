@@ -19,6 +19,7 @@ To Build:
 
 To Run:
   mkdir -p src/test/fuzz/fuzz_dir_testcase src/test/fuzz/fuzz_dir_findings
+  echo "dummy" > src/test/fuzz/fuzz_dir_testcase/minimal.case
   ../afl/afl-fuzz -i src/test/fuzz/fuzz_dir_testcase -o src/test/fuzz/fuzz_dir_findings -- src/test/fuzz_dir
 
 AFL has a multi-core mode, check the documentation for details.
