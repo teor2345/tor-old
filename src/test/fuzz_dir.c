@@ -38,6 +38,66 @@ mock_get_options(void)
   return mock_options;
 }
 
+static int
+mock_directory_handle_command_get(dir_connection_t *conn,
+                                      const char *headers,
+                                      const char *body,
+                                      size_t body_len)
+{
+  (void)conn;
+
+  printf("Method:\nGET\n");
+
+  if (headers) {
+    printf("Header-Length:\n%zu\n", strlen(headers));
+    tor_assert(strlen(headers) >= 0);
+    tor_assert(strlen(headers) < MAX_FUZZ_SIZE);
+    printf("Headers:\n%s\n", headers);
+  }
+
+  printf("Body-Length:\n%zu\n", body_len);
+  tor_assert(body_len >= 0);
+  tor_assert(body_len < MAX_FUZZ_SIZE);
+  if (body) {
+    tor_assert(strlen(body) >= 0);
+    tor_assert(strlen(body) < MAX_FUZZ_SIZE);
+    printf("Body:\n%s\n", body);
+  }
+
+  /* Always tell the caller we succeeded */
+  return 0;
+}
+
+static int
+mock_directory_handle_command_post(dir_connection_t *conn,
+                                       const char *headers,
+                                       const char *body,
+                                       size_t body_len)
+{
+  (void)conn;
+
+  printf("Method:\nPOST\n");
+
+  if (headers) {
+    printf("Header-Length:\n%zu\n", strlen(headers));
+    tor_assert(strlen(headers) >= 0);
+    tor_assert(strlen(headers) < MAX_FUZZ_SIZE);
+    printf("Headers:\n%s\n", headers);
+  }
+
+  printf("Body-Length:\n%zu\n", body_len);
+  tor_assert(body_len >= 0);
+  tor_assert(body_len < MAX_FUZZ_SIZE);
+  if (body) {
+    tor_assert(strlen(body) >= 0);
+    tor_assert(strlen(body) < MAX_FUZZ_SIZE);
+    printf("Body:\n%s\n", body);
+  }
+
+  /* Always tell the caller we succeeded */
+  return 0;
+}
+
 /* Read a directory command (including HTTP headers) from stdin, parse it, and
  * output what tor parsed */
 int
@@ -84,6 +144,10 @@ main(int c, char** v)
   mock_options = tor_malloc(sizeof(or_options_t));
   reset_options(mock_options, &mock_get_options_calls);
   MOCK(get_options, mock_get_options);
+
+  /* Set up the fake handler functions */
+  MOCK(directory_handle_command_get, mock_directory_handle_command_get);
+  MOCK(directory_handle_command_post, mock_directory_handle_command_post);
 
   /* Set up the fake connection */
   memset(&dir_conn, 0, sizeof(dir_connection_t));
@@ -152,6 +216,9 @@ likely needs to reset the allocation data structures and counts as well
 */
 
   /* Cleanup */
+  UNMOCK(directory_handle_command_get);
+  UNMOCK(directory_handle_command_post);
+
   tor_free(mock_options);
   UNMOCK(get_options);
 
