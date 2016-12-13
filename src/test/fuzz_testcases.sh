@@ -34,6 +34,6 @@ for fuzzer in $FUZZ_BINARY_NAMES ; do
   # search for test cases ending in .txt or .bin
   for testcase in "$fuzz_testcase_dir/${fuzzer}_testcase"/*.case; do
     echo "Running $testcase for $FUZZ_BINARY_DIR/$fuzzer:"
-    "$FUZZ_BINARY_DIR/$fuzzer" < "$testcase"
+    "$FUZZ_BINARY_DIR/$fuzzer" --warn < "$testcase"
   done
 done
