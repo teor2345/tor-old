@@ -113,7 +113,7 @@ int
 main(int c, char** v)
 {
   /* Disable logging by default to speed up fuzzing. */
-  int loglevel = LOG_EMERG;
+  int loglevel = LOG_ERR;
 
   /* Initialise logging first */
   init_logging(1);
