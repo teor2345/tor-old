@@ -47,22 +47,22 @@ mock_directory_handle_command_get(dir_connection_t *conn,
 {
   (void)conn;
 
-  printf("Method:\nGET\n");
+  log_debug(LD_GENERAL, "Method:\nGET\n");
 
   if (headers) {
-    printf("Header-Length:\n%zu\n", strlen(headers));
+    log_debug(LD_GENERAL, "Header-Length:\n%zu\n", strlen(headers));
     tor_assert(strlen(headers) >= 0);
     tor_assert(strlen(headers) < MAX_FUZZ_SIZE);
-    printf("Headers:\n%s\n", headers);
+    log_debug(LD_GENERAL, "Headers:\n%s\n", headers);
   }
 
-  printf("Body-Length:\n%zu\n", body_len);
+  log_debug(LD_GENERAL, "Body-Length:\n%zu\n", body_len);
   tor_assert(body_len >= 0);
   tor_assert(body_len < MAX_FUZZ_SIZE);
   if (body) {
     tor_assert(strlen(body) >= 0);
     tor_assert(strlen(body) < MAX_FUZZ_SIZE);
-    printf("Body:\n%s\n", body);
+    log_debug(LD_GENERAL, "Body:\n%s\n", body);
   }
 
   /* Always tell the caller we succeeded */
@@ -77,22 +77,22 @@ mock_directory_handle_command_post(dir_connection_t *conn,
 {
   (void)conn;
 
-  printf("Method:\nPOST\n");
+  log_debug(LD_GENERAL, "Method:\nPOST\n");
 
   if (headers) {
-    printf("Header-Length:\n%zu\n", strlen(headers));
+    log_debug(LD_GENERAL, "Header-Length:\n%zu\n", strlen(headers));
     tor_assert(strlen(headers) >= 0);
     tor_assert(strlen(headers) < MAX_FUZZ_SIZE);
-    printf("Headers:\n%s\n", headers);
+    log_debug(LD_GENERAL, "Headers:\n%s\n", headers);
   }
 
-  printf("Body-Length:\n%zu\n", body_len);
+  log_debug(LD_GENERAL, "Body-Length:\n%zu\n", body_len);
   tor_assert(body_len >= 0);
   tor_assert(body_len < MAX_FUZZ_SIZE);
   if (body) {
     tor_assert(strlen(body) >= 0);
     tor_assert(strlen(body) < MAX_FUZZ_SIZE);
-    printf("Body:\n%s\n", body);
+    log_debug(LD_GENERAL, "Body:\n%s\n", body);
   }
 
   /* Always tell the caller we succeeded */
