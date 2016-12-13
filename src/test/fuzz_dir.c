@@ -116,14 +116,14 @@ likely needs to reset the allocation data structures and counts as well
   tor_assert(strlen(stdin_buf) >= 0);
   tor_assert(strlen(stdin_buf) <= MAX_FUZZ_SIZE);
 
-  log_debug("Input-Length:\n%zu\n", data_size);
-  log_debug("Input:\n%s\n", stdin_buf);
+  log_debug(LD_GENERAL, "Input-Length:\n%zu\n", data_size);
+  log_debug(LD_GENERAL, "Input:\n%s\n", stdin_buf);
 
   /* Copy the stdin data into the buffer */
   tor_assert(data_size >= 0);
   dir_conn.base_.inbuf = buf_new_with_data(stdin_buf, (size_t)data_size);
   if (!dir_conn.base_.inbuf) {
-    log_debug("Zero-Length-Input\n");
+    log_debug(LD_GENERAL, "Zero-Length-Input\n");
     exit(0);
   }
 
@@ -134,10 +134,10 @@ likely needs to reset the allocation data structures and counts as well
 
   /* Report the parsed origin address */
   if (dir_conn.base_.address) {
-    log_debug("Address:\n%s\n", dir_conn.base_.address);
+    log_debug(LD_GENERAL, "Address:\n%s\n", dir_conn.base_.address);
   }
 
-  log_debug("Result:\n%d\n", rv);
+  log_debug(LD_GENERAL, "Result:\n%d\n", rv);
 
   /* Reset */
   tor_free(dir_conn.base_.address);
