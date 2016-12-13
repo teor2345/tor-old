@@ -31,7 +31,7 @@ reset_options(or_options_t *options, int *get_options_calls)
   *get_options_calls = 0;
 }
 
-static const or_options_t *
+static const or_options_t*
 mock_get_options(void)
 {
   ++mock_get_options_calls;
