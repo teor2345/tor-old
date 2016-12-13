@@ -790,8 +790,7 @@
 185.34.60.114:80 orport=443 id=7F7A695DF6F2B8640A70B6ADD01105BC2EBC5135
 
 # Email sent directly to teor, verified using relay contact info
-# Awaiting confirmation of IPv6 address
-94.142.242.84:80 orport=443 id=AA0D167E03E298F9A8CD50F448B81FBD7FA80D56 #
+94.142.242.84:80 orport=443 id=AA0D167E03E298F9A8CD50F448B81FBD7FA80D56 ipv6=[2a02:898:24:84::1]:443
 
 # Email sent directly to teor, verified using relay contact info
 185.129.62.62:9030 orport=9001 id=ACDD9E85A05B127BA010466C13C8C47212E8A38F ipv6=[2a06:d380:0:3700::62]:9001
