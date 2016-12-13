@@ -9,6 +9,7 @@
 #include "backtrace.h"
 #include "buffers.h"
 #include "config.h"
+#include "connection.h"
 #include "directory.h"
 #include "torlog.h"
 
@@ -98,6 +99,14 @@ mock_directory_handle_command_post(dir_connection_t *conn,
   return 0;
 }
 
+static void
+mock_connection_write_to_buf_impl_(const char *string, size_t len,
+                                   connection_t *conn, int zlib)
+{
+  log_debug(LD_GENERAL, "%sResponse:\n%zu\nConnection: %p\n%s\n",
+            zlib ? "Compressed " : "", len, conn, string);
+}
+
 /* Read a directory command (including HTTP headers) from stdin, parse it, and
  * output what tor parsed */
 int
@@ -153,6 +162,9 @@ main(int c, char** v)
   /* Set up the fake connection */
   memset(&dir_conn, 0, sizeof(dir_connection_t));
   dir_conn.base_.type = CONN_TYPE_DIR;
+
+  /* Set up fake response handler */
+  MOCK(connection_write_to_buf_impl_, mock_connection_write_to_buf_impl_);
 
 /*
 afl extension - loop and reset state after parsing
@@ -222,6 +234,8 @@ likely needs to reset the allocation data structures and counts as well
 
   tor_free(mock_options);
   UNMOCK(get_options);
+
+  UNMOCK(connection_write_to_buf_impl_);
 
   tor_free(stdin_buf);
 }
