@@ -43,7 +43,8 @@ mock_get_options(void)
 int
 main(int c, char** v)
 {
-  int loglevel = LOG_INFO;
+  /* Disable logging by default to speed up fuzzing. */
+  int loglevel = LOG_EMERG;
 
   /* Initialise logging first */
   init_logging(1);

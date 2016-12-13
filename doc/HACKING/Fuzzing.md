@@ -77,6 +77,11 @@ Check if a hang is reproducible before reporting it. Sometimes, processing
 valid inputs may take a second or so, particularly with the fuzzer and
 sanitizers enabled.
 
+To see what fuzz_dir is doing with a test case, call it like this:
+  src/test/fuzz_dir --debug < /path/to/test.case
+
+(Logging is disabled while fuzzing to increase fuzzing speed.)
+
 == Reporting Issues
 
 Please report any issues discovered using the process in Tor's security issue
