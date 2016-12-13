@@ -17,10 +17,29 @@ To Build:
   PATH=$PATH:../afl/ CC="../afl/afl-gcc" ./configure --enable-expensive-hardening
   AFL_HARDEN=1 make clean fuzz
 
+To Find The ASAN Memory Limit: (64-bit only)
+
+On 64-bit platforms, afl needs to know how much memory ASAN uses.
+Or, you can configure tor without --enable-expensive-hardening, then use
+  make fuzz
+to run the generated test cases through an ASAN-enabled fuzz_dir.
+Read afl/docs/notes_for_asan.txt for more details.
+
+  Download recidivm from http://jwilk.net/software/recidivm
+  Download the signature
+  Check the signature
+  tar xvzf recidivm*.tar.gz
+  cd recidivm*
+  make
+  /path/to/recidivm -v src/test/fuzz_dir
+  Use the final "ok" figure as the input to -m when calling afl-fuzz
+  (Normally, recidivm would output a figure automatically, but in some cases,
+  the fuzzing harness will hang when the memory limit is too small.)
+
 To Run:
   mkdir -p src/test/fuzz/fuzz_dir_testcase src/test/fuzz/fuzz_dir_findings
   echo "dummy" > src/test/fuzz/fuzz_dir_testcase/minimal.case
-  ../afl/afl-fuzz -i src/test/fuzz/fuzz_dir_testcase -o src/test/fuzz/fuzz_dir_findings -- src/test/fuzz_dir
+  ../afl/afl-fuzz -i src/test/fuzz/fuzz_dir_testcase -o src/test/fuzz/fuzz_dir_findings -m <asan-memory-limit> -- src/test/fuzz_dir
 
 AFL has a multi-core mode, check the documentation for details.
 
