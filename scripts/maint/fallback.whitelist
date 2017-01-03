@@ -58,6 +58,7 @@
 # https://lists.torproject.org/pipermail/tor-relays/2015-December/008379.html
 # Email sent directly to teor, verified using relay contact info
 91.121.84.137:4951 orport=4051 id=6DE61A6F72C1E5418A66BFED80DFB63E4C77668F ipv6=[2001:41d0:1:8989::1]:4051
+91.121.84.137:4952 orport=4052 id=9FBEB75E8BC142565F12CBBE078D63310236A334 ipv6=[2001:41d0:1:8989::1]:4052
 
 # https://lists.torproject.org/pipermail/tor-relays/2015-December/008381.html
 # Sent additional email to teor with more relays
