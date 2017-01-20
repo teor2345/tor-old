@@ -2448,18 +2448,28 @@ The following options are used to configure a hidden service.
     client is accessing a Single Onion rather than a Hidden Service may be
     statistically distinguishable. +
  +
-    **WARNING:** Once a hidden service directory has been used by a tor
-    instance in HiddenServiceSingleHopMode, it can **NEVER** be used again for
-    a hidden service. It is best practice to create a new hidden service
+    **WARNING:** Hidden service directories remember the
+    **HiddenServiceSingleHopMode** they are created with. Once keys are
+    created in one mode, tor will **NOT** allow them to be used in the other
+    mode. It is best practice to create a new hidden service
     directory, key, and address for each new Single Onion Service and Hidden
     Service. It is not possible to run Single Onion Services and Hidden
-    Services from the same tor instance: they should be run on different
-    servers with different IP addresses. +
+    Services from the same tor instance: to preserve the anonymity of
+    hidden services, they should be run on a different server to single onion
+    services, with a different IP address. +
+ +
+    The following workaround is almost always bad for your anonymity. To use a
+    hidden service key in a different mode, delete or create the file:
+    __HiddenServiceDirectory__**/onion_service_non_anonymous**
+    Even if this file is deleted, the service will **NEVER** be anonymous
+    again. +
  +
     HiddenServiceSingleHopMode requires HiddenServiceNonAnonymousMode to be set
     to 1. Since a Single Onion service is non-anonymous, you can not configure
     a SOCKSPort on a tor instance that is running in
-    **HiddenServiceSingleHopMode**. Can not be changed while tor is running.
+    **HiddenServiceSingleHopMode**, unless that tor instance was compiled in
+    **Tor2WebMode**. **HiddenServiceSingleHopMode** can not be changed while
+    tor is running.
     (Default: 0)
 
 [[HiddenServiceNonAnonymousMode]] **HiddenServiceNonAnonymousMode** **0**|**1**::
