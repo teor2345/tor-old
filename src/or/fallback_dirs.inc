@@ -1,17 +1,16 @@
-/* Whitelist & blacklist excluded 1177 of 1389 candidates. */
 /* To comment-out entries in this file, use C comments, and add * to the start of each line. (stem finds fallback entries using " at the start of a line.) */
 /* Checked IPv4 DirPorts served a consensus within 15.0s. */
 /*
-Final Count: 177 (Eligible 212, Target 392 (1963 * 0.20), Max 200)
-Excluded: 35 (Same Operator 35, Failed/Skipped Download 0, Excess 0)
-Bandwidth Range: 1.2 - 107.3 MByte/s
+Final Count: 161 (Eligible 162, Target 393 (1969 * 0.20), Max 200)
+Excluded: 1 (Same Operator 0, Failed/Skipped Download 1, Excess 0)
+Bandwidth Range: 1.1 - 52.4 MByte/s
 */
 /*
-Onionoo Source: details Date: 2016-12-19 03:00:00 Version: 3.1
+Onionoo Source: details Date: 2017-01-23 01:00:00 Version: 3.1
 URL: https:onionoo.torproject.orgdetails?fields=fingerprint%2Cnickname%2Ccontact%2Clast_changed_address_or_port%2Cconsensus_weight%2Cadvertised_bandwidth%2Cor_addresses%2Cdir_address%2Crecommended_version%2Cflags%2Ceffective_family%2Cplatform&flag=V2Dir&type=relay&last_seen_days=-0&first_seen_days=7-
 */
 /*
-Onionoo Source: uptime Date: 2016-12-19 03:00:00 Version: 3.1
+Onionoo Source: uptime Date: 2017-01-23 01:00:00 Version: 3.1
 URL: https:onionoo.torproject.orguptime?first_seen_days=7-&flag=V2Dir&type=relay&last_seen_days=-0
 */
 "185.13.39.197:80 orport=443 id=001524DD403D729F08F7E5D77813EF12756CFA8D"
@@ -63,21 +62,15 @@ URL: https:onionoo.torproject.orguptime?first_seen_days=7-&flag=V2Dir&type=relay
 " weight=10",
 "91.219.236.222:80 orport=443 id=20704E7DD51501DC303FA51B738D7B7E61397CF6"
 " weight=10",
-"144.76.163.93:9030 orport=9001 id=22F08CF09764C4E8982640D77F71ED72FF26A9AC"
-" weight=10",
 "163.172.176.167:80 orport=443 id=230A8B2A8BA861210D9B4BA97745AEC217A94207"
 " weight=10",
 "212.47.240.10:82 orport=443 id=2A4C448784F5A83AFE6C78DA357D5E31F7989DEB"
-" weight=10",
-"144.76.26.175:9012 orport=9011 id=2BA2C8E96B2590E1072AECE2BDB5C48921BF8510"
 " weight=10",
 "178.16.208.56:80 orport=443 id=2CDCFED0142B28B002E89D305CBA2E26063FADE2"
 " ipv6=[2a00:1c20:4089:1234:cd49:b58a:9ebe:67ec]:443"
 " weight=10",
 "62.210.124.124:9130 orport=9101 id=2EBD117806EE43C3CC885A8F1E4DC60F207E7D3E"
 " ipv6=[2001:bc8:3f23:100::1]:9101"
-" weight=10",
-"97.74.237.196:9030 orport=9001 id=2F0F32AB1E5B943CA7D062C03F18960C86E70D94"
 " weight=10",
 "213.61.66.118:9031 orport=9001 id=30648BC64CEDB3020F4A405E4AB2A6347FB8FA22"
 " weight=10",
@@ -90,13 +83,8 @@ URL: https:onionoo.torproject.orguptime?first_seen_days=7-&flag=V2Dir&type=relay
 "109.105.109.162:52860 orport=60784 id=32EE911D968BE3E016ECA572BB1ED0A9EE43FC2F"
 " ipv6=[2001:948:7:2::163]:5001"
 " weight=10",
-"185.100.84.212:80 orport=443 id=330CD3DB6AD266DC70CDB512B036957D03D9BC59"
-" ipv6=[2a06:1700:0:7::1]:443"
-" weight=10",
 "163.172.13.165:9030 orport=9001 id=33DA0CAB7C27812EFF2E22C9705630A54D101FEB"
 " ipv6=[2001:bc8:38cb:201::8]:9001"
-" weight=10",
-"45.62.255.25:80 orport=443 id=3473ED788D9E63361D1572B7E82EC54338953D2A"
 " weight=10",
 "217.79.190.25:9030 orport=9090 id=361D33C96D0F161275EE67E2C91EE10B276E778B"
 " weight=10",
@@ -143,8 +131,6 @@ URL: https:onionoo.torproject.orguptime?first_seen_days=7-&flag=V2Dir&type=relay
 "81.7.16.182:80 orport=443 id=51E1CF613FD6F9F11FE24743C91D6F9981807D82"
 " ipv6=[2a02:180:1:1::517:10b6]:993"
 " weight=10",
-"138.201.130.32:9030 orport=9001 id=52AEA31188331F421B2EDB494DB65CD181E5B257"
-" weight=10",
 "94.23.204.175:9030 orport=9001 id=5665A3904C89E22E971305EE8C1997BCA4123C69"
 " weight=10",
 "95.130.12.119:80 orport=443 id=587E0A9552E4274B251F29B5B2673D38442EE4BF"
@@ -167,8 +153,6 @@ URL: https:onionoo.torproject.orguptime?first_seen_days=7-&flag=V2Dir&type=relay
 " weight=10",
 "85.214.62.48:80 orport=443 id=6A7551EEE18F78A9813096E82BF84F740D32B911"
 " weight=10",
-"95.130.11.147:9030 orport=443 id=6B697F3FF04C26123466A5C0E5D1F8D91925967A"
-" weight=10",
 "91.121.84.137:4951 orport=4051 id=6DE61A6F72C1E5418A66BFED80DFB63E4C77668F"
 " ipv6=[2001:41d0:1:8989::1]:4051"
 " weight=10",
@@ -179,8 +163,6 @@ URL: https:onionoo.torproject.orguptime?first_seen_days=7-&flag=V2Dir&type=relay
 " weight=10",
 "95.183.48.12:80 orport=443 id=7187CED1A3871F837D0E60AC98F374AC541CB0DA"
 " weight=10",
-"163.172.35.247:80 orport=443 id=71AB4726D830FAE776D74AEF790CF04D8E0151B4"
-" weight=10",
 "85.235.250.88:80 orport=443 id=72B2B12A3F60408BDBC98C6DF53988D3A0B3F0EE"
 " weight=10",
 "46.101.237.246:9030 orport=9001 id=75F1992FD3F403E9C082A5815EB5D12934CDF46C"
@@ -188,9 +170,6 @@ URL: https:onionoo.torproject.orguptime?first_seen_days=7-&flag=V2Dir&type=relay
 " weight=10",
 "188.166.133.133:9030 orport=9001 id=774555642FDC1E1D4FDF2E0C31B7CA9501C5C9C7"
 " ipv6=[2a03:b0c0:2:d0::5:f001]:9001"
-" weight=10",
-"81.30.158.213:9030 orport=9001 id=789EA6C9AE9ADDD8760903171CFA9AC5741B0C70"
-" ipv6=[2001:4ba0:cafe:e84::1]:9001"
 " weight=10",
 "185.11.180.67:80 orport=9001 id=794D8EA8343A4E820320265D05D4FA83AB6D1778"
 " weight=10",
@@ -219,8 +198,6 @@ URL: https:onionoo.torproject.orguptime?first_seen_days=7-&flag=V2Dir&type=relay
 "93.180.156.84:9030 orport=9001 id=8844D87E9B038BE3270938F05AF797E1D3C74C0F"
 " weight=10",
 "212.47.241.21:80 orport=443 id=892F941915F6A0C6E0958E52E0A9685C190CF45C"
-" weight=10",
-"163.172.194.53:9030 orport=9001 id=8C00FA7369A7A308F6A137600F0FA07990D9D451"
 " weight=10",
 "178.254.44.135:9030 orport=9001 id=8FA37B93397015B2BC5A525C908485260BE9F422"
 " weight=10",
@@ -298,9 +275,6 @@ URL: https:onionoo.torproject.orguptime?first_seen_days=7-&flag=V2Dir&type=relay
 " weight=10",
 "31.185.104.20:80 orport=443 id=ADB2C26629643DBB9F8FE0096E7D16F9414B4F8D"
 " weight=10",
-"37.187.7.74:80 orport=443 id=AEA43CB1E47BE5F8051711B2BF01683DB1568E05"
-" ipv6=[2001:41d0:a:74a::1]:443"
-" weight=10",
 "176.126.252.11:443 orport=9001 id=B0279A521375F3CB2AE210BDBFC645FDD2E1973A"
 " ipv6=[2a02:59e0:0:7::11]:9003"
 " weight=10",
@@ -312,8 +286,6 @@ URL: https:onionoo.torproject.orguptime?first_seen_days=7-&flag=V2Dir&type=relay
 " ipv6=[2604:a880:400:d0::1a9:b001]:9050"
 " weight=10",
 "136.243.214.137:80 orport=443 id=B291D30517D23299AD7CEE3E60DFE60D0E3A4664"
-" weight=10",
-"212.47.233.86:9030 orport=9001 id=B4CAFD9CBFB34EC5DAAC146920DC7DFAFE91EA20"
 " weight=10",
 "93.115.97.242:9030 orport=9001 id=B5212DB685A2A0FCFBAE425738E478D12361710D"
 " weight=10",
@@ -327,12 +299,7 @@ URL: https:onionoo.torproject.orguptime?first_seen_days=7-&flag=V2Dir&type=relay
 " weight=10",
 "197.231.221.211:9030 orport=9001 id=BC630CBBB518BE7E9F4E09712AB0269E9DC7D626"
 " weight=10",
-"89.163.247.43:9030 orport=9001 id=BC7ACFAC04854C77167C7D66B7E471314ED8C410"
-" weight=10",
 "198.96.155.3:8080 orport=5001 id=BCEDF6C193AA687AE471B8A22EBF6BC57C2D285E"
-" weight=10",
-"128.199.55.207:9030 orport=9001 id=BCEF908195805E03E92CCFE669C48738E556B9C5"
-" ipv6=[2a03:b0c0:2:d0::158:3001]:9001"
 " weight=10",
 "148.251.190.229:9030 orport=9010 id=BF0FB582E37F738CD33C3651125F2772705BB8E8"
 " ipv6=[2a01:4f8:211:c68::2]:9010"
@@ -353,8 +320,6 @@ URL: https:onionoo.torproject.orguptime?first_seen_days=7-&flag=V2Dir&type=relay
 " ipv6=[2a03:b0c0:2:d0::b7:5001]:443"
 " weight=10",
 "134.119.3.164:9030 orport=9001 id=D1B8AAA98C65F3DF7D8BB3AF881CAEB84A33D8EE"
-" weight=10",
-"185.13.38.75:9030 orport=9001 id=D2A1703758A0FBBA026988B92C2F88BAB59F9361"
 " weight=10",
 "37.221.162.226:9030 orport=9001 id=D64366987CB39F61AD21DBCF8142FA0577B92811"
 " weight=10",
@@ -407,8 +372,6 @@ URL: https:onionoo.torproject.orguptime?first_seen_days=7-&flag=V2Dir&type=relay
 "178.254.13.126:80 orport=443 id=F9246DEF2B653807236DA134F2AEAB103D58ABFE"
 " weight=10",
 "185.96.180.29:80 orport=443 id=F93D8F37E35C390BCAD9F9069E13085B745EC216"
-" weight=10",
-"104.243.35.196:9030 orport=9001 id=FA3415659444AE006E7E9E5375E82F29700CFDFD"
 " weight=10",
 "86.59.119.83:80 orport=443 id=FC9AC8EA0160D88BCCFDE066940D7DD9FA45495B"
 " weight=10",
