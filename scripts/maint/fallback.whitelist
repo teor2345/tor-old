@@ -49,9 +49,6 @@
 # https://lists.torproject.org/pipermail/tor-relays/2015-December/008373.html
 167.114.35.28:9030 orport=9001 id=E65D300F11E1DB12C534B0146BDAB6972F1A8A48
 
-# https://lists.torproject.org/pipermail/tor-relays/2015-December/008374.html
-104.243.35.196:9030 orport=9001 id=FA3415659444AE006E7E9E5375E82F29700CFDFD
-
 # https://lists.torproject.org/pipermail/tor-relays/2015-December/008378.html
 144.76.14.145:110 orport=143 id=14419131033443AE6E21DA82B0D307F7CAE42BDB ipv6=[2a01:4f8:190:9490::dead]:443
 
