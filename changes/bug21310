@@ -1,0 +1,6 @@
+  o Minor bugfixes (IPv6 exit):
+    - Keep client IPv6Traffic and PreferIPv6 flags, even on non-IPv6 Exits.
+      This allows non-IPv6 exits to send back the address the client prefers,
+      even if it is an IPv6 address resolved from an IPv6-only hostname.
+      Fixes bug 21310; bugfix on commits 9016d9e829 and 2889bd2642 in
+      0.2.4.7-alpha.

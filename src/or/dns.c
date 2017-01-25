@@ -867,8 +867,7 @@ set_exitconn_info_from_resolve,(edge_connection_t *exitconn,
   ipv4_ok = (resolve->res_status_ipv4 == RES_STATUS_DONE_OK) &&
     ! (begincell_flags & BEGIN_FLAG_IPV4_NOT_OK);
   ipv6_ok = (resolve->res_status_ipv6 == RES_STATUS_DONE_OK) &&
-    (begincell_flags & BEGIN_FLAG_IPV6_OK) &&
-    get_options()->IPv6Exit;
+    (begincell_flags & BEGIN_FLAG_IPV6_OK);
 
   /* Now decide which one to actually give. */
   if (ipv4_ok && ipv6_ok && is_resolve) {
@@ -887,8 +886,8 @@ set_exitconn_info_from_resolve,(edge_connection_t *exitconn,
     } else if (ipv6_allowed && !ipv4_allowed) {
       answer_with_ipv4 = 0;
     } else {
-      /* Our exit policy would permit both.  Answer with whichever the user
-       * prefers */
+      /* Our exit policy would permit both (or neither).  Answer with
+       * whichever the user prefers */
       answer_with_ipv4 = !(begincell_flags &
                            BEGIN_FLAG_IPV6_PREFERRED);
     }
