@@ -3179,13 +3179,9 @@ connection_exit_begin_conn(cell_t *cell, circuit_t *circ)
     /* I don't care if you prefer IPv6; I can't give you any. */
     bcell.flags &= ~BEGIN_FLAG_IPV6_OK;
     bcell.flags &= ~BEGIN_FLAG_IPV6_PREFERRED;
-    /* If you don't want IPv4, I can't help. */
-    if (bcell.flags & BEGIN_FLAG_IPV4_NOT_OK) {
-      tor_free(address);
-      relay_send_end_cell_from_edge(rh.stream_id, circ,
-                                    END_STREAM_REASON_EXITPOLICY, NULL);
-      return 0;
-    }
+    /* Regardless of whether I can connect via the IP version(s) you want,
+     * I'll resolve any hostnames, so I can send you back their address, so
+     * you can choose a better exit for the next circuit for that hostname. */
   }
 
   log_debug(LD_EXIT,"Creating new exit connection.");

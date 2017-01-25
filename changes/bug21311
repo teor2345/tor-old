@@ -1,0 +1,5 @@
+  o Minor bugfixes (IPv6 exit):
+    - Make non-IPv6 exits resolve AAAA records, so that they can tell
+      clients to try an IPv6 Exit for their next request.
+      Fixes bug 21311; bugfix on commits 9016d9e829 and 2889bd2642 in
+      0.2.4.7-alpha.

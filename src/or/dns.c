@@ -1654,20 +1654,17 @@ launch_resolve,(cached_resolve_t *resolve))
     log_info(LD_EXIT, "Launching eventdns request for %s",
              escaped_safe_str(resolve->address));
     resolve->res_status_ipv4 = RES_STATUS_INFLIGHT;
-    if (get_options()->IPv6Exit)
-      resolve->res_status_ipv6 = RES_STATUS_INFLIGHT;
+    resolve->res_status_ipv6 = RES_STATUS_INFLIGHT;
 
     if (launch_one_resolve(resolve->address, DNS_IPv4_A, NULL) < 0) {
       resolve->res_status_ipv4 = 0;
       r = -1;
     }
 
-    if (r==0 && get_options()->IPv6Exit) {
-      /* We ask for an IPv6 address for *everything*. */
-      if (launch_one_resolve(resolve->address, DNS_IPv6_AAAA, NULL) < 0) {
-        resolve->res_status_ipv6 = 0;
-        r = -1;
-      }
+    /* We ask for an IPv6 address for *everything*. */
+    if (launch_one_resolve(resolve->address, DNS_IPv6_AAAA, NULL) < 0) {
+      resolve->res_status_ipv6 = 0;
+      r = -1;
     }
   } else if (r == 1) {
     r = 0;
