@@ -3177,6 +3177,7 @@ connection_exit_begin_conn(cell_t *cell, circuit_t *circ)
 
   if (! options->IPv6Exit) {
     /* I don't care if you prefer IPv6; I can't give you any. */
+    bcell.flags &= ~BEGIN_FLAG_IPV6_OK;
     bcell.flags &= ~BEGIN_FLAG_IPV6_PREFERRED;
     /* If you don't want IPv4, I can't help. */
     if (bcell.flags & BEGIN_FLAG_IPV4_NOT_OK) {

@@ -1,0 +1,4 @@
+  o Minor bugfixes (IPv6 exit):
+    - Make non-IPv6 exits ignore IPv6Traffic requests from clients.
+      Previously, non-IPv6 exits would only ignore PreferIPv6.  
+      Fixes bug 21310; bugfix on commit 9016d9e829 in 0.2.4.7-alpha.
