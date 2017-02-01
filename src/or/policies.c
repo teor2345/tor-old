@@ -2353,7 +2353,11 @@ policy_summary_item_split(policy_summary_item_t* old, uint16_t new_starts)
  * my immortal soul, he can clean it up himself. */
 #define AT(x) ((policy_summary_item_t*)smartlist_get(summary, x))
 
-#define REJECT_CUTOFF_COUNT (1<<25)
+#define IPV4_BITS                (32)
+/* Ports are rejected in an IPv4 summary if they are rejected in more than two
+ * IPv4 /8 address blocks */
+#define REJECT_CUTOFF_COUNT_IPV4 (U64_LITERAL(1) << \
+                                  (IPV4_BITS - 7))
 /** Split an exit policy summary so that prt_min and prt_max
  * fall at exactly the start and end of an item respectively.
  */
@@ -2395,7 +2399,7 @@ policy_summary_accept(smartlist_t *summary,
   while (i < smartlist_len(summary) &&
          AT(i)->prt_max <= prt_max) {
     if (!AT(i)->accepted &&
-        AT(i)->reject_count <= REJECT_CUTOFF_COUNT)
+        AT(i)->reject_count <= REJECT_CUTOFF_COUNT_IPV4)
       AT(i)->accepted = 1;
     i++;
   }
@@ -2411,7 +2415,12 @@ policy_summary_reject(smartlist_t *summary,
 {
   int i = policy_summary_split(summary, prt_min, prt_max);
   /* XXX: ipv4 specific */
-  uint64_t count = (U64_LITERAL(1) << (32-maskbits));
+  /* The length of a single address mask */
+  int addrbits = IPV4_BITS;
+  tor_assert_nonfatal_once(addrbits >= maskbits);
+
+  uint64_t count = (U64_LITERAL(1) << (addrbits-maskbits));
+  tor_assert_nonfatal_once(count > 0);
   while (i < smartlist_len(summary) &&
          AT(i)->prt_max <= prt_max) {
     AT(i)->reject_count += count;
