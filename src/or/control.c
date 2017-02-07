@@ -5879,16 +5879,18 @@ void control_event_privcount_stream_ended(edge_connection_t *conn) {
     struct timeval now;
     tor_gettimeofday(&now);
 
-    /* ChanID, CircID, StreamID, ExitPort, ReadBW, WriteBW, TimeStart, TimeEnd, isDNS, isDir */
+    /* ChanID, CircID, StreamID, ExitPort, ReadBW, WriteBW, TimeStart, TimeEnd, isDNS, isDir, remoteHostAddress, remoteIPAddress */
     send_control_event(EVENT_PRIVCOUNT_STREAM_ENDED,
-            "650 PRIVCOUNT_STREAM_ENDED %"PRIu64" %"PRIu32" %"PRIu16" %"PRIu16" %"PRIu64" %"PRIu64" %ld.%06ld %ld.%06ld %d %d\r\n",
+            "650 PRIVCOUNT_STREAM_ENDED %"PRIu64" %"PRIu32" %"PRIu16" %"PRIu16" %"PRIu64" %"PRIu64" %ld.%06ld %ld.%06ld %d %d %s %s\r\n",
             orcirc && orcirc->p_chan ? orcirc->p_chan->global_identifier : 0,
             orcirc ? orcirc->p_circ_id : 0,
             conn->stream_id, conn->base_.port,
             conn->privcount_n_read, conn->privcount_n_written,
             (long)conn->base_.timestamp_created_tv.tv_sec, (long)conn->base_.timestamp_created_tv.tv_usec,
             (long)now.tv_sec, (long)now.tv_usec,
-            is_dns, is_dir);
+            is_dns, is_dir,
+            conn->base_.address ? conn->base_.address : "null-address",
+            fmt_addr(&(conn->base_.addr)));
 }
 
 void control_event_privcount_circuit_ended(or_circuit_t *orcirc) {
