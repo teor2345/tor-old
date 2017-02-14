@@ -154,13 +154,15 @@ MAX_LIST_FILE_SIZE = 1024 * 1024
 ## Eligibility Settings
 
 # Require fallbacks to have the same address and port for a set amount of time
+# We used to have this at 1 week, but that caused many fallback failures, which
+# meant that we had to rebuild the list more often.
 #
 # There was a bug in Tor 0.2.8.1-alpha and earlier where a relay temporarily
 # submits a 0 DirPort when restarted.
 # This causes OnionOO to (correctly) reset its stability timer.
 # Affected relays should upgrade to Tor 0.2.8.7 or later, which has a fix
 # for this issue.
-ADDRESS_AND_PORT_STABLE_DAYS = 7
+ADDRESS_AND_PORT_STABLE_DAYS = 30
 # We ignore relays that have been down for more than this period
 MAX_DOWNTIME_DAYS = 0 if MUST_BE_RUNNING_NOW else 7
 # What time-weighted-fraction of these flags must FallbackDirs
