@@ -24,6 +24,7 @@ mock_connection_write_to_buf_impl_(const char *string, size_t len,
             zlib ? "Compressed " : "", (unsigned)len, conn, string);
 }
 
+#if 0
 static int
 mock_directory_handle_command_get(dir_connection_t *conn,
                                       const char *headers,
@@ -47,6 +48,7 @@ mock_directory_handle_command_get(dir_connection_t *conn,
   /* Always tell the caller we succeeded */
   return 0;
 }
+#endif
 
 static int
 mock_directory_handle_command_post(dir_connection_t *conn,
@@ -78,7 +80,9 @@ fuzz_init(void)
   /* Set up fake response handler */
   MOCK(connection_write_to_buf_impl_, mock_connection_write_to_buf_impl_);
   /* Set up the fake handler functions */
+#if 0
   MOCK(directory_handle_command_get, mock_directory_handle_command_get);
+#endif
   MOCK(directory_handle_command_post, mock_directory_handle_command_post);
 
   return 0;
@@ -88,7 +92,9 @@ int
 fuzz_cleanup(void)
 {
   UNMOCK(connection_write_to_buf_impl_);
+#if 0
   UNMOCK(directory_handle_command_get);
+#endif
   UNMOCK(directory_handle_command_post);
   return 0;
 }
