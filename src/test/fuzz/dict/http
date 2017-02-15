@@ -22,3 +22,19 @@ x_forwarded_for_header = "X-Forwarded-For:"
 
 get_command = "GET"
 post_command = "POST"
+
+http_version = "HTTP/1.0"
+
+# GET handlers from url_table in directory.c
+handle_get_frontpage = "/tor/"
+handle_get_current_consensus = "/tor/status-vote/current/consensus"
+handle_get_status_vote_current = "/tor/status-vote/current/"
+handle_get_status_vote_next = "/tor/status-vote/next/"
+handle_get_microdesc = "/tor/micro/d/"
+handle_get_descriptor_server = "/tor/server/"
+handle_get_descriptor_extra = "/tor/extra/"
+handle_get_keys = "/tor/keys/"
+handle_get_hs_descriptor_v2 = "/tor/rendezvous2/"
+handle_get_hs_descriptor_v3 = "/tor/hs/3/"
+handle_get_robots = "/tor/robots.txt"
+handle_get_networkstatus_bridges = "/tor/networkstatus-bridges"
