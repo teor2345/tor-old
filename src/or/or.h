@@ -1544,8 +1544,8 @@ typedef struct or_connection_t {
   unsigned int is_canonical:1;
 
   /** True iff we have decided that the other end of this connection
-   * is a client.  Connections with this flag set should never be used
-   * to satisfy an EXTEND request.  */
+   * is a client or bridge relay.  Connections with this flag set should never
+   * be used to satisfy an EXTEND request. */
   unsigned int is_connection_with_client:1;
   /** True iff this is an outgoing connection. */
   unsigned int is_outgoing:1;

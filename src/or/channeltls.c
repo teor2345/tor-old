@@ -1654,6 +1654,9 @@ channel_tls_process_netinfo_cell(cell_t *cell, channel_tls_t *chan)
         tor_assert(tor_mem_is_zero(
                   (const char*)(chan->conn->handshake_state->
                                 authenticated_ed25519_peer_id.pubkey), 32));
+        /* We must not use this connection to satsfy EXTEND requests
+         * (nor could we, as there is no certificate) */
+        chan->conn->is_connection_with_client = 1;
         channel_set_circid_type(TLS_CHAN_TO_BASE(chan), NULL,
                chan->conn->link_proto < MIN_LINK_PROTO_FOR_WIDE_CIRC_IDS);
 

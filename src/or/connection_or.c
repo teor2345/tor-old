@@ -1539,6 +1539,9 @@ connection_or_check_valid_tls_handshake(or_connection_t *conn,
              safe_address, conn->base_.port);
     return -1;
   } else if (!has_cert) {
+    /* We must not use this connection to satsfy EXTEND requests
+     * (nor could we, as there is no certificate) */
+    conn->is_connection_with_client = 1;
     log_debug(LD_HANDSHAKE,"Got incoming connection with no certificate. "
               "That's ok.");
   }
