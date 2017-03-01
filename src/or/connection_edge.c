@@ -2438,9 +2438,13 @@ connection_ap_handshake_send_begin(entry_connection_t *ap_conn)
     /* This connection is a begindir directory connection.
      * Look at the linked directory connection to access the directory purpose.
      * (This must be non-NULL, because we're doing begindir.) */
-    tor_assert(base_conn->linked);
+    if (BUG(!base_conn->linked)) {
+      return -1;
+    }
     connection_t *linked_dir_conn_base = base_conn->linked_conn;
-    tor_assert(linked_dir_conn_base);
+    if (BUG(!linked_dir_conn_base)) {
+      return -1;
+    }
     /* Sensitive directory connections must have an anonymous path length.
      * Otherwise, directory connections are typically one-hop.
      * This matches the earlier check for directory connection path anonymity

@@ -1,0 +1,5 @@
+  o Major bugfixes (hidden services, security):
+    - Fix a rare crash when attempting to upload hidden service descriptors
+      using an invalid circuit. Instead, fail the attempt and log a bug
+      warning, to assist in diagnosing the underlying issue. Fixes bug 21576;
+      bugfix on Tor 0.2.9.3-alpha. Reported by alecmuffett.
