@@ -107,7 +107,8 @@ struct rend_service_port_config_s {
 #define INTRO_CIRC_RETRY_PERIOD (60*5)
 /** Don't try to build more than this many circuits before giving up
  * for a while.*/
-#define MAX_INTRO_CIRCS_PER_PERIOD 10
+#define MAX_INTRO_CIRCS_PER_PERIOD (NUM_INTRO_POINTS_MAX + \
+                                    NUM_INTRO_POINTS_EXTRA + 1)
 /** How many times will a hidden service operator attempt to connect to
  * a requested rendezvous point before giving up? */
 #define MAX_REND_FAILURES 1
