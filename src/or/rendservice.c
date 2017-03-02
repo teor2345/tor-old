@@ -1035,7 +1035,6 @@ static void
 rend_service_update_descriptor(rend_service_t *service)
 {
   rend_service_descriptor_t *d;
-  origin_circuit_t *circ;
   int i;
 
   rend_service_descriptor_free(service->desc);
