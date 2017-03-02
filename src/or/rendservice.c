@@ -1057,9 +1057,10 @@ rend_service_update_descriptor(rend_service_t *service)
     /* This intro point won't be listed in the descriptor... */
     intro_svc->listed_in_last_desc = 0;
 
-    circ = find_intro_circuit(intro_svc, service->pk_digest);
-    if (!circ || circ->base_.purpose != CIRCUIT_PURPOSE_S_INTRO) {
-      /* This intro point's circuit isn't finished yet.  Don't list it. */
+    /* circuit_established is set in rend_service_intro_established(), and
+     * checked every second in rend_consider_services_intro_points(), so it's
+     * safe to use it here */
+    if (!intro_svc->circuit_established) {
       continue;
     }
 
