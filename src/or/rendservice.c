@@ -3886,12 +3886,13 @@ rend_service_desc_has_uploaded(const rend_data_t *rend_data)
 /** Don't try to build more than this many circuits before giving up
  * for a while. Dynamically calculated based on the configured number of
  * introduction points for the service, n_intro_points_wanted. */
-static unsigned int
+static int
 rend_max_intro_circs_per_period(unsigned int n_intro_points_wanted)
 {
   /* Allow all but one of the initial connections to fail and be
    * retried. (If all fail, we *want* to wait, because something is broken.) */
-  return 2*(n_intro_points_wanted + NUM_INTRO_POINTS_EXTRA);
+  tor_assert(n_intro_points_wanted <= NUM_INTRO_POINTS_MAX);
+  return (int)(2*n_intro_points_wanted + NUM_INTRO_POINTS_EXTRA);
 }
 
 /** For every service, check how many intro points it currently has, and:
