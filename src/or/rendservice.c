@@ -4414,15 +4414,47 @@ rend_service_dump_stats(int severity)
     for (j=0; j < smartlist_len(service->intro_nodes); ++j) {
       intro = smartlist_get(service->intro_nodes, j);
       safe_name = safe_str_client(intro->extend_info->nickname);
-
+      char *intro_info = NULL;
+      if (get_options()->SafeLogging_ == SAFELOG_SCRUB_ALL) {
+        /* Provide a bunch of indicative flags */
+        tor_asprintf(&intro_info, "launched %d, established %d, retries %d, "
+                     "published %d, listed in last %d, expires %d, intros %d, "
+                     "max intros %d",
+                     intro->time_launched > -1,
+                     intro->circuit_established,
+                     intro->circuit_retries > 0,
+                     intro->time_published > -1,
+                     intro->listed_in_last_desc,
+                     intro->time_to_expire > -1,
+                     intro->accepted_introduce2_count > 0,
+                     (intro->accepted_introduce2_count >=
+                      intro->max_introductions));
+      } else {
+        /* Provide the actual times and amounts */
+        tor_asprintf(&intro_info, "launched %" PRIi64 ", established %d, "
+                     "retries %u, published %" PRIi64 ", listed in last %d, "
+                     "expires %" PRIi64 ", intros %d, "
+                     "max intros %d, now %" PRIi64,
+                     (int64_t)intro->time_launched,
+                     intro->circuit_established,
+                     intro->circuit_retries,
+                     (int64_t)intro->time_published,
+                     intro->listed_in_last_desc,
+                     (int64_t)intro->time_to_expire,
+                     intro->accepted_introduce2_count,
+                     intro->max_introductions,
+                     (int64_t)time(NULL));
+      }
       circ = find_intro_circuit(intro, service->pk_digest);
       if (!circ) {
-        tor_log(severity, LD_GENERAL, "  Intro point %d at %s: no circuit",
-            j, safe_name);
-        continue;
+        tor_log(severity, LD_GENERAL, "  Intro point %d at %s: no circuit, %s",
+                j, safe_name, intro_info);
+      } else {
+        tor_log(severity, LD_GENERAL, "  Intro point %d at %s: circuit is %s, "
+                "%s", j, safe_name, circuit_state_to_string(circ->base_.state),
+                intro_info);
       }
-      tor_log(severity, LD_GENERAL, "  Intro point %d at %s: circuit is %s",
-          j, safe_name, circuit_state_to_string(circ->base_.state));
+      tor_free(intro_info);
     }
   }
 }
