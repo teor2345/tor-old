@@ -5230,6 +5230,10 @@ typedef struct rend_intro_point_t {
    * INTRO_POINT_MAX_LIFETIME_INTRODUCTIONS. */
   int max_introductions;
 
+  /** (Service side only) The time at which this intro point circuit was
+   * initiated, or -1 if there is no intro point circuit. */
+  time_t time_launched;
+
   /** (Service side only) The time at which this intro point was first
    * published, or -1 if this intro point has not yet been
    * published. */

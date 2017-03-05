@@ -109,6 +109,9 @@ struct rend_service_port_config_s {
  * empty. See proposal 155, section 4. */
 #define NUM_INTRO_POINTS_EXTRA 2
 
+/** How many seconds should we spend waiting for an INTRO_ESTABLISHED cell
+ * before giving up? */
+#define MAX_INTRO_TIMEOUT (60*5)
 /** If we can't build our intro circuits, don't retry for this long. */
 #define INTRO_CIRC_RETRY_PERIOD (60*5)
 /** How many times will a hidden service operator attempt to connect to
@@ -3158,6 +3161,7 @@ rend_service_launch_establish_intro(rend_service_t *service,
   rep_hist_note_used_internal(time(NULL), 1, 0);
 
   ++service->n_intro_circuits_launched;
+  intro->time_launched = time(NULL);
   launched = circuit_launch_by_extend_info(CIRCUIT_PURPOSE_S_ESTABLISH_INTRO,
                              launch_ei, flags);
 
@@ -4022,6 +4026,33 @@ remove_invalid_intro_points(rend_service_t *service,
       if (retry_nodes) {
         smartlist_add(retry_nodes, intro);
       }
+    } else if (intro_circ && TO_CIRCUIT(intro_circ)->purpose ==
+               CIRCUIT_PURPOSE_S_ESTABLISH_INTRO) {
+      /* Check if we've timed out on the introduction point reply */
+      if (BUG(intro->time_launched < 0) || BUG(intro->time_launched > now)) {
+        /* We forgot to set intro->time_launched on launch, or the clock has
+         * jumped. Instead, measure the timeout from now. */
+        intro->time_launched = now;
+      } else {
+        tor_assert_nonfatal(now - intro->time_launched < (long)(INT_MAX));
+        int launch_elapsed = (int)(now - intro->time_launched);
+        if (launch_elapsed > MAX_INTRO_TIMEOUT) {
+          /* The node did not reply with an INTRO_ESTABLISHED cell in a
+           * reasonable time, but the circuit is still active. Make it a
+           * warning so we get reports if any nodes are actually doing it. */
+          log_warn(LD_REND, "Introduction point did not establish within %d "
+                   "seconds, limit is %d seconds.", launch_elapsed,
+                   MAX_INTRO_TIMEOUT);
+          rend_log_intro_limit(service, LOG_WARN);
+          /* The intro is behaving strangely, no point in retrying. */
+          circuit_mark_for_close(TO_CIRCUIT(intro_circ),
+                                 END_CIRC_REASON_TIMEOUT);
+          rend_intro_point_free(intro);
+          SMARTLIST_DEL_CURRENT(service->intro_nodes, intro);
+          /* We've just killed the intro point, nothing left to do. */
+          continue;
+        }
+      }
     }
     /* else, the circuit is valid so in both cases, node being alive or not,
      * we leave the circuit and intro point object as is. Closing the
@@ -4245,6 +4276,7 @@ rend_consider_services_intro_points(void)
       intro->intro_key = crypto_pk_new();
       const int fail = crypto_pk_generate_key(intro->intro_key);
       tor_assert(!fail);
+      intro->time_launched = -1;
       intro->time_published = -1;
       intro->time_to_expire = -1;
       intro->max_introductions =
