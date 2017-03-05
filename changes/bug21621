@@ -1,0 +1,5 @@
+  o Minor bugfixes (hidden services):
+    - Hidden services give up on intro points after waiting 5 minutes for them
+      to establish. Fixes bug 21621; bugfix on 0.2.7.2-alpha.
+    - When logging hidden service intro points, describe their state.
+      Diagnostic for bug 21446.
