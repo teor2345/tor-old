@@ -5883,6 +5883,20 @@ privcount_is_dir(connection_t* conn, circuit_t *circ)
   return conn_is_dir || circ_is_dir;
 }
 
+/* Is conn a DNS RESOLVE, and does it end at this relay?
+ * Circuits may mix DNS resolves and connects, so asking if a circuit is a
+ * DNS resolve is meaningless. */
+static int
+privcount_conn_is_dns_resolve(connection_t* conn)
+{
+  if (!conn) {
+    /* Assume missing connections are *not* DNS */
+    return 0;
+  }
+
+  return conn->type == CONN_TYPE_EXIT && conn->purpose == EXIT_PURPOSE_RESOLVE;
+}
+
 void control_event_privcount_dns_resolved(edge_connection_t *exitconn, or_circuit_t *oncirc) {
     if(!get_options()->EnablePrivCount || !EVENT_IS_INTERESTING(EVENT_PRIVCOUNT_DNS_RESOLVED)) {
         return;
@@ -5892,6 +5906,7 @@ void control_event_privcount_dns_resolved(edge_connection_t *exitconn, or_circui
         return;
     }
 
+    /* We want both DNS CONNECTs and DNS RESOLVEs here */
     /* DNS connections are not directory connections */
     int is_dir = privcount_is_dir(TO_CONN(exitconn), TO_CIRCUIT(oncirc));
     tor_assert_nonfatal(!is_dir);
@@ -5926,6 +5941,11 @@ void control_event_privcount_stream_data_xferred(edge_connection_t *conn, uint64
     struct timeval now;
     tor_gettimeofday(&now);
 
+    /* Filter out DNS resolves */
+    int is_dns = privcount_conn_is_dns_resolve(TO_CONN(conn));
+    if (is_dns) {
+      return;
+    }
     /* Filter out directory data */
     int is_dir = privcount_is_dir(TO_CONN(conn), circ);
     if (is_dir) {
@@ -5972,7 +5992,11 @@ void control_event_privcount_stream_ended(edge_connection_t *conn) {
     if(conn->base_.type != CONN_TYPE_EXIT) {
         return;
     }
-    int is_dns = conn->is_dns_request; // means a dns lookup
+    /* Filter out DNS resolves */
+    int is_dns = privcount_conn_is_dns_resolve(TO_CONN(conn));
+    if (is_dns) {
+      return;
+    }
     /* Filter out directory streams */
     int is_dir = privcount_is_dir(TO_CONN(conn), circ);
     if (is_dir) {
@@ -6028,6 +6052,8 @@ void control_event_privcount_circuit_ended(or_circuit_t *orcirc) {
     struct timeval now;
     tor_gettimeofday(&now);
 
+    /* We can't filter out DNS resolves: they only make sense for connections
+     */
     /* Filter out directory circuits */
     int is_dir = privcount_is_dir(NULL, TO_CIRCUIT(orcirc));
     if (is_dir) {
@@ -6072,6 +6098,8 @@ void control_event_privcount_connection_ended(or_connection_t *orconn) {
     struct timeval now;
     tor_gettimeofday(&now);
 
+    /* We can't filter out DNS resolves: they only make sense for EXIT
+     * connections */
     /* Filter out directory connections */
     int is_dir = privcount_is_dir(TO_CONN(orconn), NULL);
     if (is_dir) {
