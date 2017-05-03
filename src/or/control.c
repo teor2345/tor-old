@@ -6355,13 +6355,6 @@ control_event_privcount_dns_resolved(const edge_connection_t *exitconn,
         return;
     }
 
-    /* There's no time here. We should fix that if we ever use this event */
-#if 0
-    /* Get the time as early as possible, but after we're sure we want it */
-    struct timeval now;
-    tor_gettimeofday(&now);
-#endif
-
     /* Get the time as early as possible, but after we're sure we want it */
     char *now_str = privcount_timeval_now_to_str_dup();
 
