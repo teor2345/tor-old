@@ -1,0 +1,4 @@
+  o Minor bugfixes (fallback directory mirrors):
+    - Increase the fallback stability requirement to 90 days.
+      Decrease the minimum number of fallbacks to 100.
+      Fixes bug 20913.
