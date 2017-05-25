@@ -1,0 +1,6 @@
+  o Minor bugfixes (controller events):
+    - Always send an AUTHDIR_NEWDESC event in response to a new descriptor.
+      Previously, we did not send an event when rejecting descriptors due
+      to key pinning, and when dropping descriptors with non-cosmetic
+      differences.
+      Fixes bug 22371; bugfix on tor-0.2.7.2-alpha and tor-0.2.0.1-alpha.
