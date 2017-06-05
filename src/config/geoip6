@@ -3,6 +3,7 @@
 # gunzip GeoLite2-Country.mmdb.gz
 # python mmdb-convert.py GeoLite2-Country.mmdb
 600:8801:9400:5a1:948b:ab15:dde3:61a3,600:8801:9400:5a1:948b:ab15:dde3:61a3,US
+::,::,AU
 2001:200::,2001:200:ffff:ffff:ffff:ffff:ffff:ffff,JP
 2001:208::,2001:208:ffff:ffff:ffff:ffff:ffff:ffff,SG
 2001:218::,2001:218:ffff:ffff:ffff:ffff:ffff:ffff,JP
