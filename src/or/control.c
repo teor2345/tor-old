@@ -83,6 +83,8 @@
 #include "crypto_s2k.h"
 #include "procmon.h"
 
+#include "hs_cache.h"
+
 /** Yield true iff <b>s</b> is the state of a control_connection_t that has
  * finished authentication and is accepting commands. */
 #define STATE_IS_OPEN(s) ((s) == CONTROL_CONN_STATE_OPEN)
@@ -1175,6 +1177,9 @@ static const struct control_event_t control_event_table[] = {
   { EVENT_PRIVCOUNT_STREAM_ENDED, "PRIVCOUNT_STREAM_ENDED" },
   { EVENT_PRIVCOUNT_CIRCUIT_ENDED, "PRIVCOUNT_CIRCUIT_ENDED" },
   { EVENT_PRIVCOUNT_CONNECTION_ENDED, "PRIVCOUNT_CONNECTION_ENDED" },
+  /* These events are in tagged format */
+  /* These events are HSDir events */
+  { EVENT_PRIVCOUNT_HSDIR_CACHE_STORED, "PRIVCOUNT_HSDIR_CACHE_STORED" },
   { 0, NULL },
 };
 
@@ -6279,6 +6284,19 @@ privcount_add_saturating(uint64_t a, uint64_t b)
   }
 }
 
+/* Check that input fits inside a signed 64-bit integer.
+ * If input is greater than INT64_MAX, log a warning and return INT64_MAX.
+ * Otherwise, return input. */
+int64_t
+privcount_check_range_i64(uint64_t input)
+{
+  if (BUG(input > INT64_MAX)) {
+    return INT64_MAX;
+  } else {
+    return input;
+  }
+}
+
 #define NO_CHANNEL_ADDRESS "0.0.0.0"
 #define NO_CONNECTION_ADDRESS "0.0.0.0"
 #define NO_CONNECTION_HOST "no-host"
@@ -6552,6 +6570,37 @@ const char *
 privcount_get_version_str(void)
 {
   return PRIVCOUNT_VERSION_STRING;
+}
+
+/* If str contains chr, set the first occurence of chr to '\0'. */
+static void
+privcount_cleanse_str(char *str, char chr)
+{
+  char *bad_char = strchr(str, chr);
+  if (bad_char) {
+    *bad_char = '\0';
+  }
+}
+
+/* If str contains spaces, equals signs, or newlines (\r or \n) set the first
+ * one to '\0'. Modifies str in-place. */
+static void
+privcount_cleanse_tagged_str(char *str)
+{
+  privcount_cleanse_str(str, ' ');
+  privcount_cleanse_str(str, '=');
+  privcount_cleanse_str(str, '\r');
+  privcount_cleanse_str(str, '\n');
+}
+
+/* Like privcount_cleanse_tagged_str, but for const strings.
+ * Returns a newly allocated string, which must be freed using tor_free(). */
+static char *
+privcount_cleanse_tagged_str_dup(const char *str)
+{
+  char *new_str = tor_strdup(str);
+  privcount_cleanse_tagged_str(new_str);
+  return new_str;
 }
 
 /* Send a PrivCount DNS resolution event triggered on exitconn and orcirc.
@@ -6858,6 +6907,156 @@ control_event_privcount_connection_ended(const or_connection_t *orconn)
   tor_free(now_str);
   tor_free(created_str);
   tor_free(addr);
+}
+
+/* Send a PrivCount HSDir hidden service descriptor cache storage event using
+ * the supplied arguments.
+ * This event uses tagged parameters: each field is preceded by 'Name='.
+ * Order is unimportant. Unknown fields are left out.
+ * Signed types use -1 for unknown, except for hs_version_number, which must
+ * be either 2 or 3.
+ * Strings use NULL for unknown or not applicable. Strings must not contain
+ * spaces or equals signs. (If they do, the string is truncated at the first
+ * space or equals sign.) */
+void
+control_event_privcount_hsdir_cache_stored(
+                                      int hs_version_number,
+                                      int has_existing_cache_entry_flag,
+                                      int was_added_to_cache_flag,
+                                      const char *failure_reason_string,
+                                      const char *desc_id_base32,
+                                      rend_service_descriptor_t *hsv2_desc,
+                                      hs_cache_dir_descriptor_t *hsv3_desc,
+                                      ssize_t encoded_descriptor_byte_count,
+                                      ssize_t intro_point_count,
+                                      ssize_t encoded_intro_point_byte_count)
+{
+  if (!EVENT_IS_INTERESTING(EVENT_PRIVCOUNT_HSDIR_CACHE_STORED)) {
+    return;
+  }
+
+  /* We don't know how to handle other HS versions */
+  tor_assert(hs_version_number == 2 || hs_version_number == 3);
+
+  /* We have no way to find a circuit id for this upload, or filter out
+   * uploads that started before this collection round, but that's ok, because
+   * uploading a descriptor should be fast. */
+
+  /* Collect all the fields in a smartlist */
+  smartlist_t *fields = smartlist_new();
+
+  /* Now process each field.
+   * Try to keep related fields together.
+   * Field order is not guaranteed: these fields can be re-ordered as needed.
+   * But it will annoy parsers that mistakenly depend on event order. */
+  smartlist_add_asprintf(fields, "HiddenServiceVersionNumber=%d",
+                         hs_version_number);
+
+  /* Process the other mandatory fields */
+
+  smartlist_add(fields,
+                privcount_timeval_now_to_epoch_str_dup("EventTimestamp="));
+
+  /* Process the common cache fields */
+
+  if (has_existing_cache_entry_flag >= 0) {
+    smartlist_add_asprintf(fields, "HasExistingCacheEntryFlag=%d",
+                           has_existing_cache_entry_flag);
+  }
+
+  if (was_added_to_cache_flag >= 0) {
+    smartlist_add_asprintf(fields, "WasAddedToCacheFlag=%d",
+                           was_added_to_cache_flag);
+  }
+
+  if (failure_reason_string) {
+    char *clean_str = privcount_cleanse_tagged_str_dup(failure_reason_string);
+    smartlist_add_asprintf(fields, "FailureReasonString=%s",
+                           clean_str);
+    tor_free(clean_str);
+  }
+
+  /* Process the common descriptor fields */
+
+  /* This is not the onion address. You will be sad if you think it is. */
+  if (desc_id_base32) {
+    /* v3 descriptors have a desc id, but it's not easily available */
+    char *clean_str = privcount_cleanse_tagged_str_dup(desc_id_base32);
+    smartlist_add_asprintf(fields, "DescriptorIdBase32String=%s",
+                           clean_str);
+    tor_free(clean_str);
+  }
+
+  /* Process the HSv2 fields */
+
+  if (hsv2_desc) {
+
+/* We don't support time_t with a larger range than int64_t */
+#if SIZEOF_TIME_T > 8
+#error time_t too large for int64_t
+#elif SIZEOF_TIME_T == 8
+    tor_assert(TIME_MIN < 0);
+#endif
+
+    smartlist_add_asprintf(fields, "DescriptorCreationTime=%" PRIi64,
+                           (int64_t)hsv2_desc->timestamp);
+
+#if REND_PROTOCOL_VERSION_BITMASK_WIDTH > 16
+#error REND_PROTOCOL_VERSION_BITMASK_WIDTH is too large for int16_t
+#endif
+
+    smartlist_add_asprintf(fields, "SupportedProtocolBitfield=0x%" PRIx16,
+                           (int16_t)hsv2_desc->protocols);
+  }
+
+  /* Process the HSv3 fields */
+  if (hsv3_desc) {
+    /* copied from ed25519_fmt() */
+    char blinded_pubkey_base64[ED25519_BASE64_LEN+1];
+    ed25519_public_to_base64(blinded_pubkey_base64,
+                             &hsv3_desc->plaintext_data->blinded_pubkey);
+    /* Strip off the trailing padding */
+    privcount_cleanse_tagged_str(blinded_pubkey_base64);
+    smartlist_add_asprintf(fields, "BlindedEd25519PublicKeyBase64String=%s",
+                           blinded_pubkey_base64);
+
+    smartlist_add_asprintf(fields, "RevisionNumber=%" PRIu64,
+                           hsv3_desc->plaintext_data->revision_counter);
+
+    smartlist_add_asprintf(fields, "DescriptorLifetime=%" PRIu32,
+                           hsv3_desc->plaintext_data->lifetime_sec);
+  }
+
+  /* Process the common size fields */
+
+  if (encoded_descriptor_byte_count >= 0) {
+    smartlist_add_asprintf(fields, "EncodedDescriptorByteCount=%zd",
+                           encoded_descriptor_byte_count);
+  }
+
+  if (intro_point_count >= 0) {
+    smartlist_add_asprintf(fields, "IntroPointCount=%zd",
+                           intro_point_count);
+  }
+
+  if (encoded_intro_point_byte_count >= 0) {
+    smartlist_add_asprintf(fields, "EncodedIntroPointByteCount=%zd",
+                           encoded_intro_point_byte_count);
+  }
+
+  size_t len = 0;
+  char *event_string = smartlist_join_strings(fields, " ", 0, &len);
+  tor_assert(event_string);
+  /* Some fields are mandatory*/
+  tor_assert(len > 0);
+
+  send_control_event(EVENT_PRIVCOUNT_HSDIR_CACHE_STORED,
+                     "650 PRIVCOUNT_HSDIR_CACHE_STORED %s\r\n",
+                     event_string);
+
+  tor_free(event_string);
+  SMARTLIST_FOREACH(fields, char *, f, tor_free(f));
+  smartlist_free(fields);
 }
 
 STATIC char *
