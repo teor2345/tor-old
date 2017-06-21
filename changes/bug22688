@@ -1,0 +1,6 @@
+  o Minor bugfixes (next-generation hidden services):
+    - Make HSDir3s reject descriptor POSTs from directly connected services,
+      and descriptor GETs from directly connected clients. Also rejects
+      POSTs and GETs via directly connected bridges. This ensures that an
+      HSDir3 never knows the IP address of a service, client, or bridge.
+      Closes ticket 22688.

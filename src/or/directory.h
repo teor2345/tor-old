@@ -83,6 +83,7 @@ int parse_http_response(const char *headers, int *code, time_t *date,
                         compress_method_t *compression, char **response);
 
 int connection_dir_is_encrypted(const dir_connection_t *conn);
+int connection_dir_is_anonymous(const dir_connection_t *conn);
 int connection_dir_reached_eof(dir_connection_t *conn);
 int connection_dir_process_inbuf(dir_connection_t *conn);
 int connection_dir_finished_flushing(dir_connection_t *conn);

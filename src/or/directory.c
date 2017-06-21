@@ -9,6 +9,8 @@
 #include "backtrace.h"
 #include "bridges.h"
 #include "buffers.h"
+#include "channel.h"
+#include "channeltls.h"
 #include "circuitbuild.h"
 #include "config.h"
 #include "connection.h"
@@ -1574,6 +1576,61 @@ connection_dir_is_encrypted(const dir_connection_t *conn)
    * the only thing it could be linked to is an edge connection on a
    * circuit. (linked is true even if the edge connection is closed.) */
   return TO_CONN(conn)->linked;
+}
+
+/** Return true iff anything we say on <b>conn</b> is anonymous and encrypted,
+ * that is, it is a circuit via a public relay (not directly to a client or
+ * bridge).
+ * For client circuits via relays, this is true for 2-hop or greater paths,
+ * for client circuits via bridges, this is true for 3-hop or greater paths.
+ * (Bridges look like clients to relays.)
+ * This implies connection_dir_is_encrypted(). */
+int
+connection_dir_is_anonymous(const dir_connection_t *conn)
+{
+  if (!connection_dir_is_encrypted(conn)) {
+    return 0;
+  }
+
+  /* A clever compiler might complain this is unreachable */
+  tor_assert(TO_CONN(conn)->linked);
+
+  const connection_t *l_conn = TO_CONN(conn)->linked_conn;
+
+  /* Well, we won't be sending anything back on that, will we?
+   * (Avoid giving the wrong answer because state has been reset.) */
+  if (TO_CONN(conn)->linked_conn_is_closed ||
+      !l_conn || l_conn->marked_for_close) {
+    return 0;
+  }
+
+  /* We shouldn't be linking anything but an OR connection */
+  if (BUG(l_conn->type != CONN_TYPE_OR)) {
+    return 0;
+  }
+
+  /* TO_OR_CONN() doesn't actually modify l_conn */
+  const or_connection_t *orconn = TO_OR_CONN((connection_t *)l_conn);
+
+  /* It should be impossible to get a NULL orconn from a non-NULL base OR conn.
+   * It might be possible to get a NULL channel, but if we do, we won't be
+   * sending anything back on it. */
+  if (BUG(!orconn) || !orconn->chan) {
+    return 0;
+  }
+
+  const channel_t *chan = TLS_CHAN_TO_BASE(orconn->chan);
+
+  /* Should never happen on a non-NULL channel */
+  if (BUG(!chan)) {
+    return 0;
+  }
+
+  /* We could also check if the channel's identity digest is a known relay
+   * here, but that should be impossible, because channel_is_client() is
+   * only true for unauthenticated peers.
+   * channel_is_client doesn't actually modify chan. */
+  return !channel_is_client((channel_t *)chan);
 }
 
 /** Helper for sorting
@@ -4574,6 +4631,7 @@ handle_get_hs_descriptor_v2(dir_connection_t *conn,
                             const get_handler_args_t *args)
 {
   const char *url = args->url;
+  /* We can't use conn_is_anonymous() here, that would break tor2web. */
   if (connection_dir_is_encrypted(conn)) {
     /* Handle v2 rendezvous descriptor fetch request. */
     const char *descp;
@@ -4616,8 +4674,10 @@ handle_get_hs_descriptor_v3(dir_connection_t *conn,
   const char *pubkey_str = NULL;
   const char *url = args->url;
 
-  /* Reject unencrypted dir connections */
-  if (!connection_dir_is_encrypted(conn)) {
+  /* Reject unencrypted and non-anonymous dir connections
+   * This breaks tor2web, which should never have been fetching descriptors
+   * directly, see #20104. And we don't plan on having a v3 tor2web. */
+  if (!connection_dir_is_anonymous(conn)) {
     write_http_status_line(conn, 404, "Not found");
     goto done;
   }
@@ -4811,6 +4871,9 @@ directory_handle_command_post,(dir_connection_t *conn, const char *headers,
   log_debug(LD_DIRSERV,"rewritten url as '%s'.", escaped(url));
 
   /* Handle v2 rendezvous service publish request. */
+  /* Should we use connection_dir_is_anonymous() here?
+   * Services should not do direct uploads. Even single onion services use
+   * a 3-hop path. */
   if (connection_dir_is_encrypted(conn) &&
       !strcmpstart(url,"/tor/rendezvous2/publish")) {
     if (rend_cache_store_v2_desc_as_dir(body) < 0) {
@@ -4826,7 +4889,9 @@ directory_handle_command_post,(dir_connection_t *conn, const char *headers,
   }
 
   /* Handle HS descriptor publish request. */
-  if (connection_dir_is_encrypted(conn) && !strcmpstart(url, "/tor/hs/")) {
+  /* Reject unencrypted and non-anonymous dir connections.
+   * Single onion services are ok here, they use a 3-hop path. */
+  if (connection_dir_is_anonymous(conn) && !strcmpstart(url, "/tor/hs/")) {
     const char *msg = "HS descriptor stored successfully.";
 
     /* We most probably have a publish request for an HS descriptor. */
