@@ -1572,9 +1572,7 @@ connection_dir_is_encrypted(const dir_connection_t *conn)
 {
   /* Right now it's sufficient to see if conn is or has been linked, since
    * the only thing it could be linked to is an edge connection on a
-   * circuit, and the only way it could have been unlinked is at the edge
-   * connection getting closed.
-   */
+   * circuit. (linked is true even if the edge connection is closed.) */
   return TO_CONN(conn)->linked;
 }
 
