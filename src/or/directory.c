@@ -4826,8 +4826,6 @@ directory_handle_command_post,(dir_connection_t *conn, const char *headers,
   }
 
   /* Handle HS descriptor publish request. */
-  /* XXX: This should be disabled with a consensus param until we want to
-   * the prop224 be deployed and thus use. */
   if (connection_dir_is_encrypted(conn) && !strcmpstart(url, "/tor/hs/")) {
     const char *msg = "HS descriptor stored successfully.";
 
