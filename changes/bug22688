@@ -4,3 +4,8 @@
       POSTs and GETs via directly connected bridges. This ensures that an
       HSDir3 never knows the IP address of a service, client, or bridge.
       Closes ticket 22688.
+    - Make v2 HSDirs reject descriptor POSTs from directly connected
+      services. Also rejects POSTs via directly connected bridges. This
+      ensures that a v2 HSDir never knows the IP address of a service or
+      service's bridge.
+      Closes ticket 22688.
