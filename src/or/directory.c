@@ -10,7 +10,6 @@
 #include "bridges.h"
 #include "buffers.h"
 #include "channel.h"
-#include "channeltls.h"
 #include "circuitbuild.h"
 #include "config.h"
 #include "connection.h"
@@ -1579,12 +1578,15 @@ connection_dir_is_encrypted(const dir_connection_t *conn)
 }
 
 /** Return true iff anything we say on <b>conn</b> is anonymous and encrypted,
- * that is, it is a circuit via a public relay (not directly to a client or
- * bridge).
+ * that is, we are the edge of a circuit via a connection to a public relay
+ * (and not connected directly to a client or bridge).
  * For client circuits via relays, this is true for 2-hop or greater paths,
  * for client circuits via bridges, this is true for 3-hop or greater paths.
  * (Bridges look like clients to relays.)
- * This implies connection_dir_is_encrypted(). */
+ * This implies connection_dir_is_encrypted().
+ * When returning false for an unexpected reason, logs a protocol warning
+ * giving the reason. (Expected reasons are an unencrypted connection, and
+ * a one-hop encrypted connection.) */
 int
 connection_dir_is_anonymous(const dir_connection_t *conn)
 {
@@ -1592,8 +1594,8 @@ connection_dir_is_anonymous(const dir_connection_t *conn)
     return 0;
   }
 
-  /* A clever compiler might complain this is unreachable */
-  tor_assert(TO_CONN(conn)->linked);
+  /* A clever compiler might complain this is always true */
+  tor_assert(TO_CONN(conn) && TO_CONN(conn)->linked);
 
   const connection_t *l_conn = TO_CONN(conn)->linked_conn;
 
@@ -1601,36 +1603,59 @@ connection_dir_is_anonymous(const dir_connection_t *conn)
    * (Avoid giving the wrong answer because state has been reset.) */
   if (TO_CONN(conn)->linked_conn_is_closed ||
       !l_conn || l_conn->marked_for_close) {
+    log_fn(LOG_PROTOCOL_WARN, LD_PROTOCOL,
+           "Refusing %s one-hop encrypted directory connection.",
+           TO_CONN(conn)->linked_conn_is_closed ? "closed linked" :
+           !l_conn ? "NULL linked" : "marked for closed linked");
     return 0;
   }
 
-  /* We shouldn't be linking anything but an OR connection */
-  if (BUG(l_conn->type != CONN_TYPE_OR)) {
+  /* We shouldn't be linking anything but a begindir edge connection */
+  if (BUG(l_conn->type != CONN_TYPE_EXIT)) {
     return 0;
   }
 
-  /* TO_OR_CONN() doesn't actually modify l_conn */
-  const or_connection_t *orconn = TO_OR_CONN((connection_t *)l_conn);
+  /* TO_EDGE_CONN() doesn't actually modify l_conn */
+  const edge_connection_t *exitconn = TO_EDGE_CONN((connection_t *)l_conn);
 
-  /* It should be impossible to get a NULL orconn from a non-NULL base OR conn.
-   * It might be possible to get a NULL channel, but if we do, we won't be
-   * sending anything back on it. */
-  if (BUG(!orconn) || !orconn->chan) {
+  /* It should be impossible to get a NULL exitconn from a non-NULL
+   * CONN_TYPE_EXIT conn.
+   * It might be possible to get a NULL on_circuit, but if we do, we won't be
+   * sending anything back on it.
+   */
+  if (BUG(!exitconn) || !exitconn->on_circuit) {
+    log_fn(LOG_PROTOCOL_WARN, LD_PROTOCOL,
+           "Refusing %s one-hop encrypted directory connection.",
+           BUG(!exitconn) ? "NULL exit" : "NULL circuit");
     return 0;
   }
 
-  const channel_t *chan = TLS_CHAN_TO_BASE(orconn->chan);
-
-  /* Should never happen on a non-NULL channel */
-  if (BUG(!chan)) {
+  /* We should always be using an OR circuit */
+  if (BUG(exitconn->on_circuit->purpose != CIRCUIT_PURPOSE_OR)) {
     return 0;
   }
 
-  /* We could also check if the channel's identity digest is a known relay
+  const or_circuit_t *orcirc = TO_OR_CIRCUIT(exitconn->on_circuit);
+
+  /* It should be impossible to get a NULL orcirc from a non-NULL
+   * CIRCUIT_PURPOSE_OR circuit.
+   * It might be possible to get a NULL chan, but if we do, we won't be
+   * sending anything back on it.
+   */
+  if (BUG(!orcirc) || !orcirc->p_chan) {
+    log_fn(LOG_PROTOCOL_WARN, LD_PROTOCOL,
+           "Refusing %s one-hop encrypted directory connection.",
+           BUG(!orcirc) ? "NULL OR circuit" : "NULL previous channel");
+    return 0;
+  }
+
+  /* Well, that was a fun adventure, wasn't it?
+   *
+   * We could also check if the channel's identity digest is a known relay
    * here, but that should be impossible, because channel_is_client() is
    * only true for unauthenticated peers.
    * channel_is_client doesn't actually modify chan. */
-  return !channel_is_client((channel_t *)chan);
+  return !channel_is_client((channel_t *)orcirc->p_chan);
 }
 
 /** Helper for sorting
