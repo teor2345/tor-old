@@ -7198,7 +7198,7 @@ control_event_privcount_hsdir_cache_stored(
         /* Keep the intro point count for RequiresClientAuthFlag */
         intro_point_count = smartlist_len(intro_points);
 
-        smartlist_add_asprintf(fields, "IntroPointCount=%zd",
+        smartlist_add_asprintf(fields, "IntroPointCount=%d",
                                intro_point_count);
 
         /* Add the intro point fingerprints to the event */
