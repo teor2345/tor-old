@@ -4898,8 +4898,8 @@ directory_handle_command_post,(dir_connection_t *conn, const char *headers,
   /* Handle v2 rendezvous service publish request. */
   /* Services should not do direct uploads. Even single onion services use
    * a 3-hop path. */
-  if (connection_dir_is_anonymous(conn) &&
-      !strcmpstart(url,"/tor/rendezvous2/publish")) {
+  if (!strcmpstart(url,"/tor/rendezvous2/publish") &&
+      connection_dir_is_anonymous(conn)) {
     if (rend_cache_store_v2_desc_as_dir(body) < 0) {
       log_warn(LD_REND, "Rejected v2 rend descriptor (body size %d) from %s.",
                (int)body_len, conn->base_.address);
