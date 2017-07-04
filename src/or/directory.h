@@ -127,7 +127,7 @@ download_status_is_ready(download_status_t *dls, time_t now,
     if (!under_failure_limit)
       return 0;
   }
-  return dls->next_attempt_at <= now;
+  return download_status_get_next_attempt_at(dls) <= now;
 }
 
 static void download_status_mark_impossible(download_status_t *dl);
