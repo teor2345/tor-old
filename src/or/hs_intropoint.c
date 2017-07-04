@@ -304,6 +304,8 @@ hs_intro_received_establish_intro(or_circuit_t *circ, const uint8_t *request,
   tor_assert(circ);
   tor_assert(request);
 
+  circ->privcount_circuit_client_establish_intro = 1;
+
   if (request_len == 0) {
     log_fn(LOG_PROTOCOL_WARN, LD_PROTOCOL, "Empty ESTABLISH_INTRO cell.");
     goto err;

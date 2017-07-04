@@ -3411,6 +3411,14 @@ typedef struct or_circuit_t {
    *  statistics. */
   unsigned int circuit_carries_hs_traffic_stats : 1;
 
+  /** We can't find client establish intro circuits unless we tag them
+   * ourselves. */
+  unsigned int privcount_circuit_client_establish_intro : 1;
+
+  /** We can't find HSDir circuits unless we tag them ourselves. */
+  unsigned int privcount_circuit_hsdir_store : 1;
+  unsigned int privcount_circuit_hsdir_fetch : 1;
+
   /** Number of cells that were removed from circuit queue; reset every
    * time when writing buffer stats to disk. */
   uint32_t processed_cells;
@@ -3437,7 +3445,6 @@ typedef struct or_circuit_t {
   /* Counts directory bytes */
   uint64_t privcount_n_dir_bytes_inbound;
   uint64_t privcount_n_dir_bytes_outbound;
-
 } or_circuit_t;
 
 #if REND_COOKIE_LEN != DIGEST_LEN

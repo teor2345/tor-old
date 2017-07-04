@@ -148,9 +148,11 @@ void control_event_hs_descriptor_content(const char *onion_address,
                                          const char *hsdir_fp,
                                          const char *content);
 
+const char *privcount_get_version_str(void);
 char *privcount_timeval_to_iso_epoch_str_dup(const struct timeval *tv);
 
-const char *privcount_get_version_str(void);
+void privcount_mark_circuit_hsdir_conn(const dir_connection_t *dirconn,
+                                       int is_store);
 
 void privcount_byte_transfer(connection_t *conn,
                              uint64_t byte_count,

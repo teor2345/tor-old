@@ -5859,6 +5859,104 @@ static int privcount_is_client(const channel_t *chan);
 
 /* PrivCount utility functions */
 
+/* A safe version of TO_OR_CIRCUIT() that returns NULL when circ is NULL or
+ * circ is not an OR circuit */
+static or_circuit_t*
+privcount_to_or_circ(circuit_t *circ)
+{
+  if (!circ) {
+    return NULL;
+  }
+
+  if (!CIRCUIT_IS_ORCIRC(circ)) {
+    return NULL;
+  }
+
+  return TO_OR_CIRCUIT(circ);
+}
+
+/* Like privcount_to_or_circ, but with casts that tell the
+ * compiler we're not actually modifying anything */
+static const or_circuit_t*
+privcount_to_const_or_circ(const circuit_t *circ)
+{
+  return (const or_circuit_t*)privcount_to_or_circ((circuit_t *)circ);
+}
+
+/* A safe version of TO_EDGE_CONN() that returns NULL when conn is NULL or
+ * conn is not an edge conn */
+static edge_connection_t*
+privcount_to_edge_conn(connection_t *conn)
+{
+  if (!conn) {
+    return NULL;
+  }
+
+  if (conn->type != CONN_TYPE_EXIT) {
+    return NULL;
+  }
+
+  return TO_EDGE_CONN(conn);
+}
+
+/* Like privcount_to_edge_conn, but with casts that tell the
+ * compiler we're not actually modifying anything */
+static const edge_connection_t*
+privcount_to_const_edge_conn(const connection_t *conn)
+{
+  return (const edge_connection_t*)privcount_to_edge_conn(
+                                                        (connection_t *)conn);
+}
+
+/* A safe version of TO_CIRCUIT() that returns NULL when circ is NULL */
+#define PRIVCOUNT_TO_CIRC(circ) ((circ) ? TO_CIRCUIT((circ)) : NULL)
+
+/* A safe version of TO_CONN() that returns NULL when conn is NULL */
+#define PRIVCOUNT_TO_CONN(conn) ((conn) ? TO_CONN((conn)) : NULL)
+
+/* Find the circuit for orcirc or exitconn
+ * Either orcirc or exitconn may be NULL, if they are, the other is used.
+ * If both are NULL, returns NULL. */
+static circuit_t*
+privcount_get_exit_circ(edge_connection_t* exitconn,
+                        or_circuit_t *orcirc)
+{
+  if (orcirc) {
+    return PRIVCOUNT_TO_CIRC(orcirc);
+  } else if (exitconn) {
+    return circuit_get_by_edge_conn(exitconn);
+  } else {
+    return NULL;
+  }
+}
+
+/* Find the or_circuit for orcirc or exitconn
+ * Either orcirc or exitconn may be NULL, if they are, the other is used.
+ * If both are NULL, or an or_circuit can not be found, returns NULL. */
+static or_circuit_t*
+privcount_get_exit_or_circ(edge_connection_t* exitconn,
+                           or_circuit_t *orcirc)
+{
+  if (orcirc) {
+    tor_assert_nonfatal(CIRCUIT_IS_ORCIRC(orcirc));
+    return orcirc;
+  } else {
+    circuit_t* circ = privcount_get_exit_circ(exitconn, orcirc);
+    return privcount_to_or_circ(circ);
+  }
+}
+
+/* Like privcount_get_exit_or_circ, but with casts that tell the compiler we're
+ * not actually modifying anything */
+static const or_circuit_t*
+privcount_get_exit_const_or_circ(const edge_connection_t* exitconn,
+                                 const or_circuit_t *orcirc)
+{
+  return (const or_circuit_t *)privcount_get_exit_or_circ(
+                                                (edge_connection_t *)exitconn,
+                                                (or_circuit_t *)orcirc);
+}
+
 /* Is conn itself a directory server connection?
  * NULL connections are not classified as directory connections. */
 static int
@@ -5925,6 +6023,82 @@ privcount_circuit_is_dir(const circuit_t *circ)
   return 0;
 }
 
+/* Mark the circuit for conn as a HSDir connection based on is_store. */
+void
+privcount_mark_circuit_hsdir_conn(const dir_connection_t *dirconn,
+                                  int is_store)
+{
+  const connection_t *dirbase = PRIVCOUNT_TO_CONN(dirconn);
+
+  /* We can't mark a circuit if we can't get to it */
+  if (!dirbase || !dirbase->linked || !dirbase->linked_conn) {
+    return;
+  }
+
+  /* Find the linked edge connection */
+  const connection_t *edgebase = dirbase->linked_conn;
+  const edge_connection_t *edgeconn = privcount_to_const_edge_conn(edgebase);
+  if (!edgeconn) {
+    return;
+  }
+
+  /* Find the corresponding or circuit.
+   * This doesn't actually modify edgeconn */
+  or_circuit_t *orcirc = privcount_get_exit_or_circ(
+                                                (edge_connection_t *)edgeconn,
+                                                NULL);
+  if (!orcirc) {
+    return;
+  }
+
+  /* And finally... */
+  if (is_store) {
+    orcirc->privcount_circuit_hsdir_store = 1;
+  } else {
+    orcirc->privcount_circuit_hsdir_fetch = 1;
+  }
+}
+
+/* Is orcirc a HSDir circuit?
+ * NULL connections are not classified as HSDor connections. */
+static int
+privcount_circuit_is_hsdir(const or_circuit_t *orcirc)
+{
+  return orcirc && (orcirc->privcount_circuit_hsdir_store ||
+                    orcirc->privcount_circuit_hsdir_fetch);
+}
+
+/* Is circ an intro circuit that ends at this relay?
+ * NULL circuits are not classified as intro circuits. */
+static int
+privcount_circuit_is_intro(const circuit_t *circ)
+{
+  if (!circ) {
+    return 0;
+  }
+
+  /* Tor doesn't normally track client intro circuits, so we have to use
+   * our own flag */
+  const or_circuit_t *orcirc = privcount_to_const_or_circ(circ);
+  const int is_client_intro = (orcirc &&
+                            orcirc->privcount_circuit_client_establish_intro);
+
+  /* Service intro or client intro? */
+  return circ->purpose == CIRCUIT_PURPOSE_INTRO_POINT || is_client_intro;
+}
+
+/* Is orcirc a rend circuit that ends at this relay?
+ * NULL circuits are not classified as rend circuits. */
+static int
+privcount_circuit_is_rend(const or_circuit_t *orcirc)
+{
+  if (!orcirc) {
+    return 0;
+  }
+
+  return !! orcirc->rend_splice;
+}
+
 /* Are conn or circ directory-related, and do they end at this relay?
  * NULL connections or circuits are not classified as directory-related. */
 static int
@@ -5957,95 +6131,6 @@ privcount_connection_is_dns_resolve(const connection_t* conn)
   return conn->type == CONN_TYPE_EXIT && conn->purpose == EXIT_PURPOSE_RESOLVE;
 }
 #endif
-
-/* A safe version of TO_OR_CIRCUIT() that returns NULL when circ is NULL or
- * circ is not an OR circuit */
-static or_circuit_t*
-privcount_to_or_circ(circuit_t *circ)
-{
-  if (!circ) {
-    return NULL;
-  }
-
-  if (!CIRCUIT_IS_ORCIRC(circ)) {
-    return NULL;
-  }
-
-  return TO_OR_CIRCUIT(circ);
-}
-
-/* Like privcount_to_or_circ, but with casts that tell the
- * compiler we're not actually modifying anything */
-static const or_circuit_t*
-privcount_to_const_or_circ(const circuit_t *circ)
-{
-  return (const or_circuit_t *)privcount_to_or_circ((circuit_t *)circ);
-}
-
-/* A safe version of TO_EDGE_CONN() that returns NULL when conn is NULL or
- * conn is not an edge conn */
-static edge_connection_t*
-privcount_to_edge_conn(connection_t *conn)
-{
-  if (!conn) {
-    return NULL;
-  }
-
-  if (conn->type != CONN_TYPE_EXIT) {
-    return NULL;
-  }
-
-  return TO_EDGE_CONN(conn);
-}
-
-/* A safe version of TO_CIRCUIT() that returns NULL when circ is NULL */
-#define PRIVCOUNT_TO_CIRC(circ) ((circ) ? TO_CIRCUIT((circ)) : NULL)
-
-/* A safe version of TO_CONN() that returns NULL when conn is NULL */
-#define PRIVCOUNT_TO_CONN(conn) ((conn) ? TO_CONN((conn)) : NULL)
-
-/* Find the circuit for orcirc or exitconn
- * Either orcirc or exitconn may be NULL, if they are, the other is used.
- * If both are NULL, returns NULL. */
-static circuit_t*
-privcount_get_exit_circ(edge_connection_t* exitconn,
-                        or_circuit_t *orcirc)
-{
-  if (orcirc) {
-    return PRIVCOUNT_TO_CIRC(orcirc);
-  } else if (exitconn) {
-    return circuit_get_by_edge_conn(exitconn);
-  } else {
-    return NULL;
-  }
-}
-
-/* Find the or_circuit for orcirc or exitconn
- * Either orcirc or exitconn may be NULL, if they are, the other is used.
- * If both are NULL, or an or_circuit can not be found, returns NULL. */
-static or_circuit_t*
-privcount_get_exit_or_circ(edge_connection_t* exitconn,
-                           or_circuit_t *orcirc)
-{
-  if (orcirc) {
-    tor_assert_nonfatal(CIRCUIT_IS_ORCIRC(orcirc));
-    return orcirc;
-  } else {
-    circuit_t* circ = privcount_get_exit_circ(exitconn, orcirc);
-    return privcount_to_or_circ(circ);
-  }
-}
-
-/* Like privcount_get_exit_or_circ, but with casts that tell the compiler we're
- * not actually modifying anything */
-static const or_circuit_t*
-privcount_get_exit_const_or_circ(const edge_connection_t* exitconn,
-                                 const or_circuit_t *orcirc)
-{
-  return (const or_circuit_t *)privcount_get_exit_or_circ(
-                                                (edge_connection_t *)exitconn,
-                                                (or_circuit_t *)orcirc);
-}
 
 /* Is exitconn an Exit (or BEGINDIR) connection, and does it end at this
  * relay?
@@ -6145,7 +6230,7 @@ privcount_data_is_exit(const edge_connection_t* exitconn,
       }
 
       /* Something is very wrong here: no relays should connect to clients
-       * on n_chan, so instead we have a TLS connection with an internet
+       * on n_chan, so instead we have a Tor TLS connection with an internet
        * server??? */
       tor_assert_nonfatal_unreached();
       return 1;
@@ -7172,32 +7257,100 @@ privcount_add_circuit_common_fields(smartlist_t *fields,
 {
   tor_assert(fields);
 
+  if (!circ) {
+    return;
+  }
+
   const or_circuit_t *orcirc = privcount_to_const_or_circ(circ);
 
-  if (circ) {
-    /* This flag is sometimes set to the line number, but all we want is
-     * a boolean */
-    smartlist_add_asprintf(fields, "CircuitMarkedForCloseFlag=%d",
-                           !! circ->marked_for_close);
+  /* Position flags */
+  const int is_origin = privcount_circuit_is_origin(circ);
+  const int is_entry = privcount_is_client(orcirc->p_chan);
+  const int next_is_relay = privcount_is_consensus_relay(circ->n_chan);
+  const int is_mid = !is_entry && next_is_relay;
 
-    smartlist_add_asprintf(fields, "CircuitPurposeCode=%" PRIu8,
-                           circ->purpose);
+  const int is_hsdir = privcount_circuit_is_hsdir(orcirc);
+  const int is_dir = privcount_circuit_is_dir(circ) && !is_hsdir;
+  const int is_exit = (privcount_data_is_exit(NULL, orcirc) &&
+                       !is_dir && !is_hsdir);
+  const int is_intro = privcount_circuit_is_intro(circ);
+  const int is_rend = privcount_circuit_is_rend(orcirc);
 
-    /* This is redundant, but might be easier to filter on */
-    smartlist_add_asprintf(fields, "CircuitIsOriginFlag=%d",
-                           privcount_circuit_is_origin(circ));
+  const int is_end = is_exit || is_dir || is_hsdir || is_intro || is_rend;
+
+  /* Position categories: exactly one of these should be true for multi-hop
+   * circuits. For single-hop circuits, the entry is also the end. */
+  const int is_single_hop = is_entry && is_end;
+  if (!is_single_hop && BUG(is_origin + is_entry + is_mid + is_end != 1)) {
+    log_warn(LD_BUG, "IsOrigin: %d, IsEntry: %d, IsMid: %d, IsEnd: %d",
+             is_origin, is_entry, is_mid, is_end);
+  }
+
+  /* We could compress these fields by:
+   * - leaving out zero fields, or
+   * - using CircuitPositionString and CircuitEndPositionString
+   */
+
+  /* This is redundant with purpose, but might be easier to filter on */
+  smartlist_add_asprintf(fields, "CircuitIsOriginFlag=%d",
+                         is_origin);
+
+  smartlist_add_asprintf(fields, "CircuitIsEntryFlag=%d",
+                         is_entry);
+
+  /* This is redundant with the other fields, but is much easier to filter
+   * on. This should be equivalent to:
+   *   !Origin && !Entry && !End */
+  smartlist_add_asprintf(fields, "CircuitIsMidFlag=%d",
+                         is_mid);
+
+  /* If this flag is true, the circuit ends here. */
+  smartlist_add_asprintf(fields, "CircuitIsEndFlag=%d",
+                         is_end);
+
+  if (is_end) {
+    /* End subcategories: exactly one of these should be true if End is true */
+    if (BUG(is_exit + is_dir + is_hsdir + is_intro + is_rend != 1)) {
+      log_warn(LD_BUG, "IsExit: %d, IsDir: %d, IsHSDir: %d, IsIntro: %d, "
+               "IsRend: %d",
+               is_exit, is_dir, is_hsdir, is_intro, is_rend);
+    }
+
+    /* If this flag is true, the next node is not an OR node.
+     * Instead, this is an Exit circuit at an Exit: the next nodes are
+     * Internet servers accessed via edge connections.
+     * (Excludes BEGINDIR requests, they are internal.) */
+    smartlist_add_asprintf(fields, "CircuitIsExitEndFlag=%d",
+                           is_exit);
 
     /* This flag is set for BEGINDIR circuits, which otherwise look like
-     * Exit circuits */
-    smartlist_add_asprintf(fields, "CircuitIsDirFlag=%d",
-                           privcount_circuit_is_dir(circ));
+     * Exit circuits. Includes bridge and directory mirror requests, but
+     * excludes HSDir requests. */
+    smartlist_add_asprintf(fields, "CircuitIsDirEndFlag=%d",
+                           is_dir);
+
+    /* This flag is set for BEGINDIR circuits that have been used for an
+     * HSDir request. Newly opened BEGINDIR circuits will have the Dir flag
+     * set until a request is made. */
+    smartlist_add_asprintf(fields, "CircuitIsHSDirEndFlag=%d",
+                           is_hsdir);
+
+    /* This is redundant with purpose, but might be easier to filter on */
+    smartlist_add_asprintf(fields, "CircuitIsIntroEndFlag=%d",
+                           is_intro);
+
+    /* This is redundant with rend splice id, but might be easier to filter on
+     */
+    smartlist_add_asprintf(fields, "CircuitIsRendEndFlag=%d",
+                           is_rend);
   }
 
-  if (orcirc) {
-    /* This is redundant, but might be easier to filter on */
-    smartlist_add_asprintf(fields, "CircuitCarriesHSTrafficFlag=%d",
-                           orcirc->circuit_carries_hs_traffic_stats);
-  }
+  /* Other fields */
+
+  /* This flag is sometimes set to the line number, but all we want is
+   * a boolean */
+  smartlist_add_asprintf(fields, "CircuitMarkedForCloseFlag=%d",
+                         !! circ->marked_for_close);
 
   privcount_add_circuit_id_fields(fields, circ, NULL);
 }
@@ -7649,9 +7802,6 @@ control_event_privcount_circuit_close(circuit_t *circ,
                                             NULL);
 
   /* Either orcirc or orcirc->p_chan can be NULL here. */
-  int prev_is_client = privcount_is_client(orcirc ? orcirc->p_chan : NULL);
-  int next_is_edge = privcount_data_is_exit(NULL, orcirc);
-
   char *p_addr = privcount_chan_addr_to_str_dup(
                                               orcirc ? orcirc->p_chan : NULL);
   char *n_addr = privcount_chan_addr_to_str_dup(circ->n_chan);
@@ -7693,7 +7843,12 @@ control_event_privcount_circuit_close(circuit_t *circ,
 
     /* What is this circuit for?
      * And if it is an HS circuit, what state was it in when it closed?
-     * These are redundant, but are much easier to read
+     */
+
+    smartlist_add_asprintf(fields, "PurposeCode=%" PRIu8,
+                           circ->purpose);
+
+    /* These are redundant, but are much easier to read
      * privcount_add_circuit_common_fields() adds an integer purpose code and
      * some summary flags */
     const char *purpose = circuit_purpose_to_controller_string(circ->purpose);
@@ -7715,12 +7870,17 @@ control_event_privcount_circuit_close(circuit_t *circ,
     }
   }
 
+  if (orcirc->privcount_circuit_hsdir_store) {
+    smartlist_add_asprintf(fields, "HSDirStoreFlag=1");
+  }
+
+  if (orcirc->privcount_circuit_hsdir_fetch) {
+    smartlist_add_asprintf(fields, "HSDirFetchFlag=1");
+  }
+
   if (orcirc && orcirc->p_chan) {
     smartlist_add_asprintf(fields, "PreviousChannelId=%" PRIu64,
                         privcount_or_circuit_p_chan_global_identifier(orcirc));
-
-    smartlist_add_asprintf(fields, "PreviousNodeIsClientFlag=%d",
-                           prev_is_client);
 
     tor_assert(privcount_tagged_str_is_clean(p_addr));
     smartlist_add_asprintf(fields, "PreviousNodeIPAddress=%s",
@@ -7733,12 +7893,6 @@ control_event_privcount_circuit_close(circuit_t *circ,
   if (circ && circ->n_chan) {
     smartlist_add_asprintf(fields, "NextChannelId=%" PRIu64,
                            privcount_circuit_n_chan_global_identifier(circ));
-
-    /* If this flag is true, the next node is not an OR node.
-     * Instead, this is an Exit circuit at an Exit: the next nodes are
-     * Internet servers accessed via edge connections. */
-    smartlist_add_asprintf(fields, "NextNodeIsEdgeFlag=%d",
-                           next_is_edge);
 
     tor_assert(privcount_tagged_str_is_clean(n_addr));
     smartlist_add_asprintf(fields, "NextNodeIPAddress=%s",
@@ -7819,9 +7973,13 @@ control_event_privcount_circuit_close(circuit_t *circ,
 
   /* Also emit the legacy event format */
   if (is_legacy_circuit_end) {
-    if (BUG(!CIRCUIT_IS_ORCIRC(circ))) {
+    if (BUG(!orcirc) || BUG(!circ) || BUG(!CIRCUIT_IS_ORCIRC(circ))) {
       return;
     }
+
+    int prev_is_client = privcount_is_client(orcirc->p_chan);
+    int next_is_edge = privcount_data_is_exit(NULL, orcirc);
+
     control_event_privcount_circuit_ended(orcirc,
                                           created_str,
                                           now_str,
