@@ -1403,7 +1403,7 @@ circuit_unlink_all_from_channel(channel_t *chan, int reason)
           /* Send the OR circuit legacy event. This covers the p_chan case
            * below, but misses the origin n_chan cases. */
           if (get_options()->EnablePrivCount) {
-            control_event_privcount_circuit_close(circ, 1);
+            control_event_privcount_circuit(circ, 1);
           }
         }
     }
@@ -1414,7 +1414,7 @@ circuit_unlink_all_from_channel(channel_t *chan, int reason)
        * function after we send the legacy event, because it ignores duplicate
        * circuit close events */
       if (get_options()->EnablePrivCount) {
-        control_event_privcount_circuit_close(circ, 0);
+        control_event_privcount_circuit(circ, 0);
       }
 
       circuit_set_n_circid_chan(circ, 0, NULL);
@@ -1809,7 +1809,7 @@ circuit_mark_for_close_, (circuit_t *circ, int reason, int line,
 
   if (get_options()->EnablePrivCount) {
     /* Make sure we do this after we close, but before we clear rend_splice */
-    control_event_privcount_circuit_close(circ, 0);
+    control_event_privcount_circuit(circ, 0);
   }
 
   if (!CIRCUIT_IS_ORIGIN(circ)) {
@@ -1935,7 +1935,7 @@ circuit_about_to_free(circuit_t *circ)
 
   /* do this before clearing n_chan and p_chan */
   if (get_options()->EnablePrivCount) {
-    control_event_privcount_circuit_close(circ, 1);
+    control_event_privcount_circuit(circ, !CIRCUIT_IS_ORIGIN(circ));
   }
 
   if (circ->n_chan) {

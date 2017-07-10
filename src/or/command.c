@@ -716,7 +716,7 @@ command_process_destroy_cell(cell_t *cell, channel_t *chan)
       cell->circ_id == TO_OR_CIRCUIT(circ)->p_circ_id) {
     /* Send the OR circuit legacy event */
     if (get_options()->EnablePrivCount) {
-      control_event_privcount_circuit_close(circ, 1);
+      control_event_privcount_circuit(circ, 1);
     }
     /* the destroy came from behind */
     circuit_set_p_circid_chan(TO_OR_CIRCUIT(circ), 0, NULL);
@@ -724,7 +724,7 @@ command_process_destroy_cell(cell_t *cell, channel_t *chan)
   } else { /* the destroy came from ahead */
     /* Send the OR circuit or origin circuit event */
     if (get_options()->EnablePrivCount) {
-      control_event_privcount_circuit_close(circ, 0);
+      control_event_privcount_circuit(circ, 0);
     }
     circuit_set_n_circid_chan(circ, 0, NULL);
     if (CIRCUIT_IS_ORIGIN(circ)) {

@@ -190,14 +190,14 @@ void control_event_privcount_hsdir_cache_store(
                                     const hs_cache_dir_descriptor_t *hsv3_desc,
                                     ssize_t encoded_descriptor_byte_count,
                                     ssize_t encoded_intro_point_byte_count);
-void control_event_privcount_circuit_close(circuit_t *circ,
-                                           int is_legacy_circuit_end);
+void control_event_privcount_circuit(circuit_t *circ,
+                                     int is_legacy_circuit_end);
 void control_event_privcount_circuit_cell(
                                         const channel_t *chan,
                                         circuit_t *circ,
                                         const cell_t *cell,
                                         int is_sent,
-                                        const char *is_recognized,
+                                        const int *is_recognized,
                                         const int *was_relay_crypt_successful);
 #define PRIVCOUNT_CELL_RECEIVED 0
 #define PRIVCOUNT_CELL_SENT 1

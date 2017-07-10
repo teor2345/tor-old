@@ -2981,6 +2981,9 @@ typedef struct circuit_t {
   /** True iff this circuit has received a DESTROY cell in either direction */
   unsigned int received_destroy : 1;
 
+  /* Has the tagged circuit close event been emitted? */
+  unsigned int privcount_event_emitted : 1;
+
   uint8_t state; /**< Current status of this circuit. */
   uint8_t purpose; /**< Why are we creating this circuit? */
 
@@ -3067,9 +3070,6 @@ typedef struct circuit_t {
    * circuit's queues; used only if CELL_STATS events are enabled and
    * cleared after being sent to control port. */
   smartlist_t *testing_cell_stats;
-
-  /* Has the circuit ended event been emitted? */
-  int privcount_event_emitted;
 
   /* Cell counters for PrivCount: these counters count all cells, including
    * cells unsent due to error. If you want more specific counts, use the
@@ -3410,6 +3410,9 @@ typedef struct or_circuit_t {
   /** If set, this circuit carries HS traffic. Consider it in any HS
    *  statistics. */
   unsigned int circuit_carries_hs_traffic_stats : 1;
+
+  /* Has the legacy circuit end event been emitted? */
+  unsigned int privcount_legacy_event_emitted : 1;
 
   /* We tag these even if PrivCount is not enabled, because otherwise we'd
    * have to track whether PrivCount was enabled on the rend splice and

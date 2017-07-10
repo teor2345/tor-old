@@ -241,16 +241,18 @@ circuit_receive_relay_cell(cell_t *cell, circuit_t *circ,
     /* This cell is never actually processed. Counters can ignore it using
      * was_relay_crypt_successful. */
     if (get_options()->EnablePrivCount) {
+      const int is_recognized = !recognized;
       const int was_relay_crypt_successful = 0;
       control_event_privcount_circuit_cell(chan, circ, cell,
                                            PRIVCOUNT_CELL_RECEIVED,
-                                           &recognized,
+                                           &is_recognized,
                                            &was_relay_crypt_successful);
     }
 
     return -END_CIRC_REASON_INTERNAL;
   }
 
+  const int is_recognized = !recognized;
   const int was_relay_crypt_successful = 1;
   /* Use the channel that the cell came from */
   if (get_options()->EnablePrivCount) {
@@ -258,19 +260,19 @@ circuit_receive_relay_cell(cell_t *cell, circuit_t *circ,
       control_event_privcount_circuit_cell(TO_OR_CIRCUIT(circ)->p_chan, circ,
                                            cell,
                                            PRIVCOUNT_CELL_RECEIVED,
-                                           &recognized,
+                                           &is_recognized,
                                            &was_relay_crypt_successful);
     } else if (!CIRCUIT_IS_ORIGIN(circ)) {
       control_event_privcount_circuit_cell(circ->n_chan, circ, cell,
                                            PRIVCOUNT_CELL_RECEIVED,
-                                           &recognized,
+                                           &is_recognized,
                                            &was_relay_crypt_successful);
     } else {
       /* Send events for origin circuits, counters can filter them out using
        * the corresponding field. */
       control_event_privcount_circuit_cell(circ->n_chan, circ, cell,
                                            PRIVCOUNT_CELL_RECEIVED,
-                                           &recognized,
+                                           &is_recognized,
                                            &was_relay_crypt_successful);
     }
   }
