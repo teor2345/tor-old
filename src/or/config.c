@@ -586,7 +586,8 @@ static config_var_t option_vars_[] = {
    * blackholed. Clients will try 3 directories simultaneously.
    * (Relays never use simultaneous connections.) */
   V(ClientBootstrapConsensusMaxInProgressTries, UINT, "3"),
-  V(TestingBridgeDownloadSchedule, CSV_INTERVAL, "1200, 900, 900, 3600"),
+  V(TestingBridgeDownloadSchedule, CSV_INTERVAL,
+    "0, 5, 11, 3600, 10800, 25200, 54000, 111600, 262800"),
   V(TestingClientMaxIntervalWithoutRequest, INTERVAL, "10 minutes"),
   V(TestingDirConnectionMaxStall, INTERVAL, "5 minutes"),
   V(TestingConsensusMaxDownloadTries, UINT, "8"),
@@ -648,7 +649,8 @@ static const config_var_t testing_tor_network_defaults[] = {
                                  "15, 20, 30, 60"),
   V(TestingClientConsensusDownloadSchedule, CSV_INTERVAL, "0, 0, 5, 10, "
                                  "15, 20, 30, 60"),
-  V(TestingBridgeDownloadSchedule, CSV_INTERVAL, "60, 30, 30, 60"),
+  V(TestingBridgeDownloadSchedule, CSV_INTERVAL,"0, 0, 5, 10, 15, 20, "
+                                 "30, 60"),
   V(TestingClientMaxIntervalWithoutRequest, INTERVAL, "5 seconds"),
   V(TestingDirConnectionMaxStall, INTERVAL, "30 seconds"),
   V(TestingConsensusMaxDownloadTries, UINT, "80"),
