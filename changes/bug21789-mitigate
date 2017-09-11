@@ -1,0 +1,5 @@
+  o Minor fixes (relay address resolution):
+    - Avoid unnecessary calls to directory_fetches_from_authorities()
+      on relays. This is a mitigation for 21789. The original bug
+      was introduced in commit 35bbf2e as part of prop210.
+      Fixes NO BUG NUMBER YET in 0.2.8.1-alpha.
