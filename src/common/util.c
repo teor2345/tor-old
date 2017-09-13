@@ -37,6 +37,7 @@
 #include <grp.h>
 #endif
 
+#include <float.h>
 /* math.h needs this on Linux */
 #ifndef _USE_ISOC99_
 #define _USE_ISOC99_ 1
@@ -532,6 +533,18 @@ round_int64_to_next_multiple_of(int64_t number, int64_t divisor)
   return number;
 }
 
+/* Return the maximum safe noise for a */
+static int64_t get_max_safe_noise(void)
+{
+  return (uint64_t)1 << DBL_MANT_DIG;
+}
+
+static int64_t get_min_safe_noise(void)
+{
+  /* This is always safe, because -INT64_MAX is representable */
+  return -get_max_safe_noise();
+}
+
 /** Transform a random value <b>p</b> from the uniform distribution in
  * [0.0, 1.0[ into a Laplace distributed value with location parameter
  * <b>mu</b> and scale parameter <b>b</b>. Truncate the final result
@@ -609,8 +622,16 @@ add_laplace_noise(int64_t signal_, double random_, double delta_f,
                                       random_);
 
   /* This noise protects the value as long as the lowest bits in the noise
-   * are random.
-   * TODO: implement this check */
+   * are random. If they are not, we destroy the signal values (the noise
+   * parameters are probably misconfigured).
+   * These checks don't account for any loss of precision in the sampling of
+   * random_.
+   * This also preserves infinite noise values, by making sure they stay
+   * infinite, even if the signal is the opposite sign (see above). */
+  if (noise >= get_max_safe_noise())
+    return INT64_MAX;
+  if (noise <= get_min_safe_noise())
+    return INT64_MIN;
 
   /* Add the noise and the signal (2).
    * One additional operation is performed:
