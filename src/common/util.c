@@ -543,10 +543,21 @@ sample_laplace_distribution(double mu, double b, double p)
 }
 
 /** Add random noise between INT64_MIN and INT64_MAX coming from a Laplace
- * distribution with mu = 0 and b = <b>delta_f</b>/<b>epsilon</b> to
- * <b>signal</b> based on the provided <b>random</b> value in [0.0, 1.0[.
+ * distribution with mu = 0 and b = <b>delta_f</b>/<b>epsilon</b> to the
+ * signed integer <b>signal</b> based on the provided <b>random</b> value
+ * in [0.0, 1.0[.
  * The epsilon value must be between ]0.0, 1.0]. delta_f must be greater
- * than 0. */
+ * than 0.
+ * Returns the noised value as a signed integer.
+ *
+ * The noised value is produced using a "snapping" procedure to preserve the
+ * least significant bits of the noise. Signal and noise values equal to
+ * INT64_MIN and INT64_MAX are preserved as if they were infinities. This
+ * avoids exposing exact signal or noise values.
+ *
+ * Calling functions should avoid performing any operations on the raw signal
+ * before or after passing it to this function. Any operations must be checked
+ * for safety and documented. */
 int64_t
 add_laplace_noise(int64_t signal_, double random_, double delta_f,
                   double epsilon)
@@ -558,14 +569,43 @@ add_laplace_noise(int64_t signal_, double random_, double delta_f,
   /* delta_f MUST be greater than 0. */
   tor_assert(delta_f > 0.0);
 
-  /* Just add noise, no further signal */
+  /*
+   This function implements the "snapping" mitigation from
+   "On Significance of the Least Significant Bits For Differential Privacy"
+   by Ilya Mironov
+   ​https://pdfs.semanticscholar.org/2f2b/7a0d5000a31f7f0713a3d20919f9703c9876.pdf
+   1. Sample the noise at the appropriate scale
+   2. Add the noise to the signal
+   3. Round or truncate the noisy signal
+   It's ok to re-order these steps, or perform other operations, as long as
+   no additional precision is lost from the result.
+  */
+
+  /* Sample the noise (1).
+   * The location parameter "mu" is zero, which avoids catastrophic
+   * cancellation due to subtraction.
+   * Two additional operations are performed:
+   *  - truncating the noise to an integer (3): no precision is lost, because
+   *    we already know that the fractional part of any integer measurement
+   *    is zero
+   *  - clamping the noise to int64_t: this is safe as long as we avoid
+   *    overflow, and preserve infinite values (see above). */
   noise = sample_laplace_distribution(0.0,
                                       delta_f / epsilon,
                                       random_);
 
-  /* Clip (signal + noise) to [INT64_MIN, INT64_MAX] */
+  /* This noise protects the value as long as the lowest bits in the noise
+   * are random.
+   * TODO: implement this check */
+
+  /* Add the noise and the signal (2).
+   * One additional operation is performed:
+   *  - clamping the noised signal to int64_t (see above) */
+  /* Clamp extreme positive totals to INT64_MAX, avoiding overflow */
   if (noise > 0 && INT64_MAX - noise < signal_)
     return INT64_MAX;
+  /* Clamp extreme negative totals to INT64_MIN, avoiding underflow.
+   * Positive signals can never trigger this case. */
   else if (noise < 0 && INT64_MIN - noise > signal_)
     return INT64_MIN;
   else
