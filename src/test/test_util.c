@@ -5054,7 +5054,9 @@ test_util_laplace(void *arg)
    * array([         -inf,  -80.47189562,  -34.65735903,    0.        ,
    *          34.65735903,   80.47189562,  195.60115027])
    */
-  tt_i64_op(INT64_MIN + 20, OP_EQ,
+  /* This is a special case: we want to destroy the signal to avoid revealing
+   * its exact value */
+  tt_i64_op(INT64_MIN, OP_EQ,
             add_laplace_noise(20, 0.0, delta_f, epsilon));
 
   tt_i64_op(-60, OP_EQ, add_laplace_noise(20, 0.1, delta_f, epsilon));
@@ -5094,8 +5096,10 @@ test_util_laplace(void *arg)
             add_laplace_noise(INT64_MIN, 0.0,
                               DBL_MAX, 1));
 
-  /* does it play nice with INT64_MAX? */
-  tt_i64_op((INT64_MIN + INT64_MAX), OP_EQ,
+  /* does it play nice with INT64_MAX?
+   * This is a special case where the signal is destroyed because the noise
+   * is too large to add safely */
+  tt_i64_op(INT64_MIN, OP_EQ,
             add_laplace_noise(INT64_MAX, 0.0,
                               noscale_df, noscale_eps));
 
@@ -5114,7 +5118,9 @@ test_util_laplace(void *arg)
   tt_i64_op(INT64_MIN, OP_EQ,
             add_laplace_noise(0, min_dbl_error,
                               DBL_MAX, 1));
-  tt_i64_op((INT64_MAX + INT64_MIN), OP_EQ,
+  /* This is a special case where the signal is destroyed because the noise
+   * is too large to add safely */
+  tt_i64_op(INT64_MIN, OP_EQ,
             add_laplace_noise(INT64_MAX, min_dbl_error,
                               DBL_MAX, 1));
   tt_i64_op(INT64_MIN, OP_EQ,
@@ -5154,7 +5160,9 @@ test_util_laplace(void *arg)
   tt_i64_op(INT64_MAX, OP_EQ,
             add_laplace_noise(INT64_MAX, max_dbl_lt_one,
                               delta_f, epsilon));
-  tt_i64_op((INT64_MIN + INT64_MAX), OP_EQ,
+  /* This is a special case where the signal is destroyed because the noise
+   * is too large to add safely */
+  tt_i64_op(INT64_MAX, OP_EQ,
             add_laplace_noise(INT64_MIN, max_dbl_lt_one,
                               DBL_MAX, 1));
   tt_i64_op(INT64_MAX, OP_EQ,
