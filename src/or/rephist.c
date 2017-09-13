@@ -3158,22 +3158,35 @@ rep_hist_format_hs_stats(time_t now)
   int64_t obfuscated_cells_seen;
   int64_t obfuscated_onions_seen;
 
-  uint64_t rounded_cells_seen
-    = round_uint64_to_next_multiple_of(hs_stats->rp_relay_cells_seen,
-                                       REND_CELLS_BIN_SIZE);
-  rounded_cells_seen = MIN(rounded_cells_seen, INT64_MAX);
-  obfuscated_cells_seen = add_laplace_noise((int64_t)rounded_cells_seen,
-                          crypto_rand_double(),
-                          REND_CELLS_DELTA_F, REND_CELLS_EPSILON);
+  /* When adding noise to statistics, we must add noise, and then truncate,
+   * and then bin. Any operations outside this order may be unsafe, and
+   * must be documented. */
 
-  uint64_t rounded_onions_seen =
-    round_uint64_to_next_multiple_of((size_t)digestmap_size(
-                                        hs_stats->onions_seen_this_period),
-                                     ONIONS_SEEN_BIN_SIZE);
-  rounded_onions_seen = MIN(rounded_onions_seen, INT64_MAX);
-  obfuscated_onions_seen = add_laplace_noise((int64_t)rounded_onions_seen,
-                           crypto_rand_double(), ONIONS_SEEN_DELTA_F,
-                           ONIONS_SEEN_EPSILON);
+  uint64_t cells_seen = hs_stats->rp_relay_cells_seen;
+  /* Clamping destroys most of the bits in large signals, and passes small
+   * signals through.
+   * See the comments in add_laplace_noise() for why we think this is safe. */
+  int64_t clamped_cells_seen = MIN(cells_seen, INT64_MAX);
+  int64_t noised_cells_seen = add_laplace_noise(clamped_cells_seen,
+                                                    crypto_rand_double(),
+                                                    REND_CELLS_DELTA_F,
+                                                    REND_CELLS_EPSILON);
+  /* Destroying the low bits of the noised signal is always safe, as long as
+   * it is done to every value, and as the final operation. */
+  obfuscated_cells_seen = round_int64_to_next_multiple_of(noised_cells_seen,
+                                                          REND_CELLS_BIN_SIZE);
+
+  /* digestmap_size clamps its unsigned value to an int. But we do this
+   * redundant clamping in case the underlying implementation ever changes.
+   * The safety rationales for onions_seen are the same as for cells_seen. */
+  uint64_t onions_seen = digestmap_size(hs_stats->onions_seen_this_period);
+  int64_t clamped_onions_seen = MIN(onions_seen, INT64_MAX);
+  int64_t noised_onions_seen = add_laplace_noise(clamped_onions_seen,
+                                                 crypto_rand_double(),
+                                                 ONIONS_SEEN_DELTA_F,
+                                                 ONIONS_SEEN_EPSILON);
+  obfuscated_onions_seen = round_int64_to_next_multiple_of(noised_onions_seen,
+                                                        ONIONS_SEEN_BIN_SIZE);
 
   format_iso_time(t, now);
   tor_asprintf(&hs_stats_string, "hidserv-stats-end %s (%d s)\n"
