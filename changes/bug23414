@@ -1,0 +1,5 @@
+  o Minor bugfixes (statistics):
+    - Stop revealing information about the low bits of HS statistics.
+      Binning statistics and adding noise makes it trivial to remove the low
+      bits of the noise. Instead, add the noise, and then bin the statistics, 
+      Fixes 23414 on 0.2.6.2-alpha.
