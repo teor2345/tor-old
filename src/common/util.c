@@ -506,7 +506,7 @@ round_uint32_to_next_multiple_of(uint32_t number, uint32_t divisor)
 
 /** Return the lowest x such that x is at least <b>number</b>, and x modulo
  * <b>divisor</b> == 0. If no such x can be expressed as a uint64_t, return
- * UINT64_MAX */
+ * UINT64_MAX. Asserts if divisor is equal to zero. */
 uint64_t
 round_uint64_to_next_multiple_of(uint64_t number, uint64_t divisor)
 {
