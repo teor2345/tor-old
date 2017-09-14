@@ -575,8 +575,12 @@ sample_laplace_distribution(double mu, double b, double p)
  * in [0.0, 1.0[.
  * The epsilon value must be between ]0.0, 1.0]. delta_f must be greater
  * than 0.
- * Returns the noised value as a signed integer, using the "snapping"
- * procedure to preserve the least significant bits of the noise.
+ * Returns the noised value as a signed integer.
+ *
+ * The noised value is produced using a "snapping" procedure to preserve the
+ * least significant bits of the noise. Signal and noise values equal to
+ * INT64_MIN and INT64_MAX are preserved as if they were infinities. This
+ * avoids exposing exact signal or noise values.
  *
  * Calling functions should avoid performing any operations on the raw signal
  * before or after passing it to this function. Any operations must be checked
@@ -601,7 +605,7 @@ add_laplace_noise(int64_t signal_, double random_, double delta_f,
    2. Add the noise to the signal
    3. Round or truncate the noisy signal
    It's ok to re-order these steps, or perform other operations, as long as
-   no precision is lost from the result.
+   no additional precision is lost from the result.
   */
 
   /* Sample the noise (1).
@@ -611,13 +615,8 @@ add_laplace_noise(int64_t signal_, double random_, double delta_f,
    *  - truncating the noise to an integer (3): no precision is lost, because
    *    we already know that the fractional part of any integer measurement
    *    is zero
-   *  - clamping the noise to int64_t:
-   *    - if the noise is maximally positive, clamping it to INT64_MAX
-   *      destroys the signal, and there is no information leak
-   *    - if the noise is maximally negative, clamping it to INT64_MIN
-   *      exposes the exact value of any unsigned signals on addition.
-   *      Instead, we want to destroy the signal entirely (special case A).
-   *    We think this clamping is safe, but it might need further analysis. */
+   *  - clamping the noise to int64_t: this is safe as long as we avoid
+   *    overflow, and preserve infinite values (see above). */
   noise = sample_laplace_distribution(0.0,
                                       delta_f / epsilon,
                                       random_);
@@ -636,18 +635,7 @@ add_laplace_noise(int64_t signal_, double random_, double delta_f,
 
   /* Add the noise and the signal (2).
    * One additional operation is performed:
-   *  - clamping the noised signal to int64_t:
-   *    - the positive maximal noise value case is the same as above
-   *    - the negative maximal noise value case is the same as above
-   *    - for positive and negative maximal noised signals:
-   *      - large signals have their low bits destroyed, and
-   *      - small signals have all their bits destroyed.
-   *      We think this is safe because these signals can't be distinguished.
-   *    - in the general case, the full precision of the noise is added to
-   *      the signal, and no precision is lost.
-   *    We think this clamping is safe, but it might need further analysis.
-   */
-
+   *  - clamping the noised signal to int64_t (see above) */
   /* Clamp extreme positive totals to INT64_MAX, avoiding overflow */
   if (noise > 0 && INT64_MAX - noise < signal_)
     return INT64_MAX;
