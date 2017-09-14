@@ -608,6 +608,18 @@ add_laplace_noise(int64_t signal_, double random_, double delta_f,
    no additional precision is lost from the result.
   */
 
+  /* Preserve infinite signal values.
+   * Counters with these values have stopped counting events. So the actual
+   * event count is unknown. Any further operations won't produce a sensible
+   * result. And they may leak the exact noise value.
+   *
+   * The execution time for these cases is different, but we don't care,
+   * because it only results in a disk write (the stats are uploaded later). */
+  if (signal_ == INT64_MAX)
+    return INT64_MAX;
+  if (signal_ == INT64_MIN)
+    return INT64_MIN;
+
   /* Sample the noise (1).
    * The location parameter "mu" is zero, which avoids catastrophic
    * cancellation due to subtraction.
