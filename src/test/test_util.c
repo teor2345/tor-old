@@ -5097,9 +5097,8 @@ test_util_laplace(void *arg)
                               DBL_MAX, 1));
 
   /* does it play nice with INT64_MAX?
-   * This is a special case where the signal is destroyed because the noise
-   * is too large to add safely */
-  tt_i64_op(INT64_MIN, OP_EQ,
+   * In this special case, the "infinite" signal is preserved */
+  tt_i64_op(INT64_MAX, OP_EQ,
             add_laplace_noise(INT64_MAX, 0.0,
                               noscale_df, noscale_eps));
 
@@ -5112,23 +5111,24 @@ test_util_laplace(void *arg)
   tt_i64_op(INT64_MIN, OP_EQ,
             add_laplace_noise(INT64_MIN, min_dbl_error,
                               noscale_df, noscale_eps));
-  tt_i64_op((-35 + INT64_MAX), OP_EQ,
+  /* In this special case, the "infinite" signal is preserved */
+  tt_i64_op(INT64_MAX, OP_EQ,
             add_laplace_noise(INT64_MAX, min_dbl_error,
                               noscale_df, noscale_eps));
   tt_i64_op(INT64_MIN, OP_EQ,
             add_laplace_noise(0, min_dbl_error,
                               DBL_MAX, 1));
-  /* This is a special case where the signal is destroyed because the noise
-   * is too large to add safely */
-  tt_i64_op(INT64_MIN, OP_EQ,
+  /* In this special case, the "infinite" signal is preserved */
+  tt_i64_op(INT64_MAX, OP_EQ,
             add_laplace_noise(INT64_MAX, min_dbl_error,
                               DBL_MAX, 1));
   tt_i64_op(INT64_MIN, OP_EQ,
             add_laplace_noise(INT64_MIN, min_dbl_error,
                               DBL_MAX, 1));
 
-  /* does it play nice with INT64_MAX? */
-  tt_i64_op((INT64_MAX - 35), OP_EQ,
+  /* does it play nice with INT64_MAX?
+   * In this special case, the "infinite" signal is preserved */
+  tt_i64_op(INT64_MAX, OP_EQ,
             add_laplace_noise(INT64_MAX, min_dbl_error,
                               noscale_df, noscale_eps));
 
@@ -5160,16 +5160,16 @@ test_util_laplace(void *arg)
   tt_i64_op(INT64_MAX, OP_EQ,
             add_laplace_noise(INT64_MAX, max_dbl_lt_one,
                               delta_f, epsilon));
-  /* This is a special case where the signal is destroyed because the noise
-   * is too large to add safely */
-  tt_i64_op(INT64_MAX, OP_EQ,
+  /* In this special case, the "infinite" signal is preserved */
+  tt_i64_op(INT64_MIN, OP_EQ,
             add_laplace_noise(INT64_MIN, max_dbl_lt_one,
                               DBL_MAX, 1));
   tt_i64_op(INT64_MAX, OP_EQ,
             add_laplace_noise(INT64_MAX, max_dbl_lt_one,
                               DBL_MAX, 1));
-  /* does it play nice with INT64_MIN? */
-  tt_i64_op((INT64_MIN + 35), OP_EQ,
+  /* does it play nice with INT64_MIN?
+   * In this special case, the "infinite" signal is preserved */
+  tt_i64_op(INT64_MIN, OP_EQ,
             add_laplace_noise(INT64_MIN, max_dbl_lt_one,
                               noscale_df, noscale_eps));
 
