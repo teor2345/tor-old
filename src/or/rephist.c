@@ -3102,9 +3102,26 @@ rep_hist_format_hs_stats(time_t now)
    * value in the struct. */
   uint64_t onions_seen = digestmap_size(hs_stats->onions_seen_this_period);
 
+  /* digestmap_size uses native integer sizes. add_laplace_noise() only
+   * preserves INT64_MAX, so this could be unsafe on 32-bit architectures.
+   * But they shouldn't have enough RAM to trigger this case anyway.
+   * We consider these further issues out of scope, because this is a rare
+   * case:
+   *  - is it ok that different machines stop counting at different maxima?
+   *  - what about 32-bit machines where counts are just under INT32_MAX?
+   *    does this reveal information about the noise (and the signal)?
+   */
+#if SIZEOF_INT < SIZEOF_INT64_T
+  if (BUG((unsigned)digestmap_size(hs_stats->onions_seen_this_period) >=
+          (unsigned)INT_MAX)) {
+    /* Don't report any HS stats in the extrainfo for this period */
+    return strdup("");
+  }
+#endif
+
   /* Clamp to INT64_MAX, in case the integer type returned by digestmap_size
    * ever changes to size_t. (This ensures safety on 64-bit platforms: the
-   * 32-bit check is TODO.) */
+   * 32-bit check is above.) */
   int64_t clamped_onions_seen = MIN(onions_seen, INT64_MAX);
   int64_t noised_onions_seen = add_laplace_noise(clamped_onions_seen,
                                                  crypto_rand_double(),
