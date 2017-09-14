@@ -624,10 +624,10 @@ add_laplace_noise(int64_t signal_, double random_, double delta_f,
   /* This noise protects the value as long as the lowest bits in the noise
    * are random. If they are not, we destroy the signal values (the noise
    * parameters are probably misconfigured).
-   * This also implements special-case A: destroying the signal entirely when
-   * the noise is maximally negative.
-   * This doesn't account for any loss of precision in the sampling of
-   * random_. */
+   * These checks don't account for any loss of precision in the sampling of
+   * random_.
+   * This also preserves infinite noise values, by making sure they stay
+   * infinite, even if the signal is the opposite sign (see above). */
   if (noise >= get_max_safe_noise())
     return INT64_MAX;
   if (noise <= get_min_safe_noise())
