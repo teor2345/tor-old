@@ -4257,6 +4257,30 @@ test_util_round_to_next_multiple_of(void *arg)
 
   tt_uint_op(round_to_next_multiple_of(UINT_MAX,2), ==,
             UINT_MAX);
+
+  /* Positive int64 */
+  tt_u64_op(round_int64_to_next_multiple_of(0,1), OP_EQ, 0);
+  tt_u64_op(round_int64_to_next_multiple_of(0,7), OP_EQ, 0);
+
+  tt_u64_op(round_int64_to_next_multiple_of(99,1), OP_EQ, 99);
+  tt_u64_op(round_int64_to_next_multiple_of(99,7), OP_EQ, 105);
+  tt_u64_op(round_int64_to_next_multiple_of(99,9), OP_EQ, 99);
+
+  tt_u64_op(round_int64_to_next_multiple_of(INT64_MAX,2), OP_EQ,
+            INT64_MAX);
+
+  /* Negative int64 */
+  tt_u64_op(round_int64_to_next_multiple_of(-99,1), OP_EQ, -99);
+  tt_u64_op(round_int64_to_next_multiple_of(-99,7), OP_EQ, -105);
+  tt_u64_op(round_int64_to_next_multiple_of(-99,9), OP_EQ, -99);
+
+  tt_u64_op(round_int64_to_next_multiple_of(-INT64_MAX,2), OP_EQ,
+            -INT64_MAX-1);
+  tt_u64_op(round_int64_to_next_multiple_of(INT64_MIN,2), OP_EQ,
+            INT64_MIN);
+  tt_u64_op(round_int64_to_next_multiple_of(INT64_MIN,3), OP_EQ,
+            INT64_MIN);
+
  done:
   ;
 }
