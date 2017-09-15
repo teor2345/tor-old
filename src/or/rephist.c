@@ -3112,9 +3112,12 @@ rep_hist_format_hs_stats(time_t now)
    *    does this reveal information about the noise (and the signal)?
    */
 #if SIZEOF_INT < SIZEOF_INT64_T
-  if (BUG((unsigned)digestmap_size(hs_stats->onions_seen_this_period) >=
-          (unsigned)INT_MAX)) {
+  if ((unsigned)digestmap_size(hs_stats->onions_seen_this_period) >=
+      (unsigned)INT_MAX) {
     /* Don't report any HS stats in the extrainfo for this period */
+    log_warn(LD_HIST | LD_BUG,
+             "onions_seen_this_period is unreasonably large for 32-bit, "
+             "disabling hs statistics for this period");
     return strdup("");
   }
 #endif
