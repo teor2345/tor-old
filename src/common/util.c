@@ -530,19 +530,41 @@ round_uint64_to_next_multiple_of(uint64_t number, uint64_t divisor)
   return number;
 }
 
-/** Return the lowest x in [INT64_MIN, INT64_MAX] such that x is at least
+/** Return the lowest x such that x is at least as far away from zero as
  * <b>number</b>, and x modulo <b>divisor</b> == 0. If no such x can be
- * expressed as an int64_t, return INT64_MAX */
+ * expressed as an int64_t, return INT64_MAX or INT64_MIN, based on the sign
+ * of <b>number</b>. Divisor must be unsigned. Asserts if divisor is zero. */
 int64_t
-round_int64_to_next_multiple_of(int64_t number, int64_t divisor)
+round_int64_to_next_multiple_of(int64_t number, uint64_t divisor)
 {
-  tor_assert(divisor > 0);
-  if (INT64_MAX - divisor + 1 < number)
-    return INT64_MAX;
-  if (number >= 0)
-    number += divisor - 1;
-  number -= number % divisor;
-  return number;
+  if (number == INT64_MIN) {
+    /* -INT64_MIN is not representable, so special-case this result */
+    return INT64_MIN;
+  } else if (number < 0) {
+    /* Negative numbers with a representable positive magnitude */
+    uint64_t unumber = round_uint64_to_next_multiple_of((uint64_t)-number,
+                                                        divisor);
+    if (unumber >= ((uint64_t)INT64_MAX + 1)) {
+      /* Negative numbers that round down to INT64_MIN or further away from
+       * zero */
+      return INT64_MIN;
+    } else {
+      /* Negative numbers that round down to -INT64_MAX or closer to zero */
+      return -unumber;
+    }
+  } else {
+    /* Positive numbers */
+    uint64_t unumber = round_uint64_to_next_multiple_of((uint64_t)number,
+                                                        divisor);
+    if (unumber >= (uint64_t)INT64_MAX) {
+      /* Positive numbers that round up to INT64_MAX or further away from
+       * zero */
+      return INT64_MAX;
+    } else {
+      /* Positive numbers that round up to (INT64_MAX-1) or closer to zero */
+      return unumber;
+    }
+  }
 }
 
 /** Transform a random value <b>p</b> from the uniform distribution in
