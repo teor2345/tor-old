@@ -3310,6 +3310,10 @@ tor_cleanup(void)
   const or_options_t *options = get_options();
   if (options->command == CMD_RUN_TOR) {
     time_t now = time(NULL);
+
+    log_notice(LD_GENERAL, "Closing all open connections.");
+    hibernate_go_dormant(now);
+
     /* Remove our pid file. We don't care if there was an error when we
      * unlink, nothing we could do about it anyways. */
     if (options->PidFile) {
@@ -3342,6 +3346,7 @@ tor_cleanup(void)
 #ifdef USE_DMALLOC
   dmalloc_log_stats();
 #endif
+  sleep(1);
   tor_free_all(0); /* We could move tor_free_all back into the ifdef below
                       later, if it makes shutdown unacceptably slow.  But for
                       now, leave it here: it's helped us catch bugs in the
