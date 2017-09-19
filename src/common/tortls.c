@@ -2175,6 +2175,31 @@ try_to_extract_certs_from_tls,(int severity, tor_tls_t *tls,
   *id_cert_out = id_cert;
 }
 
+/** Return a newly allocated copy of the peer link certificate and identity
+ * certificate from <b>tls</b>, and store them in *<b>cert_out</b> and
+ * *<b>id_cert_out</b> respectively, or store NULL if there  is no certificate
+ * of the desired type.
+ * Log all messages at level <b>severity</b>. */
+void
+tor_tls_get_peer_certs(int severity, tor_tls_t *tls,
+                       tor_x509_cert_t **cert_out,
+                       tor_x509_cert_t **id_cert_out)
+{
+  X509 *cert = NULL;
+  X509 *id_cert = NULL;
+  try_to_extract_certs_from_tls(severity, tls, &cert, &id_cert);
+  tls_log_errors(tls, LOG_WARN, LD_CHANNEL, "getting peer certificates");
+  if (cert_out) {
+    /* Returns NULL if cert is NULL, and steals the cert reference */
+    *cert_out = tor_x509_cert_new(cert);
+  }
+  if (id_cert_out && id_cert) {
+    /* Make an id_cert reference, so tor_x509_cert_new() can steal it */
+    id_cert = X509_dup(id_cert);
+    *id_cert_out = tor_x509_cert_new(id_cert);
+  }
+}
+
 /** If the provided tls connection is authenticated and has a
  * certificate chain that is currently valid and signed, then set
  * *<b>identity_key</b> to the identity certificate's key and return

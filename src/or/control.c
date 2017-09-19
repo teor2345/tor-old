@@ -88,6 +88,11 @@
 #include "relay.h"
 #include "rendcommon.h"
 #include "routerparse.h"
+#include "tortls.h"
+
+/* PrivCount headers */
+#include <openssl/x509.h>
+#include <openssl/asn1.h>
 
 /** Yield true iff <b>s</b> is the state of a control_connection_t that has
  * finished authentication and is accepting commands. */
@@ -8308,6 +8313,14 @@ control_event_privcount_circuit(circuit_t *circ,
   tor_free(n_addr);
 }
 
+#define SECONDS_IN_DAY (24*60*60)
+
+/* From tortls.c */
+#define X509_get_notBefore_const(cert) \
+  ((const ASN1_TIME*) X509_get_notBefore((X509 *)cert))
+#define X509_get_notAfter_const(cert) \
+  ((const ASN1_TIME*) X509_get_notAfter((X509 *)cert))
+
 /* Send a PrivCount connection end event triggered on orconn, which can be any
  * type of OR circuit, and in any position in the circuit (except for origin).
  * This event uses positional fields: order is important.
@@ -8338,6 +8351,77 @@ control_event_privcount_connection_ended(const or_connection_t *orconn)
   int is_client = privcount_is_client(chan);
 
   char *addr = privcount_chan_addr_to_str_dup(chan);
+
+  char cert_fp[HEX_DIGEST256_LEN+1];
+  char id_fp[HEX_DIGEST256_LEN+1];
+  cert_fp[0] = '\0';
+  id_fp[0] = '\0';
+
+  uint64_t start_time = 0;
+  uint64_t end_time = 0;
+
+  if (orconn->tls) {
+    tor_x509_cert_t *cert = tor_tls_get_peer_cert(orconn->tls);
+    if (!cert) {
+      tor_x509_cert_t *link_cert = NULL;
+      tor_x509_cert_t *id_cert = NULL;
+      tor_tls_get_peer_certs(LOG_WARN, orconn->tls, &link_cert, &id_cert);
+      /* Arbitrarily prefer link_cert to id_cert */
+      if (link_cert && id_cert) {
+        tor_x509_cert_free(id_cert);
+        id_cert = NULL;
+      }
+      cert = link_cert ? link_cert : id_cert;
+    }
+    if (cert) {
+      const common_digests_t *cert_dg = tor_x509_cert_get_cert_digests(cert);
+      const common_digests_t *id_dg = tor_x509_cert_get_id_digests(cert);
+      if (cert_dg && cert_dg->d[DIGEST_SHA256]) {
+        base16_encode(cert_fp, HEX_DIGEST256_LEN+1,
+                      cert_dg->d[DIGEST_SHA256],
+                      DIGEST256_LEN);
+      }
+      if (id_dg && id_dg->d[DIGEST_SHA256]) {
+        base16_encode(id_fp, HEX_DIGEST256_LEN+1,
+                      id_dg->d[DIGEST_SHA256],
+                      DIGEST256_LEN);
+      }
+
+#if 0
+      /* Disabled because cert->cert is opaque */
+      /* Returns NULL on failure */
+      const ASN1_TIME *epoch_asn = ASN1_TIME_set(NULL, 0);
+      const ASN1_TIME *start_asn = X509_get_notBefore_const(cert->cert);
+      const ASN1_TIME *end_asn   = X509_get_notAfter_const(cert->cert);
+
+      int pday = 0;
+      int psec = 0;
+      int rv = 0;
+      if (epoch_asn && start_asn) {
+        /* Returns 0 on failure */
+        rv = ASN1_TIME_diff(&pday, &psec, epoch_asn, start_asn);
+        if (rv == 1 && pday >= 0 && psec >= 0) {
+          start_time = (uint64_t)pday * SECONDS_IN_DAY + (uint64_t)psec;
+        }
+      }
+      if (epoch_asn && end_asn) {
+        /* Returns 0 on failure */
+        rv = ASN1_TIME_diff(&pday, &psec, epoch_asn, end_asn);
+        if (rv == 1 && pday >= 0 && psec >= 0) {
+          end_time = (uint64_t)pday * SECONDS_IN_DAY + (uint64_t)psec;
+        }
+      }
+#endif
+      tor_x509_cert_free(cert);
+    }
+  }
+
+  log_warn(LD_CHANNEL, "Connection close: IsClientFlag=%d "
+           "CertificateSHA256Fingerprint=%s "
+           "CertificateRSAIdSHA256Fingerprint=%s "
+           "CertificateNotBeforeTime=%" PRIu64 " "
+           "CertificateNotAfterTime=%" PRIu64,
+           is_client, cert_fp, id_fp, start_time, end_time);
 
   /* ChanID, TimeStart, TimeEnd, IP, isClient */
   send_control_event(EVENT_PRIVCOUNT_CONNECTION_ENDED,

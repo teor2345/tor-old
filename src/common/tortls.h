@@ -200,6 +200,9 @@ void tor_tls_free(tor_tls_t *tls);
 int tor_tls_peer_has_cert(tor_tls_t *tls);
 MOCK_DECL(tor_x509_cert_t *,tor_tls_get_peer_cert,(tor_tls_t *tls));
 MOCK_DECL(tor_x509_cert_t *,tor_tls_get_own_cert,(tor_tls_t *tls));
+void tor_tls_get_peer_certs(int severity, tor_tls_t *tls,
+                            tor_x509_cert_t **cert_out,
+                            tor_x509_cert_t **id_cert_out);
 int tor_tls_verify(int severity, tor_tls_t *tls, crypto_pk_t **identity);
 int tor_tls_check_lifetime(int severity,
                            tor_tls_t *tls, time_t now,
