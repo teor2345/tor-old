@@ -8328,18 +8328,25 @@ control_event_privcount_circuit(circuit_t *circ,
 void
 control_event_privcount_connection_ended(const or_connection_t *orconn)
 {
+  /*
+  log_warn(LD_NET, "Before event is interesting...");
   if (!EVENT_IS_INTERESTING(EVENT_PRIVCOUNT_CONNECTION_ENDED)) {
     return;
   }
+  */
 
-  /* Checked in control_event_privcount_circuit() */
+  /* Checked in connection_mark_for_close_internal_() via
+   * assert_connection_ok() */
   tor_assert(orconn);
 
+  (void)privcount_is_used_for_legacy_connection_events;
   /* Filter out connection overhead (directory circuits at directories). */
+  /*
   if (!privcount_is_used_for_legacy_connection_events(
                                                 PRIVCOUNT_TO_CONN(orconn))) {
     return;
   }
+   */
 
   /* Get the time as early as possible, but after we're sure we want it */
   char *now_str = privcount_timeval_now_to_epoch_str_dup(NULL);
@@ -8360,12 +8367,15 @@ control_event_privcount_connection_ended(const or_connection_t *orconn)
   uint64_t start_time = 0;
   uint64_t end_time = 0;
 
+  log_warn(LD_NET, "1. tls %p", orconn->tls);
   if (orconn->tls) {
     tor_x509_cert_t *cert = tor_tls_get_peer_cert(orconn->tls);
+    log_warn(LD_NET, "2. Get cert %p", cert);
     if (!cert) {
       tor_x509_cert_t *link_cert = NULL;
       tor_x509_cert_t *id_cert = NULL;
       tor_tls_get_peer_certs(LOG_WARN, orconn->tls, &link_cert, &id_cert);
+      log_warn(LD_NET, "3. Get certs %p %p", link_cert, id_cert);
       /* Arbitrarily prefer link_cert to id_cert */
       if (link_cert && id_cert) {
         tor_x509_cert_free(id_cert);
@@ -8376,6 +8386,7 @@ control_event_privcount_connection_ended(const or_connection_t *orconn)
     if (cert) {
       const common_digests_t *cert_dg = tor_x509_cert_get_cert_digests(cert);
       const common_digests_t *id_dg = tor_x509_cert_get_id_digests(cert);
+      log_warn(LD_NET, "4. Digests %p %p", cert_dg, id_dg);
       if (cert_dg && cert_dg->d[DIGEST_SHA256]) {
         base16_encode(cert_fp, HEX_DIGEST256_LEN+1,
                       cert_dg->d[DIGEST_SHA256],
@@ -8393,6 +8404,7 @@ control_event_privcount_connection_ended(const or_connection_t *orconn)
       const ASN1_TIME *epoch_asn = ASN1_TIME_set(NULL, 0);
       const ASN1_TIME *start_asn = X509_get_notBefore_const(cert->cert);
       const ASN1_TIME *end_asn   = X509_get_notAfter_const(cert->cert);
+      log_warn(LD_NET, "5. Times %p %p %p", epoch_asn, start_asn, end_asn);
 
       int pday = 0;
       int psec = 0;
@@ -8423,6 +8435,7 @@ control_event_privcount_connection_ended(const or_connection_t *orconn)
            "CertificateNotAfterTime=%" PRIu64,
            is_client, cert_fp, id_fp, start_time, end_time);
 
+  log_warn(LD_NET, "6. Before send...");
   /* ChanID, TimeStart, TimeEnd, IP, isClient */
   send_control_event(EVENT_PRIVCOUNT_CONNECTION_ENDED,
                      "650 PRIVCOUNT_CONNECTION_ENDED %" PRIu64
