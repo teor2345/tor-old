@@ -355,6 +355,7 @@ launch_rendezvous_point_circuit(const hs_service_t *service,
   time_t now = time(NULL);
   extend_info_t *info = NULL;
   origin_circuit_t *circ;
+  int direct_conn = 0;
 
   tor_assert(service);
   tor_assert(ip);
@@ -364,13 +365,21 @@ launch_rendezvous_point_circuit(const hs_service_t *service,
 
   /* Get the extend info data structure for the chosen rendezvous point
    * specified by the given link specifiers. */
+  direct_conn = service->config.is_single_onion;
   info = hs_get_extend_info_from_lspecs(data->link_specifiers,
                                         &data->onion_pk,
-                                        service->config.is_single_onion);
+                                        &direct_conn);
   if (info == NULL) {
     /* We are done here, we can't extend to the rendezvous point. */
     goto end;
   }
+
+  if (BUG(!service->config.is_single_onion && direct_conn)) {
+    /* We are an anonymous service, but hs_get_extend_info_from_lspecs() said
+     * we should use a direct connection */
+    goto end;
+  }
+
 
   for (int i = 0; i < MAX_REND_FAILURES; i++) {
     int circ_flags = CIRCLAUNCH_NEED_CAPACITY | CIRCLAUNCH_IS_INTERNAL;
@@ -378,7 +387,7 @@ launch_rendezvous_point_circuit(const hs_service_t *service,
       circ_flags |= CIRCLAUNCH_NEED_UPTIME;
     }
     /* Firewall and policies are checked when getting the extend info. */
-    if (service->config.is_single_onion) {
+    if (direct_conn) {
       circ_flags |= CIRCLAUNCH_ONEHOP_TUNNEL;
     }
 

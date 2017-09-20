@@ -1638,19 +1638,24 @@ hs_pick_hsdir(smartlist_t *responsible_dirs, const char *req_key_str)
 
 /* From a list of link specifier, an onion key and if we are requesting a
  * direct connection (ex: single onion service), return a newly allocated
- * extend_info_t object. This function checks the firewall policies and if we
+ * extend_info_t object, and whether we can make a direct connection
+ * in *direct_conn_inout. This function checks the firewall policies and if we
  * are allowed to extend to the chosen address.
  *
  *  if either IPv4 or legacy ID is missing, error.
- *  if not direct_conn, IPv4 is prefered.
- *  if direct_conn, IPv6 is prefered if we have one available.
- *  if firewall does not allow the chosen address, error.
+ *  if not *direct_conn_inout, IPv4 is prefered.
+ *  if *direct_conn_inout:
+ *    if IPv6 is preferred, available, and reachable, use it
+ *    if IPv4 is available and reachable, use it
+ *    otherwise, set *direct_conn_inout to 0.
  *
- * Return NULL if we can fulfill the conditions. */
+ * direct_conn_inout can be NULL, which means "no direct connection".
+ *
+ * Return NULL if we can't fulfill the conditions. */
 extend_info_t *
 hs_get_extend_info_from_lspecs(const smartlist_t *lspecs,
                                const curve25519_public_key_t *onion_key,
-                               int direct_conn)
+                               int *direct_conn_inout)
 {
   int have_v4 = 0, have_v6 = 0, have_legacy_id = 0, have_ed25519_id = 0;
   char legacy_id[DIGEST_LEN] = {0};
@@ -1658,6 +1663,7 @@ hs_get_extend_info_from_lspecs(const smartlist_t *lspecs,
   tor_addr_t addr_v4, addr_v6, *addr = NULL;
   ed25519_public_key_t ed25519_pk;
   extend_info_t *info = NULL;
+  int direct_conn = direct_conn_inout && *direct_conn_inout;
 
   tor_assert(lspecs);
 
@@ -1735,12 +1741,18 @@ hs_get_extend_info_from_lspecs(const smartlist_t *lspecs,
     goto validate;
   }
 
+  /* Otherwise, we can't reach the IPv6 (or we don't prefer it), and we can't
+   * reach the IPv4. So we'll use the IPv4 for an indirect connection via a
+   * node that we can reach. */
+  direct_conn = 0;
+
  validate:
   /* We'll validate now that the address we've picked isn't a private one. If
    * it is, are we allowing to extend to private address? */
   if (!extend_info_addr_is_allowed(addr)) {
     log_warn(LD_REND, "Requested address is private and it is not "
-                      "allowed to extend to it: %s:%u",
+                      "allowed to %s to it: %s:%u",
+             direct_conn ? "connect" : "extend",
              fmt_addr(&addr_v4), port_v4);
     goto done;
   }
@@ -1750,6 +1762,16 @@ hs_get_extend_info_from_lspecs(const smartlist_t *lspecs,
                          (have_ed25519_id) ? &ed25519_pk : NULL, NULL,
                          onion_key, addr, port);
  done:
+  if (BUG(direct_conn && direct_conn_inout && !*direct_conn_inout)) {
+    /* We weren't asked for a direct connection, but we recommended one */
+    return NULL;
+  }
+
+  if (direct_conn_inout) {
+    /* Set the return value */
+    *direct_conn_inout = direct_conn;
+  }
+
   return info;
 }
 

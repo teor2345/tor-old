@@ -245,7 +245,7 @@ void hs_dec_rdv_stream_counter(origin_circuit_t *circ);
 
 extend_info_t *hs_get_extend_info_from_lspecs(const smartlist_t *lspecs,
                                   const curve25519_public_key_t *onion_key,
-                                  int direct_conn);
+                                  int *direct_conn_inout);
 
 #ifdef HS_COMMON_PRIVATE
 
