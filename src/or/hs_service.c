@@ -1503,6 +1503,8 @@ pick_intro_point(unsigned int direct_conn, smartlist_t *exclude_nodes)
   /* Single onion flags. */
   router_crn_flags_t direct_flags = flags | CRN_PREF_ADDR | CRN_DIRECT_CONN;
 
+  /* If we're a single onion service, we want to choose intro points that we
+   * can connect to directly. */
   node = router_choose_random_node(exclude_nodes, get_options()->ExcludeNodes,
                                    direct_conn ? direct_flags : flags);
   if (node == NULL && direct_conn) {
@@ -1520,9 +1522,13 @@ pick_intro_point(unsigned int direct_conn, smartlist_t *exclude_nodes)
    * we don't want to use that node anymore. */
   smartlist_add(exclude_nodes, (void *) node);
 
-  /* We do this to ease our life but also this call makes appropriate checks
-   * of the node object such as validating ntor support for instance. */
-  info = extend_info_from_node(node, direct_conn);
+  /* We use extend_info_from_node() to ease our life but also this call makes
+   * appropriate checks of the node object such as validating ntor support for
+   * instance.
+   *
+   * If we're a single onion service, we want to provide link specifiers that
+   * the client can use to extend to the intro point via a relay. */
+  info = extend_info_from_node(node, 0);
   if (BUG(info == NULL)) {
     goto err;
   }
