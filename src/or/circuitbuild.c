@@ -563,6 +563,15 @@ circuit_handle_first_hop(origin_circuit_t *circ)
     return -END_CIRC_REASON_TORPROTOCOL;
   }
 
+  if (!fascist_firewall_allows_address_addr(&firsthop->extend_info->addr,
+                                            firsthop->extend_info->port,
+                                            FIREWALL_OR_CONNECTION, 0, 0) &&
+      !extend_info_is_a_configured_bridge(firsthop->extend_info)) {
+    log_fn(LOG_PROTOCOL_WARN, LD_PROTOCOL,
+           "Client asked me to connect directly to an unreachable address");
+    return -END_CIRC_REASON_TORPROTOCOL;
+  }
+
   /* now see if we're already connected to the first OR in 'route' */
   log_debug(LD_CIRC,"Looking for firsthop '%s'",
             fmt_addrport(&firsthop->extend_info->addr,
