@@ -1,0 +1,23 @@
+  o Major bugfixes (v3 single onion services, ipv6):
+    - Make v3 single onion services put IPv4 addresses in their descriptors.
+      Clients get addresses that they can extend to, rather than addresses
+      that IPv6-only single onion services can connect directly to.
+      Fixes 23493 on 0.3.2.1-alpha.
+    - If v3 single onion service can't connect directly to one of its chosen
+      intro points, make it connect via a 3-hop path instead.
+      In 0.3.2.1-alpha, they would choose intro points, try to put their IPv6
+      address in the descriptor, and fail with a BUG() warning.
+      Or in rare cases, they would choose intro points excluded by
+      ReachableAddresses, but try to connect to them directly.
+      Fixes 23493 on 0.3.2.1-alpha.
+    - If v3 single onion service can't connect directly to a client-chosen
+      rend point, make it connect via a 3-hop path instead.
+      In 0.3.2.1-alpha, v3 single onion services would try to choose an
+      address they could connect to directly. If they couldn't find one,
+      they would fail, or in rare cases, try to connect directly.
+      Fixes 23493 on 0.3.2.1-alpha.
+    - Fail attempts to connect to unreachable OR addresses
+      This is a defence-in-depth measure that prevents clients connecting
+      to addresses excluded by ReachableAddresses or ClientUseIPv4/IPv6.
+      Diagnostic for 23493, prevents future instances of 23493 and similar
+      bugs.
