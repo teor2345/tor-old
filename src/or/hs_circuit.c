@@ -675,13 +675,15 @@ hs_circ_retry_service_rendezvous_point(origin_circuit_t *circ)
 }
 
 /* For a given service and a service intro point, launch a circuit to the
- * extend info ei. If the service is a single onion, a one-hop circuit will be
- * requested. Return 0 if the circuit was successfully launched and tagged
- * with the correct identifier. On error, a negative value is returned. */
+ * extend info ei. If the service is a single onion and direct_conn is true,
+ * a one-hop circuit will be requested. Return 0 if the circuit was
+ * successfully launched and tagged with the correct identifier. On error, a
+ * negative value is returned. */
 int
 hs_circ_launch_intro_point(hs_service_t *service,
                            const hs_service_intro_point_t *ip,
-                           extend_info_t *ei)
+                           extend_info_t *ei,
+                           int direct_conn)
 {
   /* Standard flags for introduction circuit. */
   int ret = -1, circ_flags = CIRCLAUNCH_NEED_UPTIME | CIRCLAUNCH_IS_INTERNAL;
@@ -691,13 +693,19 @@ hs_circ_launch_intro_point(hs_service_t *service,
   tor_assert(ip);
   tor_assert(ei);
 
+  if (BUG(!service->config.is_single_onion && direct_conn)) {
+    /* only single onion services can make direct connections */
+    goto end;
+  }
+
   /* Update circuit flags in case of a single onion service that requires a
    * direct connection. */
-  if (service->config.is_single_onion) {
+  if (direct_conn) {
     circ_flags |= CIRCLAUNCH_ONEHOP_TUNNEL;
   }
 
-  log_info(LD_REND, "Launching a circuit to intro point %s for service %s.",
+  log_info(LD_REND, "Launching a %s circuit to intro point %s for service %s.",
+           direct_conn ? "direct" : "anonymous",
            safe_str_client(extend_info_describe(ei)),
            safe_str_client(service->onion_address));
 

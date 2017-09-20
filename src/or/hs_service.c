@@ -1998,14 +1998,19 @@ launch_intro_point_circuits(hs_service_t *service)
       }
 
       ei = get_extend_info_from_intro_point(ip, direct_conn);
+
+      if (ei == NULL && direct_conn) {
+        /* Try again as an indirect connection */
+        direct_conn = 0;
+        ei = get_extend_info_from_intro_point(ip, direct_conn);
+      }
+
       if (ei == NULL) {
-        if (!direct_conn) {
-          /* In case of a multi-hop connection, it should never happen that we
-           * can't get the extend info from the node. Avoid connection and
-           * remove intro point from descriptor in order to recover from this
-           * potential bug. */
-          tor_assert_nonfatal(ei);
-        }
+        /* In case of a multi-hop connection, it should never happen that we
+         * can't get the extend info from the node. Avoid connection and
+         * remove intro point from descriptor in order to recover from this
+         * potential bug. */
+        tor_assert_nonfatal(ei);
         MAP_DEL_CURRENT(key);
         service_intro_point_free(ip);
         continue;
@@ -2013,9 +2018,10 @@ launch_intro_point_circuits(hs_service_t *service)
 
       /* Launch a circuit to the intro point. */
       ip->circuit_retries++;
-      if (hs_circ_launch_intro_point(service, ip, ei) < 0) {
-        log_warn(LD_REND, "Unable to launch intro circuit to node %s "
+      if (hs_circ_launch_intro_point(service, ip, ei, direct_conn) < 0) {
+        log_warn(LD_REND, "Unable to launch %s intro circuit to node %s "
                           "for service %s.",
+                 direct_conn ? "direct" : "anonymous",
                  safe_str_client(extend_info_describe(ei)),
                  safe_str_client(service->onion_address));
         /* Intro point will be retried if possible after this. */
