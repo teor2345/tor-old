@@ -713,8 +713,8 @@ hs_circ_launch_intro_point(hs_service_t *service,
     circ_flags |= CIRCLAUNCH_ONEHOP_TUNNEL;
   }
 
-  log_info(LD_REND, "Launching a %s circuit to intro point %s for service %s.",
-           direct_conn ? "direct" : "anonymous",
+  log_info(LD_REND, "Launching %s circuit to intro point %s for service %s.",
+           direct_conn ? "a direct" : "an anonymous",
            safe_str_client(extend_info_describe(ei)),
            safe_str_client(service->onion_address));
 
