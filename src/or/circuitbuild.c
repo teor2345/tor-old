@@ -563,12 +563,15 @@ circuit_handle_first_hop(origin_circuit_t *circ)
     return -END_CIRC_REASON_TORPROTOCOL;
   }
 
-  if (!fascist_firewall_allows_address_addr(&firsthop->extend_info->addr,
-                                            firsthop->extend_info->port,
-                                            FIREWALL_OR_CONNECTION, 0, 0) &&
-      !extend_info_is_a_configured_bridge(firsthop->extend_info)) {
-    log_fn(LOG_PROTOCOL_WARN, LD_PROTOCOL,
-           "Client asked me to connect directly to an unreachable address");
+  /* We should never be asked to connect directly to an unreachable address.
+   * But if we are, deny the connection.
+   * Bridges are always allowed to connect to their configured addresses.
+   * Some bridges even pass a dummy address to the pluggable transport,
+   * which ignores it. So we ignore bridge addresses in this check, too. */
+  if (BUG(!fascist_firewall_allows_address_addr(&firsthop->extend_info->addr,
+                                              firsthop->extend_info->port,
+                                              FIREWALL_OR_CONNECTION, 0, 0) &&
+          !extend_info_is_a_configured_bridge(firsthop->extend_info))) {
     return -END_CIRC_REASON_TORPROTOCOL;
   }
 
