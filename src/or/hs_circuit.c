@@ -380,7 +380,6 @@ launch_rendezvous_point_circuit(const hs_service_t *service,
     goto end;
   }
 
-
   for (int i = 0; i < MAX_REND_FAILURES; i++) {
     int circ_flags = CIRCLAUNCH_NEED_CAPACITY | CIRCLAUNCH_IS_INTERNAL;
     if (circ_needs_uptime) {
