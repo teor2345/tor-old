@@ -365,7 +365,7 @@ launch_rendezvous_point_circuit(const hs_service_t *service,
 
   /* Get the extend info data structure for the chosen rendezvous point
    * specified by the given link specifiers. */
-  direct_conn = service->config.is_single_onion;
+  direct_conn = hs_service_is_single_onion(service);
   info = hs_get_extend_info_from_lspecs(data->link_specifiers,
                                         &data->onion_pk,
                                         &direct_conn);
@@ -374,7 +374,7 @@ launch_rendezvous_point_circuit(const hs_service_t *service,
     goto end;
   }
 
-  if (BUG(!service->config.is_single_onion && direct_conn)) {
+  if (BUG(!hs_service_is_single_onion(service) && direct_conn)) {
     /* We are an anonymous service, but hs_get_extend_info_from_lspecs() said
      * we should use a direct connection */
     goto end;
@@ -701,7 +701,7 @@ hs_circ_launch_intro_point(hs_service_t *service,
   tor_assert(ip);
   tor_assert(ei);
 
-  if (BUG(!service->config.is_single_onion && direct_conn)) {
+  if (BUG(!hs_service_is_single_onion(service) && direct_conn)) {
     /* only single onion services can make direct connections */
     goto end;
   }

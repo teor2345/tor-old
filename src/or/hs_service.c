@@ -1250,7 +1250,7 @@ build_service_desc_encrypted(const hs_service_t *service,
   encrypted = &desc->desc->encrypted_data;
 
   encrypted->create2_ntor = 1;
-  encrypted->single_onion_service = service->config.is_single_onion;
+  encrypted->single_onion_service = hs_service_is_single_onion(service);
 
   /* Setup introduction points from what we have in the service. */
   if (encrypted->intro_points == NULL) {
@@ -1606,7 +1606,7 @@ pick_needed_intro_points(hs_service_t *service,
 
     /* This function will add the picked intro point node to the exclude nodes
      * list so we don't pick the same one at the next iteration. */
-    ip = pick_intro_point(service->config.is_single_onion, exclude_nodes);
+    ip = pick_intro_point(hs_service_is_single_onion(service), exclude_nodes);
     if (ip == NULL) {
       /* If we end up unable to pick an introduction point it is because we
        * can't find suitable node and calling this again is highly unlikely to
@@ -1985,7 +1985,7 @@ launch_intro_point_circuits(hs_service_t *service)
    * circuits using the current map. */
   FOR_EACH_DESCRIPTOR_BEGIN(service, desc) {
     /* Keep a ref on if we need a direct connection. We use this often. */
-    unsigned int direct_conn = service->config.is_single_onion;
+    unsigned int direct_conn = hs_service_is_single_onion(service);
 
     DIGEST256MAP_FOREACH_MODIFY(desc->intro_points.map, key,
                                 hs_service_intro_point_t *, ip) {
@@ -2868,6 +2868,15 @@ hs_service_get_num_services(void)
     return 0;
   }
   return HT_SIZE(hs_service_map);
+}
+
+/* Is service configured to be a single onion service? */
+int
+hs_service_is_single_onion(const hs_service_t *service)
+{
+  tor_assert(service);
+
+  return service->config.is_single_onion;
 }
 
 /* Called once an introduction circuit is closed. If the circuit doesn't have
