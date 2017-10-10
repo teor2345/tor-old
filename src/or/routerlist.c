@@ -5373,8 +5373,8 @@ router_reset_descriptor_download_failures(void)
   last_descriptor_download_attempted = 0;
   if (!routerlist)
     return;
-  /* Maybe we should do this in
-   * routers_update_status_from_consensus_networkstatus() ? */
+  /* We want to download *all* extra-info descriptors, not just those in
+   * the consensus we currently have (or are about to have) */
   SMARTLIST_FOREACH(routerlist->routers, routerinfo_t *, ri,
   {
     download_status_reset(&ri->cache_info.ei_dl_status);
