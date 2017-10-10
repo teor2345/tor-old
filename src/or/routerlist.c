@@ -5358,8 +5358,10 @@ update_extrainfo_downloads(time_t now)
   smartlist_free(wanted);
 }
 
-/** Reset the descriptor download failure count on all routers, so that we
- * can retry any long-failed routers immediately.
+/** Reset the consensus and extra-info download failure count on all routers.
+ * When we get a new consensus,
+ * routers_update_status_from_consensus_networkstatus() will reset the
+ * download statuses on the descriptors in that consensus.
  */
 void
 router_reset_descriptor_download_failures(void)
@@ -5371,6 +5373,8 @@ router_reset_descriptor_download_failures(void)
   last_descriptor_download_attempted = 0;
   if (!routerlist)
     return;
+  /* Maybe we should do this in
+   * routers_update_status_from_consensus_networkstatus() ? */
   SMARTLIST_FOREACH(routerlist->routers, routerinfo_t *, ri,
   {
     download_status_reset(&ri->cache_info.ei_dl_status);
