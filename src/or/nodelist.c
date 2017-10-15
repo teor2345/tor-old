@@ -1470,32 +1470,38 @@ node_get_pref_ipv6_orport(const node_t *node, tor_addr_port_t *ap_out)
   node_assert_ok(node);
   tor_assert(ap_out);
 
-  /* Bridge clients check ri first, because rewrite_node_address_for_bridge()
-   * updates node->ri with the configured bridge address.
-   * Prefer rs over md, when consensuses are more up-to-date than mds.
-   * Check if the address or port are valid, and try another alternative
-   * if they are not. */
-
   const or_options_t *options = get_options();
-  const int consensus_has_ipv6 = networkstatus_consensus_has_ipv6(options);
 
-  if (options->UseBridges &&
-      node->ri && tor_addr_port_is_valid(&node->ri->ipv6_addr,
-                                         node->ri->ipv6_orport, 0)) {
-    tor_addr_copy(&ap_out->addr, &node->ri->ipv6_addr);
-    ap_out->port = node->ri->ipv6_orport;
-  } else if (node->rs && tor_addr_port_is_valid(&node->rs->ipv6_addr,
-                                                 node->rs->ipv6_orport, 0)) {
-    tor_addr_copy(&ap_out->addr, &node->rs->ipv6_addr);
-    ap_out->port = node->rs->ipv6_orport;
-  } else if (!consensus_has_ipv6 &&
-             node->md && tor_addr_port_is_valid(&node->md->ipv6_addr,
-                                                 node->md->ipv6_orport, 0)) {
-    tor_addr_copy(&ap_out->addr, &node->md->ipv6_addr);
-    ap_out->port = node->md->ipv6_orport;
+  /* Clear the address, and then set it if we find a valid address */
+  tor_addr_make_null(&ap_out->addr, AF_INET6);
+  ap_out->port = 0;
+
+  /* Bridge clients prefer ri, because rewrite_node_address_for_bridge()
+   * updates node->ri with the configured bridge address. */
+  if (options->UseBridges) {
+    if (node->ri && tor_addr_port_is_valid(&node->ri->ipv6_addr,
+                                            node->ri->ipv6_orport, 0)) {
+      tor_addr_copy(&ap_out->addr, &node->ri->ipv6_addr);
+      ap_out->port = node->ri->ipv6_orport;
+      return;
+    }
+  }
+
+  /* Clients prefer rs when consensuses have IPv6 addresses. */
+  if (networkstatus_consensus_has_ipv6(options)) {
+    if (node->rs && tor_addr_port_is_valid(&node->rs->ipv6_addr,
+                                            node->rs->ipv6_orport, 0)) {
+      tor_addr_copy(&ap_out->addr, &node->rs->ipv6_addr);
+      ap_out->port = node->rs->ipv6_orport;
+      return;
+    }
   } else {
-    tor_addr_make_null(&ap_out->addr, AF_INET6);
-    ap_out->port = 0;
+    if (node->md && tor_addr_port_is_valid(&node->md->ipv6_addr,
+                                            node->md->ipv6_orport, 0)) {
+      tor_addr_copy(&ap_out->addr, &node->md->ipv6_addr);
+      ap_out->port = node->md->ipv6_orport;
+      return;
+    }
   }
 }
 
