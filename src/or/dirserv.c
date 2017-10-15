@@ -934,7 +934,8 @@ running_long_enough_to_decide_unreachable(void)
 
 /** Treat a router as alive if
  *    - It's me, and I'm not hibernating.
- * or - We've found it reachable recently. */
+ * or - We've found it reachable via IPv4 recently
+ *      (IPv4 is mandatory for relays). */
 void
 dirserv_set_router_is_running(routerinfo_t *router, time_t now)
 {
@@ -960,19 +961,13 @@ dirserv_set_router_is_running(routerinfo_t *router, time_t now)
     /* If AssumeReachable, everybody is up unless they say they are down! */
     answer = 1;
   } else {
-    /* Otherwise, a router counts as up if we found all announced OR
-       ports reachable in the last REACHABLE_TIMEOUT seconds.
+    /* Otherwise, a router counts as up if we found the announced IPv4 OR
+       port reachable in the last REACHABLE_TIMEOUT seconds.
 
-       XXX prop186 For now there's always one IPv4 and at most one
-       IPv6 OR port.
-
-       If we're not on IPv6, don't consider reachability of potential
-       IPv6 OR port since that'd kill all dual stack relays until a
-       majority of the dir auths have IPv6 connectivity. */
-    answer = (now < node->last_reachable + REACHABLE_TIMEOUT &&
-              (options->AuthDirHasIPv6Connectivity != 1 ||
-               tor_addr_is_null(&router->ipv6_addr) ||
-               now < node->last_reachable6 + REACHABLE_TIMEOUT));
+       Since prop186, there's always one IPv4 and at most one IPv6 OR port.
+       (When IPv6 OR ports are unreachable, we remove the IPv6 "a" line from
+       the vote.) */
+    answer = (now < node->last_reachable + REACHABLE_TIMEOUT);
   }
 
   if (!answer && running_long_enough_to_decide_unreachable()) {
@@ -982,8 +977,6 @@ dirserv_set_router_is_running(routerinfo_t *router, time_t now)
        REACHABILITY_TEST_CYCLE_PERIOD seconds, then the router has probably
        been down since at least that time after we last successfully reached
        it.
-
-       XXX ipv6
      */
     time_t when = now;
     if (node->last_reachable &&
@@ -1955,7 +1948,10 @@ routerstatus_format_entry(const routerstatus_t *rs, const char *version,
       consensus_method < MIN_METHOD_FOR_A_LINES_IN_MICRODESC_CONSENSUS)
     goto done;
 
-  /* Possible "a" line. At most one for now. */
+  /* Possible "a" line. At most one for now.
+   * The IPv6 address is only copied into the routerstatus if the relay is
+   * reachable over IPv6, and the authority has IPv6 connectivity.
+   * So we only vote for the "a" line if the relay is reachable over IPv6. */
   if (!tor_addr_is_null(&rs->ipv6_addr)) {
     smartlist_add_asprintf(chunks, "a %s\n",
                            fmt_addrport(&rs->ipv6_addr, rs->ipv6_orport));
