@@ -1461,23 +1461,26 @@ node_get_pref_orport(const node_t *node, tor_addr_port_t *ap_out)
 }
 
 /** Copy the preferred IPv6 OR port (IP address and TCP port) for
- * <b>node</b> into *<b>ap_out</b>. */
+ * <b>node</b> into *<b>ap_out</b>.
+ * This function must not be used to find the IPv6 addresss for reachability
+ * testing: use the address from the descriptor (routerinfo) instead. */
 void
 node_get_pref_ipv6_orport(const node_t *node, tor_addr_port_t *ap_out)
 {
   node_assert_ok(node);
   tor_assert(ap_out);
 
-  /* Check ri first, because rewrite_node_address_for_bridge() updates
-   * node->ri with the configured bridge address.
+  /* Bridge clients check ri first, because rewrite_node_address_for_bridge()
+   * updates node->ri with the configured bridge address.
    * Prefer rs over md, when consensuses are more up-to-date than mds.
    * Check if the address or port are valid, and try another alternative
    * if they are not. */
 
-  const int consensus_has_ipv6 = networkstatus_consensus_has_ipv6(
-                                                                get_options());
+  const or_options_t *options = get_options();
+  const int consensus_has_ipv6 = networkstatus_consensus_has_ipv6(options);
 
-  if (node->ri && tor_addr_port_is_valid(&node->ri->ipv6_addr,
+  if (options->UseBridges &&
+      node->ri && tor_addr_port_is_valid(&node->ri->ipv6_addr,
                                          node->ri->ipv6_orport, 0)) {
     tor_addr_copy(&ap_out->addr, &node->ri->ipv6_addr);
     ap_out->port = node->ri->ipv6_orport;
