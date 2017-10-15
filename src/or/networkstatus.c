@@ -2213,7 +2213,6 @@ networkstatus_getinfo_by_purpose(const char *purpose_string, time_t now)
   routerlist_t *rl = router_get_routerlist();
   smartlist_t *statuses;
   const uint8_t purpose = router_purpose_from_string(purpose_string);
-  routerstatus_t rs;
   const int bridge_auth = authdir_mode_bridge(get_options());
 
   if (purpose == ROUTER_PURPOSE_UNKNOWN) {
@@ -2224,6 +2223,7 @@ networkstatus_getinfo_by_purpose(const char *purpose_string, time_t now)
 
   statuses = smartlist_new();
   SMARTLIST_FOREACH_BEGIN(rl->routers, routerinfo_t *, ri) {
+    routerstatus_t rs;
     node_t *node = node_get_mutable_by_id(ri->cache_info.identity_digest);
     if (!node)
       continue;
