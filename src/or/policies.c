@@ -892,9 +892,10 @@ fascist_firewall_choose_address_ipv4h(uint32_t ipv4h_addr,
                                               pref_ipv6, ap);
 }
 
-/* The microdescriptor consensus has no IPv6 addresses in rs: they are in
- * the microdescriptors. This means we can't rely on the node's IPv6 address
- * until its microdescriptor is available (when using microdescs).
+/* Some microdescriptor consensus methods have no IPv6 addresses in rs: they
+ * are in the microdescriptors. For these consensus methods, we can't rely on
+ * the node's IPv6 address until its microdescriptor is available (when using
+ * microdescs).
  * But for bridges, rewrite_node_address_for_bridge() updates node->ri with
  * the configured address, so we can trust bridge addresses.
  * (Bridges could gain an IPv6 address if their microdescriptor arrives, but
@@ -909,6 +910,17 @@ node_awaiting_ipv6(const or_options_t* options, const node_t *node)
 
   /* There's no point waiting for an IPv6 address if we'd never use it */
   if (!fascist_firewall_use_ipv6(options)) {
+    return 0;
+  }
+
+  /* If the node has an IPv6 address, we're not waiting */
+  if (node_has_ipv6_addr(node)) {
+    return 0;
+  }
+
+  /* If the current consensus method and flavour has IPv6 addresses, we're not
+   * waiting */
+  if (networkstatus_consensus_has_ipv6(options)) {
     return 0;
   }
 
