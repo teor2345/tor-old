@@ -1484,6 +1484,10 @@ node_get_pref_ipv6_orport(const node_t *node, tor_addr_port_t *ap_out)
       tor_addr_copy(&ap_out->addr, &node->ri->ipv6_addr);
       ap_out->port = node->ri->ipv6_orport;
       return;
+    } else {
+      /* Until we allow IPv6 extends, bridge clients will never ask for IPv6
+       * addresses for non-bridges. */
+      return;
     }
   }
 
