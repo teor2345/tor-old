@@ -1427,6 +1427,15 @@ node_ipv6_or_preferred(const node_t *node)
     } \
   STMT_END
 
+#define RETURN_IPV6_AP(r, ap_out) \
+  STMT_BEGIN \
+    if (r && tor_addr_port_is_valid(&(r)->ipv6_addr, (r)->ipv6_orport, 0)) { \
+      tor_addr_copy(&(ap_out)->addr, &(r)->ipv6_addr); \
+      (ap_out)->port = (r)->ipv6_orport; \
+      return; \
+    } \
+  STMT_END
+
 /** Copy the primary (IPv4) OR port (IP address and TCP port) for
  * <b>node</b> into *<b>ap_out</b>. Return 0 if a valid address and
  * port was copied.
@@ -1512,12 +1521,7 @@ node_get_pref_ipv6_orport(const node_t *node, tor_addr_port_t *ap_out)
    * bridge address. */
 
   if (node_is_a_configured_bridge(node)) {
-    if (node->ri && tor_addr_port_is_valid(&node->ri->ipv6_addr,
-                                           node->ri->ipv6_orport, 0)) {
-      tor_addr_copy(&ap_out->addr, &node->ri->ipv6_addr);
-      ap_out->port = node->ri->ipv6_orport;
-    }
-    return;
+    RETURN_IPV6_AP(node->ri, ap_out);
   }
 
   /* For other clients, use the routerstatus, when consensuses have IPv6
@@ -1531,12 +1535,7 @@ node_get_pref_ipv6_orport(const node_t *node, tor_addr_port_t *ap_out)
                                             usable_consensus_flavor()) != NULL;
 
   if (consensus_is_recent && consensus_has_ipv6) {
-    if (node->rs && tor_addr_port_is_valid(&node->rs->ipv6_addr,
-                                           node->rs->ipv6_orport, 0)) {
-      tor_addr_copy(&ap_out->addr, &node->rs->ipv6_addr);
-      ap_out->port = node->rs->ipv6_orport;
-    }
-    return;
+    RETURN_IPV6_AP(node->rs, ap_out);
   }
 
   /* When consensuses do not have IPv6 addresses, use the address from
@@ -1544,21 +1543,11 @@ node_get_pref_ipv6_orport(const node_t *node, tor_addr_port_t *ap_out)
 
   if (!consensus_has_ipv6) {
     if (we_use_microdescriptors_for_circuits(get_options())) {
-      if (node->md && tor_addr_port_is_valid(&node->md->ipv6_addr,
-                                             node->md->ipv6_orport, 0)) {
-        tor_addr_copy(&ap_out->addr, &node->md->ipv6_addr);
-        ap_out->port = node->md->ipv6_orport;
-      }
+      RETURN_IPV6_AP(node->md, ap_out);
       /* Should we fall back to any descriptors we have, even if we aren't
        * using them for circuits? Probably not. */
-       return;
     } else {
-      if (node->ri && tor_addr_port_is_valid(&node->ri->ipv6_addr,
-                                             node->ri->ipv6_orport, 0)) {
-        tor_addr_copy(&ap_out->addr, &node->ri->ipv6_addr);
-        ap_out->port = node->ri->ipv6_orport;
-      }
-      return;
+      RETURN_IPV6_AP(node->ri, ap_out);
     }
   }
 }
