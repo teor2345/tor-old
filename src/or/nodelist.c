@@ -1452,10 +1452,29 @@ node_get_prim_orport(const node_t *node, tor_addr_port_t *ap_out)
     return -1;
   }
 
-  /* Otherwise, prefer the consensus, then the descriptor. */
-  RETURN_IPV4_AP(node->rs, or_port, ap_out);
-  RETURN_IPV4_AP(node->ri, or_port, ap_out);
-  /* Microdescriptors only have an IPv6 address */
+  /* For other clients, use the routerstatus from a reasonably live consensus,
+   * if we have one. And return a null address for nodes not in the consensus.
+   */
+
+  if (networkstatus_get_reasonably_live_consensus(time(NULL),
+                                                  usable_consensus_flavor())) {
+    RETURN_IPV4_AP(node->rs, or_port, ap_out);
+    return -1;
+  }
+
+  /* If we have no reasonably live consensus, use the address in the
+   * descriptor, if we have one, and would use it for circuits. */
+
+  if (!we_use_microdescriptors_for_circuits(get_options())) {
+    RETURN_IPV4_AP(node->ri, or_port, ap_out);
+    return -1;
+  }
+
+  /* Should we fall back to any descriptors we have, even if we aren't
+   * using them for circuits? Probably not. */
+
+  /* We don't check md, because there are no IPv4 addresses in
+   * microdescriptors. */
 
   return -1;
 }
@@ -1501,21 +1520,46 @@ node_get_pref_ipv6_orport(const node_t *node, tor_addr_port_t *ap_out)
     return;
   }
 
-  /* Prefer the consensus over descriptors and microdescriptors, because
-   * consensuses contain IPv6 reachability information. Check if the address
-   * and port are valid, and try another alternative if they are not. */
-  if (node->rs && tor_addr_port_is_valid(&node->rs->ipv6_addr,
-                                         node->rs->ipv6_orport, 0)) {
-    tor_addr_copy(&ap_out->addr, &node->rs->ipv6_addr);
-    ap_out->port = node->rs->ipv6_orport;
-  } else if (node->ri && tor_addr_port_is_valid(&node->ri->ipv6_addr,
-                                                node->ri->ipv6_orport, 0)) {
-    tor_addr_copy(&ap_out->addr, &node->ri->ipv6_addr);
-    ap_out->port = node->ri->ipv6_orport;
-  } else if (node->md && tor_addr_port_is_valid(&node->md->ipv6_addr,
-                                                node->md->ipv6_orport, 0)) {
-    tor_addr_copy(&ap_out->addr, &node->md->ipv6_addr);
-    ap_out->port = node->md->ipv6_orport;
+  /* For other clients, use the routerstatus, when consensuses have IPv6
+   * addresses, and we have a reasonably live consensus. And return a null
+   * address for nodes not in the consensus. */
+
+  const int consensus_has_ipv6 = networkstatus_consensus_has_ipv6(
+                                                                get_options());
+  const int consensus_is_recent = networkstatus_get_reasonably_live_consensus(
+                                            time(NULL),
+                                            usable_consensus_flavor()) != NULL;
+
+  if (consensus_is_recent && consensus_has_ipv6) {
+    if (node->rs && tor_addr_port_is_valid(&node->rs->ipv6_addr,
+                                           node->rs->ipv6_orport, 0)) {
+      tor_addr_copy(&ap_out->addr, &node->rs->ipv6_addr);
+      ap_out->port = node->rs->ipv6_orport;
+    }
+    return;
+  }
+
+  /* When consensuses do not have IPv6 addresses, use the address from
+   * the descriptor flavour that we're using for circuits. */
+
+  if (!consensus_has_ipv6) {
+    if (we_use_microdescriptors_for_circuits(get_options())) {
+      if (node->md && tor_addr_port_is_valid(&node->md->ipv6_addr,
+                                             node->md->ipv6_orport, 0)) {
+        tor_addr_copy(&ap_out->addr, &node->md->ipv6_addr);
+        ap_out->port = node->md->ipv6_orport;
+      }
+      /* Should we fall back to any descriptors we have, even if we aren't
+       * using them for circuits? Probably not. */
+       return;
+    } else {
+      if (node->ri && tor_addr_port_is_valid(&node->ri->ipv6_addr,
+                                             node->ri->ipv6_orport, 0)) {
+        tor_addr_copy(&ap_out->addr, &node->ri->ipv6_addr);
+        ap_out->port = node->ri->ipv6_orport;
+      }
+      return;
+    }
   }
 }
 
