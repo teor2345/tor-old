@@ -42,6 +42,7 @@
 
 #include "or.h"
 #include "address.h"
+#include "bridges.h"
 #include "config.h"
 #include "control.h"
 #include "dirserv.h"
@@ -1428,18 +1429,32 @@ node_ipv6_or_preferred(const node_t *node)
 
 /** Copy the primary (IPv4) OR port (IP address and TCP port) for
  * <b>node</b> into *<b>ap_out</b>. Return 0 if a valid address and
- * port was copied, else return non-zero.*/
+ * port was copied.
+ * Otherwise, set the address to a null address, and the port to zero, and
+ * return -1.*/
 int
 node_get_prim_orport(const node_t *node, tor_addr_port_t *ap_out)
 {
   node_assert_ok(node);
   tor_assert(ap_out);
 
-  /* Check ri first, because rewrite_node_address_for_bridge() updates
-   * node->ri with the configured bridge address. */
+  /* Make sure we return a null address if no address is available. */
 
-  RETURN_IPV4_AP(node->ri, or_port, ap_out);
+  tor_addr_make_null(&ap_out->addr, AF_INET);
+  ap_out->port = 0;
+
+  /* Only check the descriptor for bridges, because
+   * rewrite_node_address_for_bridge() updates node->ri with the configured
+   * bridge address. */
+
+  if (node_is_a_configured_bridge(node)) {
+    RETURN_IPV4_AP(node->ri, or_port, ap_out);
+    return -1;
+  }
+
+  /* Otherwise, prefer the consensus, then the descriptor. */
   RETURN_IPV4_AP(node->rs, or_port, ap_out);
+  RETURN_IPV4_AP(node->ri, or_port, ap_out);
   /* Microdescriptors only have an IPv6 address */
 
   return -1;
@@ -1468,27 +1483,39 @@ node_get_pref_ipv6_orport(const node_t *node, tor_addr_port_t *ap_out)
   node_assert_ok(node);
   tor_assert(ap_out);
 
-  /* Check ri first, because rewrite_node_address_for_bridge() updates
-   * node->ri with the configured bridge address.
-   * Prefer rs over md for consistency with the fascist_firewall_* functions.
-   * Check if the address or port are valid, and try another alternative
-   * if they are not. */
+  /* Make sure we return a null address if no address is available. */
 
-  if (node->ri && tor_addr_port_is_valid(&node->ri->ipv6_addr,
-                                         node->ri->ipv6_orport, 0)) {
-    tor_addr_copy(&ap_out->addr, &node->ri->ipv6_addr);
-    ap_out->port = node->ri->ipv6_orport;
-  } else if (node->rs && tor_addr_port_is_valid(&node->rs->ipv6_addr,
-                                                 node->rs->ipv6_orport, 0)) {
+  tor_addr_make_null(&ap_out->addr, AF_INET6);
+  ap_out->port = 0;
+
+  /* Only check the descriptor for bridges, because
+   * rewrite_node_address_for_bridge() updates node->ri with the configured
+   * bridge address. */
+
+  if (node_is_a_configured_bridge(node)) {
+    if (node->ri && tor_addr_port_is_valid(&node->ri->ipv6_addr,
+                                           node->ri->ipv6_orport, 0)) {
+      tor_addr_copy(&ap_out->addr, &node->ri->ipv6_addr);
+      ap_out->port = node->ri->ipv6_orport;
+    }
+    return;
+  }
+
+  /* Prefer the consensus over descriptors and microdescriptors, because
+   * consensuses contain IPv6 reachability information. Check if the address
+   * and port are valid, and try another alternative if they are not. */
+  if (node->rs && tor_addr_port_is_valid(&node->rs->ipv6_addr,
+                                         node->rs->ipv6_orport, 0)) {
     tor_addr_copy(&ap_out->addr, &node->rs->ipv6_addr);
     ap_out->port = node->rs->ipv6_orport;
+  } else if (node->ri && tor_addr_port_is_valid(&node->ri->ipv6_addr,
+                                                node->ri->ipv6_orport, 0)) {
+    tor_addr_copy(&ap_out->addr, &node->ri->ipv6_addr);
+    ap_out->port = node->ri->ipv6_orport;
   } else if (node->md && tor_addr_port_is_valid(&node->md->ipv6_addr,
-                                                 node->md->ipv6_orport, 0)) {
+                                                node->md->ipv6_orport, 0)) {
     tor_addr_copy(&ap_out->addr, &node->md->ipv6_addr);
     ap_out->port = node->md->ipv6_orport;
-  } else {
-    tor_addr_make_null(&ap_out->addr, AF_INET6);
-    ap_out->port = 0;
   }
 }
 
