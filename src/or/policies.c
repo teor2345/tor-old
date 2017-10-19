@@ -18,6 +18,7 @@
 #define POLICIES_PRIVATE
 
 #include "or.h"
+#include "bridges.h"
 #include "config.h"
 #include "dirserv.h"
 #include "microdesc.h"
@@ -892,15 +893,13 @@ fascist_firewall_choose_address_ipv4h(uint32_t ipv4h_addr,
                                               pref_ipv6, ap);
 }
 
-/* Some microdescriptor consensus methods have no IPv6 addresses in rs: they
+/* Some microdescriptor consensus methods have no IPv6 ORPorts in rs: they
  * are in the microdescriptors. For these consensus methods, we can't rely on
- * the node's IPv6 address until its microdescriptor is available (when using
+ * the node's IPv6 ORPort until its microdescriptor is available (when using
  * microdescs).
  * But for bridges, rewrite_node_address_for_bridge() updates node->ri with
  * the configured address, so we can trust bridge addresses.
- * (Bridges could gain an IPv6 address if their microdescriptor arrives, but
- * this will never be their preferred address: that is in the config.)
- * Returns true if the node needs a microdescriptor for its IPv6 address, and
+ * Returns true if the node needs a microdescriptor for its IPv6 ORPort, and
  * false if the addresses in the node are already up-to-date.
  */
 static int
@@ -913,8 +912,13 @@ node_awaiting_ipv6(const or_options_t* options, const node_t *node)
     return 0;
   }
 
-  /* If the node has an IPv6 address, we're not waiting */
-  if (node_has_ipv6_addr(node)) {
+  /* If the node has an IPv6 ORPort, we're obviously not waiting for one */
+  if (node_has_ipv6_orport(node)) {
+    return 0;
+  }
+
+  /* Bridge clients get bridge addresses from bridge descriptors */
+  if (node_is_a_configured_bridge(node)) {
     return 0;
   }
 
@@ -925,10 +929,8 @@ node_awaiting_ipv6(const or_options_t* options, const node_t *node)
   }
 
   /* We are waiting if we_use_microdescriptors_for_circuits() and we have no
-   * md. Bridges have a ri based on their config. They would never use the
-   * address from their md, so there's no need to wait for it. */
-  return (!node->md && we_use_microdescriptors_for_circuits(options) &&
-          !node->ri);
+   * md. */
+  return (!node->md && we_use_microdescriptors_for_circuits(options));
 }
 
 /** Like fascist_firewall_choose_address_base(), but takes <b>rs</b>.
