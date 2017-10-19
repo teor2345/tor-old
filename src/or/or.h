@@ -3869,7 +3869,6 @@ typedef struct {
                                * (strings). */
   config_line_t *ReachableAddresses; /**< IP:ports our firewall allows. */
   config_line_t *ReachableORAddresses; /**< IP:ports for OR conns. */
-  config_line_t *ReachableDirAddresses; /**< IP:ports for Dir conns. */
 
   int ConstrainedSockets; /**< Shrink xmit and recv socket buffers. */
   uint64_t ConstrainedSockSize; /**< Size of constrained buffers. */
@@ -4221,11 +4220,6 @@ typedef struct {
    * prefer IPv4. Use node_ipv6_or_preferred() instead of accessing this value
    * directly. */
   int ClientPreferIPv6ORPort;
-  /** If true, prefer an IPv6 directory port over an IPv4 one for direct
-   * directory connections. If auto, bridge clients prefer IPv6, and other
-   * clients prefer IPv4. Use fascist_firewall_prefer_ipv6_dirport() instead of
-   * accessing this value directly.  */
-  int ClientPreferIPv6DirPort;
 
   /** The length of time that we think a consensus should be fresh. */
   int V3AuthVotingInterval;

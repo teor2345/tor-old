@@ -12,7 +12,7 @@
 # This script should be run from a stable, reliable network connection,
 # with no other network activity (and not over tor).
 # If this is not possible, please disable:
-# PERFORM_IPV4_DIRPORT_CHECKS and PERFORM_IPV6_DIRPORT_CHECKS
+# PERFORM_IPV4_DIRPORT_CHECKS
 #
 # Needs dateutil (and potentially other python packages)
 # Needs stem available in your PYTHONPATH, or just ln -s ../stem/stem .
@@ -77,16 +77,8 @@ OUTPUT_CANDIDATES = False
 # Don't check ~1000 candidates when OUTPUT_CANDIDATES is True
 PERFORM_IPV4_DIRPORT_CHECKS = False if OUTPUT_CANDIDATES else True
 
-# Perform DirPort checks over IPv6?
-# If you know IPv6 works for you, set this to True
-# This will exclude IPv6 relays without an IPv6 DirPort configured
-# So it's best left at False until #18394 is implemented
-# Don't check ~1000 candidates when OUTPUT_CANDIDATES is True
-PERFORM_IPV6_DIRPORT_CHECKS = False if OUTPUT_CANDIDATES else False
-
 # Must relays be running now?
-MUST_BE_RUNNING_NOW = (PERFORM_IPV4_DIRPORT_CHECKS
-                       or PERFORM_IPV6_DIRPORT_CHECKS)
+MUST_BE_RUNNING_NOW = PERFORM_IPV4_DIRPORT_CHECKS
 
 # Clients have been using microdesc consensuses by default for a while now
 DOWNLOAD_MICRODESC_CONSENSUS = True
@@ -1236,23 +1228,16 @@ class Candidate(object):
 
   # does this fallback download the consensus fast enough?
   def check_fallback_download_consensus(self):
-    # include the relay if we're not doing a check, or we can't check (IPv6)
-    ipv4_failed = False
-    ipv6_failed = False
+
     if PERFORM_IPV4_DIRPORT_CHECKS:
-      ipv4_failed = Candidate.fallback_consensus_download_speed(self.dirip,
+      return not Candidate.fallback_consensus_download_speed(self.dirip,
                                                 self.dirport,
                                                 self._data['nickname'],
                                                 self._fpr,
                                                 CONSENSUS_DOWNLOAD_SPEED_MAX)
-    if self.has_ipv6() and PERFORM_IPV6_DIRPORT_CHECKS:
-      # Clients assume the IPv6 DirPort is the same as the IPv4 DirPort
-      ipv6_failed = Candidate.fallback_consensus_download_speed(self.ipv6addr,
-                                                self.dirport,
-                                                self._data['nickname'],
-                                                self._fpr,
-                                                CONSENSUS_DOWNLOAD_SPEED_MAX)
-    return ((not ipv4_failed) and (not ipv6_failed))
+    else:
+      # include the relay if we're not doing a check
+      return True
 
   # if this fallback has not passed a download check, try it again,
   # and record the result, available in get_fallback_download_consensus
@@ -1263,7 +1248,7 @@ class Candidate(object):
   # did this fallback pass the download check?
   def get_fallback_download_consensus(self):
     # if we're not performing checks, return True
-    if not PERFORM_IPV4_DIRPORT_CHECKS and not PERFORM_IPV6_DIRPORT_CHECKS:
+    if not PERFORM_IPV4_DIRPORT_CHECKS:
       return True
     # if we are performing checks, but haven't done one, return False
     if not self._data.has_key('download_check'):
@@ -2028,15 +2013,11 @@ class CandidateList(dict):
     #  the number of fallback directories (and limits/exclusions, if relevant)
     #  min & max fallback bandwidths
     #  #error if below minimum count
-    if PERFORM_IPV4_DIRPORT_CHECKS or PERFORM_IPV6_DIRPORT_CHECKS:
-      s += '/* Checked %s%s%s DirPorts served a consensus within %.1fs. */'%(
-            'IPv4' if PERFORM_IPV4_DIRPORT_CHECKS else '',
-            ' and ' if (PERFORM_IPV4_DIRPORT_CHECKS
-                        and PERFORM_IPV6_DIRPORT_CHECKS) else '',
-            'IPv6' if PERFORM_IPV6_DIRPORT_CHECKS else '',
+    if PERFORM_IPV4_DIRPORT_CHECKS:
+      s += '/* Checked IPv4 DirPorts served a consensus within %.1fs. */'%(
             CONSENSUS_DOWNLOAD_SPEED_MAX)
     else:
-      s += '/* Did not check IPv4 or IPv6 DirPort consensus downloads. */'
+      s += '/* Did not check IPv4 DirPort consensus downloads. */'
     s += '\n'
     # Multiline C comment with #error if things go bad
     s += '/*'
@@ -2183,7 +2164,7 @@ def list_fallbacks(whitelist, blacklist):
   # can serve a consensus, in favour of one that can't
   # but given it takes up to 15 seconds to check each consensus download,
   # the risk is worth it
-  if PERFORM_IPV4_DIRPORT_CHECKS or PERFORM_IPV6_DIRPORT_CHECKS:
+  if PERFORM_IPV4_DIRPORT_CHECKS:
     logging.warning('Checking consensus download speeds. ' +
                     'This may take some time.')
   failed_count = candidates.perform_download_consensus_checks(max_count)

@@ -1009,28 +1009,15 @@ The following options are useful only for clients (that is, if
     example, \'ReachableAddresses 99.0.0.0/8, reject 18.0.0.0/8:80, accept
     \*:80' means that your firewall allows connections to everything inside net
     99, rejects port 80 connections to net 18, and accepts connections to port
-    80 otherwise. (Default: \'accept \*:*'.)
-
-[[ReachableDirAddresses]] **ReachableDirAddresses** __IP__[/__MASK__][:__PORT__]...::
-    Like **ReachableAddresses**, a list of addresses and ports. Tor will obey
-    these restrictions when fetching directory information, using standard HTTP
-    GET requests. If not set explicitly then the value of
-    **ReachableAddresses** is used. If **HTTPProxy** is set then these
-    connections will go through that proxy.   (DEPRECATED: This option has
-    had no effect for some time.)
+    80 otherwise.
+    +
+    Tor clients will obey these restrictions when connecting to Onion Routers,
+    using TLS/SSL. If **HTTPSProxy** is set then these connections will go
+    through that proxy.(Default: \'accept \*:*'.)
 
 [[ReachableORAddresses]] **ReachableORAddresses** __IP__[/__MASK__][:__PORT__]...::
-    Like **ReachableAddresses**, a list of addresses and ports. Tor will obey
-    these restrictions when connecting to Onion Routers, using TLS/SSL. If not
-    set explicitly then the value of **ReachableAddresses** is used. If
-    **HTTPSProxy** is set then these connections will go through that proxy. +
- +
-    The separation between **ReachableORAddresses** and
-    **ReachableDirAddresses** is only interesting when you are connecting
-    through proxies (see **HTTPProxy** and **HTTPSProxy**). Most proxies limit
-    TLS connections (which Tor uses to connect to Onion Routers) to port 443,
-    and some limit HTTP GET requests (which Tor uses for fetching directory
-    information) to port 80.
+    (DEPRECATED: this has been synonym for ReachableAddresses for some time.
+    If both are set, ReachableORAddresses overrides ReachableAddresses.)
 
 [[HidServAuth]] **HidServAuth** __onion-address__ __auth-cookie__ [__service-name__]::
     Client authorization for a hidden service. Valid onion addresses contain 16
@@ -1572,15 +1559,6 @@ The following options are useful only for clients (that is, if
     entry nodes over IPv6. Note that clients configured with an IPv6 address
     in a **Bridge**, proxy, or pluggable transport line will try connecting
     over IPv6 even if **ClientUseIPv6** is set to 0. (Default: 0)
-
-[[ClientPreferIPv6DirPort]] **ClientPreferIPv6DirPort** **0**|**1**|**auto**::
-    If this option is set to 1, Tor prefers a directory port with an IPv6
-    address over one with IPv4, for direct connections, if a given directory
-    server has both. (Tor also prefers an IPv6 DirPort if IPv4Client is set to
-    0.) If this option is set to auto, clients prefer IPv4. Other things may
-    influence the choice. This option breaks a tie to the favor of IPv6.
-    (Default: auto)  (DEPRECATED: This option has had no effect for some
-    time.)
 
 [[ClientPreferIPv6ORPort]] **ClientPreferIPv6ORPort** **0**|**1**|**auto**::
     If this option is set to 1, Tor prefers an OR port with an IPv6

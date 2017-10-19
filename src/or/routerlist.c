@@ -1800,7 +1800,7 @@ router_pick_dirserver_generic(smartlist_t *sourcelist,
 /* Check if we already have a directory fetch from ap, for serverdesc
  * (including extrainfo) or microdesc documents.
  * If so, return 1, if not, return 0.
- * Also returns 0 if addr is NULL, tor_addr_is_null(addr), or dir_port is 0.
+ * Also returns 0 if ap is NULL, tor_addr_is_null(ap->addr), or ap->port is 0.
  */
 STATIC int
 router_is_already_dir_fetching(const tor_addr_port_t *ap, int serverdesc,
@@ -1810,7 +1810,8 @@ router_is_already_dir_fetching(const tor_addr_port_t *ap, int serverdesc,
     return 0;
   }
 
-  /* XX/teor - we're not checking tunnel connections here, see #17848
+  /* XX/teor - Does this check tunnelled dir connections when passed the
+   * ORPort address of the directory server?
    */
   if (serverdesc && (
      connection_get_by_type_addr_port_purpose(
@@ -1835,21 +1836,30 @@ router_is_already_dir_fetching(const tor_addr_port_t *ap, int serverdesc,
  */
 static int
 router_is_already_dir_fetching_(uint32_t ipv4_addr,
-                                const tor_addr_t *ipv6_addr,
+                                uint16_t or_port,
                                 uint16_t dir_port,
+                                const tor_addr_t *ipv6_addr,
+                                uint16_t ipv6_orport,
                                 int serverdesc,
                                 int microdesc)
 {
-  tor_addr_port_t ipv4_dir_ap, ipv6_dir_ap;
+  tor_addr_port_t ipv4_or_ap, ipv4_dir_ap, ipv6_or_ap;
 
-  /* Assume IPv6 DirPort is the same as IPv4 DirPort */
+  tor_addr_from_ipv4h(&ipv4_or_ap.addr, ipv4_addr);
+  ipv4_or_ap.port = or_port;
+
   tor_addr_from_ipv4h(&ipv4_dir_ap.addr, ipv4_addr);
   ipv4_dir_ap.port = dir_port;
-  tor_addr_copy(&ipv6_dir_ap.addr, ipv6_addr);
-  ipv6_dir_ap.port = dir_port;
 
-  return (router_is_already_dir_fetching(&ipv4_dir_ap, serverdesc, microdesc)
-       || router_is_already_dir_fetching(&ipv6_dir_ap, serverdesc, microdesc));
+  tor_addr_copy(&ipv6_or_ap.addr, ipv6_addr);
+  ipv6_or_ap.port = ipv6_orport;
+
+  /* There are no IPv6 DirPorts */
+
+  return (
+        router_is_already_dir_fetching(&ipv4_or_ap, serverdesc, microdesc) ||
+        router_is_already_dir_fetching(&ipv4_dir_ap, serverdesc, microdesc) ||
+        router_is_already_dir_fetching(&ipv6_or_ap, serverdesc, microdesc));
 }
 
 #ifndef LOG_FALSE_POSITIVES_DURING_BOOTSTRAP
@@ -2042,8 +2052,10 @@ router_pick_directory_server_impl(dirinfo_type_t type, int flags,
     }
 
     if (router_is_already_dir_fetching_(status->addr,
-                                        &status->ipv6_addr,
+                                        status->or_port,
                                         status->dir_port,
+                                        &status->ipv6_addr,
+                                        status->ipv6_orport,
                                         no_serverdesc_fetching,
                                         no_microdesc_fetching)) {
       ++n_busy;
@@ -2196,8 +2208,10 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
       }
 
       if (router_is_already_dir_fetching_(d->addr,
-                                          &d->ipv6_addr,
+                                          d->or_port,
                                           d->dir_port,
+                                          &d->ipv6_addr,
+                                          d->ipv6_orport,
                                           no_serverdesc_fetching,
                                           no_microdesc_fetching)) {
         ++n_busy;

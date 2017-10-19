@@ -264,7 +264,7 @@ static config_var_t option_vars_[] = {
   V(TestingClientDNSRejectInternalAddresses, BOOL,"1"),
   V(ClientOnly,                  BOOL,     "0"),
   V(ClientPreferIPv6ORPort,      AUTOBOOL, "auto"),
-  V(ClientPreferIPv6DirPort,     AUTOBOOL, "auto"),
+  OBSOLETE("ClientPreferIPv6DirPort"),
   V(ClientRejectInternalAddresses, BOOL,   "1"),
   V(ClientTransportPlugin,       LINELIST, NULL),
   V(ClientUseIPv6,               BOOL,     "0"),
@@ -469,7 +469,7 @@ static config_var_t option_vars_[] = {
   V(PublishServerDescriptor,     CSV,      "1"),
   V(PublishHidServDescriptors,   BOOL,     "1"),
   V(ReachableAddresses,          LINELIST, NULL),
-  V(ReachableDirAddresses,       LINELIST, NULL),
+  OBSOLETE("ReachableDirAddresses"),
   V(ReachableORAddresses,        LINELIST, NULL),
   V(RecommendedVersions,         LINELIST, NULL),
   V(RecommendedClientVersions,   LINELIST, NULL),
@@ -699,12 +699,12 @@ static const config_deprecation_t option_deprecation_notes_[] = {
     "which should be used with HTTPSProxyAuthenticator." },
   /* End of options deprecated since 0.3.2.1-alpha */
 
-  /* Options deprecated since 0.3.2.2-alpha */
-  { "ReachableDirAddresses", "It has no effect on relays, and has had no "
-    "effect on clients since 0.2.8." },
-  { "ClientPreferIPv6DirPort", "It has no effect on relays, and has had no "
-    "effect on clients since 0.2.8." },
-  /* End of options deprecated since 0.3.2.2-alpha. */
+  /* Options deprecated since 0.3.3.1-alpha */
+  { "ReachableORAddresses", "It has no effect on relays, and has had the same "
+    "effect as ReachableAddresses on clients since 0.2.8. If both "
+    "ReachableORAddresses and ReachableAddresses are specified, "
+    "ReachableAddresses is ignored." },
+  /* End of options deprecated since 0.3.3.1-alpha. */
 
   { NULL, NULL }
 };
@@ -1600,8 +1600,7 @@ options_transition_affects_guards(const or_options_t *old,
      !routerset_equal(old->EntryNodes, new->EntryNodes) ||
      !smartlist_strings_eq(old->FirewallPorts, new->FirewallPorts) ||
      !config_lines_eq(old->Bridges, new->Bridges) ||
-     !config_lines_eq(old->ReachableORAddresses, new->ReachableORAddresses) ||
-     !config_lines_eq(old->ReachableDirAddresses, new->ReachableDirAddresses));
+     !config_lines_eq(old->ReachableORAddresses, new->ReachableORAddresses));
 }
 
 /** Fetch the active option list, and take actions based on it. All of the
@@ -3346,8 +3345,8 @@ options_validate(or_options_t *old_options, or_options_t *options,
   if (options->FascistFirewall && !options->ReachableAddresses) {
     if (options->FirewallPorts && smartlist_len(options->FirewallPorts)) {
       /* We already have firewall ports set, so migrate them to
-       * ReachableAddresses, which will set ReachableORAddresses and
-       * ReachableDirAddresses if they aren't set explicitly. */
+       * ReachableAddresses, which will set ReachableORAddresses if it is
+       * not already set. */
       smartlist_t *instead = smartlist_new();
       config_line_t *new_line = tor_malloc_zero(sizeof(config_line_t));
       new_line->key = tor_strdup("ReachableAddresses");
@@ -3369,16 +3368,8 @@ options_validate(or_options_t *old_options, or_options_t *options,
       SMARTLIST_FOREACH(instead, char *, cp, tor_free(cp));
       smartlist_free(instead);
     } else {
-      /* We do not have FirewallPorts set, so add 80 to
-       * ReachableDirAddresses, and 443 to ReachableORAddresses. */
-      if (!options->ReachableDirAddresses) {
-        config_line_t *new_line = tor_malloc_zero(sizeof(config_line_t));
-        new_line->key = tor_strdup("ReachableDirAddresses");
-        new_line->value = tor_strdup("*:80");
-        options->ReachableDirAddresses = new_line;
-        log_notice(LD_CONFIG, "Converting FascistFirewall config option "
-            "to new format: \"ReachableDirAddresses *:80\"");
-      }
+      /* We do not have FirewallPorts set, so add 443 to ReachableORAddresses.
+       */
       if (!options->ReachableORAddresses) {
         config_line_t *new_line = tor_malloc_zero(sizeof(config_line_t));
         new_line->key = tor_strdup("ReachableORAddresses");
@@ -3390,13 +3381,12 @@ options_validate(or_options_t *old_options, or_options_t *options,
     }
   }
 
-  /* Terminate Reachable*Addresses with reject *
+  /* Terminate Reachable{OR,}Addresses with reject *
    */
-  for (i=0; i<3; i++) {
+  for (i=0; i<2; i++) {
     config_line_t **linep =
       (i==0) ? &options->ReachableAddresses :
-        (i==1) ? &options->ReachableORAddresses :
-                 &options->ReachableDirAddresses;
+               &options->ReachableORAddresses;
     if (!*linep)
       continue;
     /* We need to end with a reject *:*, not an implicit accept *:* */
@@ -3405,9 +3395,8 @@ options_validate(or_options_t *old_options, or_options_t *options,
       if (!*linep) {
         *linep = tor_malloc_zero(sizeof(config_line_t));
         (*linep)->key = tor_strdup(
-          (i==0) ?  "ReachableAddresses" :
-            (i==1) ? "ReachableORAddresses" :
-                     "ReachableDirAddresses");
+          (i==0) ? "ReachableAddresses" :
+                   "ReachableORAddresses");
         (*linep)->value = tor_strdup("reject *:*");
         break;
       }
@@ -3416,12 +3405,11 @@ options_validate(or_options_t *old_options, or_options_t *options,
 
   if ((options->ReachableAddresses ||
        options->ReachableORAddresses ||
-       options->ReachableDirAddresses ||
        options->ClientUseIPv4 == 0) &&
       server_mode(options))
     REJECT("Servers must be able to freely connect to the rest "
-           "of the Internet, so they must not set Reachable*Addresses "
-           "or FascistFirewall or FirewallPorts or ClientUseIPv4 0.");
+           "of the Internet, so they must not set Reachable*Addresses or "
+           "FascistFirewall or FirewallPorts or ClientUseIPv4 0.");
 
   if (options->UseBridges &&
       server_mode(options))
