@@ -583,16 +583,17 @@ add_laplace_noise(int64_t signal_, double random_, double delta_f,
   tor_assert(delta_f > 0.0);
 
   /*
-   This function implements the "snapping" mitigation from
-   "On Significance of the Least Significant Bits For Differential Privacy"
-   by Ilya Mironov
-   ​https://pdfs.semanticscholar.org/2f2b/7a0d5000a31f7f0713a3d20919f9703c9876.pdf
-   1. Sample the noise at the appropriate scale
-   2. Add the noise to the signal
-   3. Round or truncate the noisy signal
-   It's ok to re-order these steps, or perform other operations, as long as
-   no additional precision is lost from the result.
-  */
+   * This function implements the "snapping" mitigation from
+   * "On Significance of the Least Significant Bits For Differential Privacy"
+   * by Ilya Mironov
+   * https://pdfs.semanticscholar.org/2f2b/
+   * 7a0d5000a31f7f0713a3d20919f9703c9876.pdf
+   * 1. Sample the noise at the appropriate scale
+   * 2. Add the noise to the signal
+   * 3. Round or truncate the noisy signal
+   * It's ok to re-order these steps, or perform other operations, as long as
+   * no additional precision is lost from the result.
+   */
 
   /* Preserve infinite signal values.
    * Counters with these values have stopped counting events. So the actual
