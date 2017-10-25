@@ -519,15 +519,35 @@ round_uint64_to_next_multiple_of(uint64_t number, uint64_t divisor)
   return number;
 }
 
-/* Return the maximum safe noise for a */
+/* Return the maximum safe noise for a distribution that is calculated using
+ * double precision floating point. The return value is a signed integer.
+ * Larger noise values do not have sufficient entropy to hide the low bits in
+ * the signal. (See "On Significance of the Least Significant Bits For
+ * Differential Privacy".)
+ *
+ * This is an upper bound: all safe maximum noise values are less than or
+ * equal to the value returned by this function. Any transforms used to
+ * calculate the noise distribution may result in less entropy in the
+ * mantissa. Particular distributions may need to use a lower safe maximum. */
 static int64_t get_max_safe_noise(void)
 {
-  return (uint64_t)1 << DBL_MANT_DIG;
+#if DBL_MANT_DIG > 62
+  /* We have a large mantissa: any values that fit in a signed integer are
+  * safe. */
+  return INT64_MAX
+#else
+  /* Only values that fit within the mantissa are safe. */
+  return (int64_t)1 << DBL_MANT_DIG;
+#endif
 }
 
+/* Return the minimum safe noise for a distribution that is calculated using
+ * double precision floating point. The return value is a signed integer.
+ *
+ * See get_max_safe_noise() for details. */
 static int64_t get_min_safe_noise(void)
 {
-  /* This is always safe, because -INT64_MAX is representable */
+  /* This is always safe, because -INT64_MAX is representable. */
   return -get_max_safe_noise();
 }
 
