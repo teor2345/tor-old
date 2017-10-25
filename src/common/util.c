@@ -534,7 +534,7 @@ static int64_t get_max_safe_noise(void)
 #if DBL_MANT_DIG > 62
   /* We have a large mantissa: any values that fit in a signed integer are
   * safe. */
-  return INT64_MAX
+  return INT64_MAX;
 #else
   /* Only values that fit within the mantissa are safe. */
   return (int64_t)1 << DBL_MANT_DIG;
