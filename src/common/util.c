@@ -529,7 +529,8 @@ round_uint64_to_next_multiple_of(uint64_t number, uint64_t divisor)
  * equal to the value returned by this function. Any transforms used to
  * calculate the noise distribution may result in less entropy in the
  * mantissa. Particular distributions may need to use a lower safe maximum. */
-static int64_t get_max_safe_noise(void)
+static int64_t
+get_max_safe_noise(void)
 {
 #if DBL_MANT_DIG > 62
   /* We have a large mantissa: any values that fit in a signed integer are
@@ -545,7 +546,8 @@ static int64_t get_max_safe_noise(void)
  * double precision floating point. The return value is a signed integer.
  *
  * See get_max_safe_noise() for details. */
-static int64_t get_min_safe_noise(void)
+static int64_t
+get_min_safe_noise(void)
 {
   /* This is always safe, because -INT64_MAX is representable. */
   return -get_max_safe_noise();
