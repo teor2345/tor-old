@@ -1,0 +1,5 @@
+  o Minor bugfixes (statistics):
+    - When adding noise to statistics, handle extreme noise and signal values
+      by returning a minimum or maximum value. This avoids revealing any of the
+      low bits of the signal or noise.
+      Fixes 23523 on 0.2.6.2-alpha.
