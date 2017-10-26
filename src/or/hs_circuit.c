@@ -370,7 +370,15 @@ launch_rendezvous_point_circuit(const hs_service_t *service,
                                         &data->onion_pk,
                                         service->config.is_single_onion);
   if (info == NULL) {
-    /* We are done here, we can't extend to the rendezvous point. */
+    /* We are done here, we can't extend to the rendezvous point.
+     * If you're running an IPv6-only v3 single onion service on 0.3.2 or with
+     * 0.3.2 clients, and somehow disable the option check, it will fail here.
+     */
+    log_fn(LOG_PROTOCOL_WARN, LD_REND,
+           "Not enough info to open a %s circuit to a rendezvous point for "
+           "service %s.",
+           service->config.is_single_onion ? "direct" : "multi-hop",
+           safe_str_client(service->onion_address));
     goto end;
   }
 
@@ -392,18 +400,20 @@ launch_rendezvous_point_circuit(const hs_service_t *service,
     }
   }
   if (circ == NULL) {
-    log_warn(LD_REND, "Giving up on launching rendezvous circuit to %s "
+    log_warn(LD_REND, "Giving up on launching %s rendezvous circuit to %s "
                       "for service %s",
+             service->config.is_single_onion ? "direct" : "multi-hop",
              safe_str_client(extend_info_describe(info)),
              safe_str_client(service->onion_address));
     goto end;
   }
   log_info(LD_REND, "Rendezvous circuit launched to %s with cookie %s "
-                    "for service %s",
+                    "for service %s via a %s path",
            safe_str_client(extend_info_describe(info)),
            safe_str_client(hex_str((const char *) data->rendezvous_cookie,
                                    REND_COOKIE_LEN)),
-           safe_str_client(service->onion_address));
+           safe_str_client(service->onion_address),
+           service->config.is_single_onion ? "direct" : "multi-hop");
   tor_assert(circ->build_state);
   /* Rendezvous circuit have a specific timeout for the time spent on trying
    * to connect to the rendezvous point. */

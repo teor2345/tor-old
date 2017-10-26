@@ -734,7 +734,9 @@ client_get_random_intro(const ed25519_public_key_t *service_pk)
   if (desc == NULL || !hs_client_any_intro_points_usable(service_pk,
                                                          desc)) {
     log_info(LD_REND, "Unable to randomly select an introduction point "
-                      "because descriptor %s.",
+             "for service key %s because descriptor %s. We can't connect.",
+             safe_str_client(hex_str((const char *)service_pk->pubkey,
+                                     ED25519_PUBKEY_LEN)),
              (desc) ? "doesn't have usable intro point" : "is missing");
     goto end;
   }
@@ -763,6 +765,11 @@ client_get_random_intro(const ed25519_public_key_t *service_pk)
     if (ei == NULL) {
       /* We can get here for instance if the intro point is a private address
        * and we aren't allowed to extend to those. */
+      log_info(LD_REND, "Unable to select introduction point with auth key %s "
+               "for service key %s, because we could not extend to it.",
+               safe_str_client(ed25519_fmt(&ip->auth_key_cert->signed_key)),
+               safe_str_client(hex_str((const char *)service_pk->pubkey,
+                                       ED25519_PUBKEY_LEN)));
       continue;
     }
 
@@ -791,10 +798,17 @@ client_get_random_intro(const ed25519_public_key_t *service_pk)
    * set, we are forced to not use anything. */
   ei = ei_excluded;
   if (options->StrictNodes) {
-    log_warn(LD_REND, "Every introduction points are in the ExcludeNodes set "
-             "and StrictNodes is set. We can't connect.");
+    log_warn(LD_REND, "Every introduction point for service key %s is in the "
+             "ExcludeNodes set and StrictNodes is set. We can't connect.",
+             safe_str_client(hex_str((const char *)service_pk->pubkey,
+                                     ED25519_PUBKEY_LEN)));
     extend_info_free(ei);
     ei = NULL;
+  } else {
+    log_fn(LOG_PROTOCOL_WARN, LD_REND, "Every introduction point for service "
+           "key %s is unusable or we can't extend to it. We can't connect.",
+           safe_str_client(hex_str((const char *)service_pk->pubkey,
+                                   ED25519_PUBKEY_LEN)));
   }
 
  end:
