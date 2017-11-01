@@ -434,7 +434,7 @@ config_generic_service(const config_line_t *line_,
     if (options->ClientUseIPv4 == 0 && config->version == HS_VERSION_THREE) {
       log_warn(LD_CONFIG, "IPv6-only v3 single onion services are not "
                "supported. Set HiddenServiceSingleHopMode 0 and "
-               "HiddenServiceNonAnonymousMode 1, or set ClientUseIPv4 1.");
+               "HiddenServiceNonAnonymousMode 0, or set ClientUseIPv4 1.");
       goto err;
     }
   }
