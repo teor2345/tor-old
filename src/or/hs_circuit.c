@@ -1072,7 +1072,7 @@ hs_circ_send_introduce1(origin_circuit_t *intro_circ,
                         subcredential, &intro1_data);
   /* If we didn't get any link specifiers, it's because our extend info was
    * bad. */
-  if (!intro1_data.link_specifiers ||
+  if (BUG(!intro1_data.link_specifiers) ||
       !smartlist_len(intro1_data.link_specifiers)) {
     log_warn(LD_REND, "Unable to get link specifiers for INTRODUCE1 cell on "
              "circuit %u.", TO_CIRCUIT(intro_circ)->n_circ_id);
