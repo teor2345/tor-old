@@ -727,17 +727,24 @@ client_get_random_intro(const ed25519_public_key_t *service_pk)
   const hs_descriptor_t *desc;
   const hs_desc_encrypted_data_t *enc_data;
   const or_options_t *options = get_options();
+  /* Calculate the onion address for logging purposes */
+  char onion_address[HS_SERVICE_ADDR_LEN_BASE32 + 1];
 
   tor_assert(service_pk);
 
   desc = hs_cache_lookup_as_client(service_pk);
+  /* Assume the service is v3 if the descriptor is missing. This is ok,
+   * because we only use the address in log messages */
+  hs_build_address(service_pk,
+                   desc ? desc->plaintext_data.version : HS_VERSION_THREE,
+                   onion_address);
   if (desc == NULL || !hs_client_any_intro_points_usable(service_pk,
                                                          desc)) {
     log_info(LD_REND, "Unable to randomly select an introduction point "
-             "for service key %s because descriptor %s. We can't connect.",
-             safe_str_client(hex_str((const char *)service_pk->pubkey,
-                                     ED25519_PUBKEY_LEN)),
-             (desc) ? "doesn't have usable intro point" : "is missing");
+             "for service %s because descriptor %s. We can't connect.",
+             safe_str_client(onion_address),
+             (desc) ? "doesn't have any usable intro points"
+                    : "is missing (assuming v3 onion address)");
     goto end;
   }
 
@@ -766,10 +773,9 @@ client_get_random_intro(const ed25519_public_key_t *service_pk)
       /* We can get here for instance if the intro point is a private address
        * and we aren't allowed to extend to those. */
       log_info(LD_REND, "Unable to select introduction point with auth key %s "
-               "for service key %s, because we could not extend to it.",
+               "for service %s, because we could not extend to it.",
                safe_str_client(ed25519_fmt(&ip->auth_key_cert->signed_key)),
-               safe_str_client(hex_str((const char *)service_pk->pubkey,
-                                       ED25519_PUBKEY_LEN)));
+               safe_str_client(onion_address));
       continue;
     }
 
@@ -798,17 +804,15 @@ client_get_random_intro(const ed25519_public_key_t *service_pk)
    * set, we are forced to not use anything. */
   ei = ei_excluded;
   if (options->StrictNodes) {
-    log_warn(LD_REND, "Every introduction point for service key %s is in the "
+    log_warn(LD_REND, "Every introduction point for service %s is in the "
              "ExcludeNodes set and StrictNodes is set. We can't connect.",
-             safe_str_client(hex_str((const char *)service_pk->pubkey,
-                                     ED25519_PUBKEY_LEN)));
+             safe_str_client(onion_address));
     extend_info_free(ei);
     ei = NULL;
   } else {
     log_fn(LOG_PROTOCOL_WARN, LD_REND, "Every introduction point for service "
-           "key %s is unusable or we can't extend to it. We can't connect.",
-           safe_str_client(hex_str((const char *)service_pk->pubkey,
-                                   ED25519_PUBKEY_LEN)));
+           "%s is unusable or we can't extend to it. We can't connect.",
+           safe_str_client(onion_address));
   }
 
  end:
