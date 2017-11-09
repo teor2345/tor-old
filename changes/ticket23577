@@ -3,9 +3,5 @@
       address of the rendezvous point, if it has one. v3 onion services running
       0.3.2 ignore IPv6 addresses. In future Tor versions, IPv6-only v3 single
       onion services can use IPv6 addresses to connect directly to the
-      rendezvous point.
+      rendezvous point. Closes ticket 23577. Patch by Neel Chauhan.
 
-  o Code simplification and refactoring:
-    - To allow v3 onion services to use IPv6 addresses, setup_introduce1_data()
-      was modified to take in a node_t instead of an extend_into_t. Closes
-      ticket 23577.
