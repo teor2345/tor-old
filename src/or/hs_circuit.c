@@ -571,8 +571,11 @@ get_lspecs_from_node(const node_t *node, smartlist_t *lspecs)
   /* Get the relay's IPv4 address, and IPv6 address if it is present. */
   node_get_prim_orport(node, &ap);
 
-  /* We require IPv4, and we will add IPv6 if it is present. */
-  if (BUG(!tor_addr_is_v4(&ap.addr))) {
+  /* We expect the node's primary address to be a valid IPv4 address.
+   * This conforms to the protocol, which requires either an IPv4 or IPv6
+   * address (or both). */
+  if (BUG(!tor_addr_is_v4(&ap.addr)) ||
+      BUG(!tor_addr_port_is_valid_ap(&ap, 0))) {
     return;
   }
 
