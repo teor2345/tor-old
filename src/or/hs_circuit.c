@@ -554,11 +554,10 @@ retry_service_rendezvous_point(const origin_circuit_t *circ)
   return;
 }
 
-/* Using an node object node, set all possible link specifiers in lspecs.
+/* Add all possible link specifiers in node to lspecs.
  * legacy ID is mandatory thus MUST be present in node. If the primary address
- * is not IPv4, log a BUG() warning, and return an empty smartlist. Clients
- * never make direct connections to rendezvous points, so they should always
- * have an IPv4 address in node. Includes ed25519 id and IPv6 if present. */
+ * is not IPv4, log a BUG() warning, and return an empty smartlist.
+ * Includes ed25519 id and IPv6 link specifiers if present in the node. */
 static void
 get_lspecs_from_node(const node_t *node, smartlist_t *lspecs)
 {
@@ -568,7 +567,7 @@ get_lspecs_from_node(const node_t *node, smartlist_t *lspecs)
   tor_assert(node);
   tor_assert(lspecs);
 
-  /* Get the relay's IPv4 address, and IPv6 address if it is present. */
+  /* Get the relay's IPv4 address. */
   node_get_prim_orport(node, &ap);
 
   /* We expect the node's primary address to be a valid IPv4 address.
@@ -621,13 +620,15 @@ get_lspecs_from_node(const node_t *node, smartlist_t *lspecs)
   }
 }
 
-/* Using the given descriptor intro point ip, the extend information of the
- * rendezvous point rp_ei and the service's subcredential, populate the
+/* Using the given descriptor intro point ip, the node of the
+ * rendezvous point rp_node and the service's subcredential, populate the
  * already allocated intro1_data object with the needed key material and link
  * specifiers.
  *
- * This can't fail but the ip MUST be a valid object containing the needed
- * keys and authentication method. */
+ * If rp_node has an invalid primary address, intro1_data->link_specifiers
+ * will be an empty list. Otherwise, this function can't fail. The ip
+ * MUST be a valid object containing the needed keys and authentication
+ * method. */
 static void
 setup_introduce1_data(const hs_desc_intro_point_t *ip,
                       const node_t *rp_node,
@@ -1103,7 +1104,7 @@ hs_circ_send_introduce1(origin_circuit_t *intro_circ,
    * object which is used to build the content of the cell. */
   const node_t *exit_node = build_state_get_exit_node(rend_circ->build_state);
   setup_introduce1_data(ip, exit_node, subcredential, &intro1_data);
-  /* If we didn't get any link specifiers, it's because our extend info was
+  /* If we didn't get any link specifiers, it's because our node was
    * bad. */
   if (BUG(!intro1_data.link_specifiers) ||
       !smartlist_len(intro1_data.link_specifiers)) {
