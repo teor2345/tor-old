@@ -1634,7 +1634,9 @@ node_has_curve25519_onion_key(const node_t *node)
 }
 
 /** Return the curve25519 key of <b>node</b>, or NULL if none. */
-curve25519_public_key_t *node_get_curve25519_onion_key(const node_t *node) {
+curve25519_public_key_t *
+node_get_curve25519_onion_key(const node_t *node)
+{
   if (node->ri)
     return node->ri->onion_curve25519_pkey;
   else if (node->md)
