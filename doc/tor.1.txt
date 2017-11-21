@@ -2360,9 +2360,11 @@ on the public Tor network.
       If a minority of authorities set AuthDirHasIPv6Connectivity 1,
       unreachable IPv6 ORPorts will be removed from the consensus. But the
       majority of IPv4-only authorities will still vote the relay as Running.
+      Reachable IPv6 ORPort lines will be included in the consensus
 
       If a majority of voting authorities set AuthDirHasIPv6Connectivity 1,
       relays with unreachable IPv6 ORPorts will not be listed as Running.
+      Reachable IPv6 ORPort lines will be included in the consensus
       (To ensure that any valid majority will vote relays with unreachable
       IPv6 ORPorts not Running, 75% of authorities must set
       AuthDirHasIPv6Connectivity 1.)
