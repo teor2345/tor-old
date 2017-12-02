@@ -1514,8 +1514,8 @@ networkstatus_consensus_is_already_downloading(const char *resource)
  * includes IPv6 addresses in the consensus.
  * Otherwise, if there is no consensus, or the method does not include IPv6
  * addresses, returns 0. */
-int
-networkstatus_consensus_has_ipv6(const or_options_t* options)
+MOCK_IMPL(int,
+networkstatus_consensus_has_ipv6, (const or_options_t* options))
 {
   const networkstatus_t *cons = networkstatus_get_reasonably_live_consensus(
                                                     approx_time(),

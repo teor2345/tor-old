@@ -1478,34 +1478,49 @@ node_get_pref_orport(const node_t *node, tor_addr_port_t *ap_out)
 }
 
 /** Copy the preferred IPv6 OR port (IP address and TCP port) for
- * <b>node</b> into *<b>ap_out</b>. */
+ * <b>node</b> into *<b>ap_out</b>.
+ * This function must not be used to find the IPv6 addresss for reachability
+ * testing: use the address from the descriptor (routerinfo) instead. */
 void
 node_get_pref_ipv6_orport(const node_t *node, tor_addr_port_t *ap_out)
 {
   node_assert_ok(node);
   tor_assert(ap_out);
 
-  /* Check ri first, because rewrite_node_address_for_bridge() updates
-   * node->ri with the configured bridge address.
-   * Prefer rs over md for consistency with the fascist_firewall_* functions.
-   * Check if the address or port are valid, and try another alternative
-   * if they are not. */
+  const or_options_t *options = get_options();
 
+  /* Initialise the return value, so we can return early if needed. */
+  tor_addr_make_null(&ap_out->addr, AF_INET6);
+  ap_out->port = 0;
+
+  /* Check ri first, because rewrite_node_address_for_bridge() updates
+   * node->ri with the configured bridge address. */
   if (node->ri && tor_addr_port_is_valid(&node->ri->ipv6_addr,
                                          node->ri->ipv6_orport, 0)) {
     tor_addr_copy(&ap_out->addr, &node->ri->ipv6_addr);
     ap_out->port = node->ri->ipv6_orport;
-  } else if (node->rs && tor_addr_port_is_valid(&node->rs->ipv6_addr,
-                                                 node->rs->ipv6_orport, 0)) {
-    tor_addr_copy(&ap_out->addr, &node->rs->ipv6_addr);
-    ap_out->port = node->rs->ipv6_orport;
-  } else if (node->md && tor_addr_port_is_valid(&node->md->ipv6_addr,
-                                                 node->md->ipv6_orport, 0)) {
-    tor_addr_copy(&ap_out->addr, &node->md->ipv6_addr);
-    ap_out->port = node->md->ipv6_orport;
+    /* If we have ri, that's it, we're done. */
+    return;
+  }
+
+  if (networkstatus_consensus_has_ipv6(options)) {
+    /* If the consensus has IPv6 ORPorts, we use the consensus. */
+    if (node->rs && tor_addr_port_is_valid(&node->rs->ipv6_addr,
+                                           node->rs->ipv6_orport, 0)) {
+      tor_addr_copy(&ap_out->addr, &node->rs->ipv6_addr);
+      ap_out->port = node->rs->ipv6_orport;
+      return;
+    }
   } else {
-    tor_addr_make_null(&ap_out->addr, AF_INET6);
-    ap_out->port = 0;
+    /* Otherwise, we use the microdesc.
+     * We can't fall back to the microdesc if the consensus has IPv6 ORPorts,
+     * because it might contain an unreachable ORPort. */
+    if (node->md && tor_addr_port_is_valid(&node->md->ipv6_addr,
+                                           node->md->ipv6_orport, 0)) {
+      tor_addr_copy(&ap_out->addr, &node->md->ipv6_addr);
+      ap_out->port = node->md->ipv6_orport;
+      return;
+    }
   }
 }
 
