@@ -608,23 +608,6 @@ fascist_firewall_allows_base(uint32_t ipv4h_addr, uint16_t ipv4_orport,
   return 0;
 }
 
-/** Like fascist_firewall_allows_base(), but takes ri. */
-static int
-fascist_firewall_allows_ri_impl(const routerinfo_t *ri,
-                                firewall_connection_t fw_connection,
-                                int pref_only, int pref_ipv6)
-{
-  if (!ri) {
-    return 0;
-  }
-
-  /* Assume IPv4 and IPv6 DirPorts are the same */
-  return fascist_firewall_allows_base(ri->addr, ri->or_port, ri->dir_port,
-                                      &ri->ipv6_addr, ri->ipv6_orport,
-                                      ri->dir_port, fw_connection, pref_only,
-                                      pref_ipv6);
-}
-
 /** Like fascist_firewall_allows_rs, but takes pref_ipv6. */
 static int
 fascist_firewall_allows_rs_impl(const routerstatus_t *rs,
@@ -667,31 +650,6 @@ fascist_firewall_allows_rs(const routerstatus_t *rs,
                                          pref_ipv6);
 }
 
-/** Return true iff we think our firewall will let us make a connection to
- * ipv6_addr:ipv6_orport based on ReachableORAddresses.
- * If <b>fw_connection</b> is FIREWALL_DIR_CONNECTION, returns 0.
- * pref_only and pref_ipv6 work as in fascist_firewall_allows_address_addr().
- */
-static int
-fascist_firewall_allows_md_impl(const microdesc_t *md,
-                                firewall_connection_t fw_connection,
-                                int pref_only, int pref_ipv6)
-{
-  if (!md) {
-    return 0;
-  }
-
-  /* Can't check dirport, it doesn't have one */
-  if (fw_connection == FIREWALL_DIR_CONNECTION) {
-    return 0;
-  }
-
-  /* Also can't check IPv4, doesn't have that either */
-  return fascist_firewall_allows_address_addr(&md->ipv6_addr, md->ipv6_orport,
-                                              fw_connection, pref_only,
-                                              pref_ipv6);
-}
-
 /** Like fascist_firewall_allows_base(), but takes node, and looks up pref_ipv6
  * from node_ipv6_or/dir_preferred(). */
 int
@@ -705,29 +663,25 @@ fascist_firewall_allows_node(const node_t *node,
 
   node_assert_ok(node);
 
-  const int pref_ipv6 = (fw_connection == FIREWALL_OR_CONNECTION
-                         ? node_ipv6_or_preferred(node)
-                         : node_ipv6_dir_preferred(node));
-
-  /* Sometimes, the rs is missing the IPv6 address info, and we need to go
-   * all the way to the md */
-  if (node->ri && fascist_firewall_allows_ri_impl(node->ri, fw_connection,
-                                                  pref_only, pref_ipv6)) {
-    return 1;
-  } else if (node->rs && fascist_firewall_allows_rs_impl(node->rs,
-                                                         fw_connection,
-                                                         pref_only,
-                                                         pref_ipv6)) {
-    return 1;
-  } else if (node->md && fascist_firewall_allows_md_impl(node->md,
-                                                         fw_connection,
-                                                         pref_only,
-                                                         pref_ipv6)) {
-    return 1;
+  if (fw_connection == FIREWALL_OR_CONNECTION) {
+    /* Nodes can have an IPv4 and an IPv6 ORPort. */
+    const int pref_ipv6 = node_ipv6_or_preferred(node);
+    tor_addr_port_t ipv4_or_ap;
+    tor_addr_port_t ipv6_or_ap;
+    /* It's safe to ignore the return value, because we'll never allow a
+     * null address or zero port. */
+    node_get_prim_orport(node, &ipv4_or_ap);
+    node_get_pref_ipv6_orport(node, &ipv6_or_ap);
+    return (fascist_firewall_allows_address_ap(&ipv4_or_ap, fw_connection,
+                                              pref_only, pref_ipv6) ||
+            fascist_firewall_allows_address_ap(&ipv6_or_ap, fw_connection,
+                                               pref_only, pref_ipv6));
   } else {
-    /* If we know nothing, assume it's unreachable, we'll never get an address
-     * to connect to. */
-    return 0;
+    /* There is only one DirPort per node, and it's on IPv4. */
+    tor_addr_port_t dir_ap;
+    node_get_prim_dirport(node, &dir_ap);
+    return fascist_firewall_allows_address_ap(&dir_ap, fw_connection,
+                                              pref_only, 0);
   }
 }
 
