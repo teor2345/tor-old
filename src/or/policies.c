@@ -18,6 +18,7 @@
 #define POLICIES_PRIVATE
 
 #include "or.h"
+#include "bridges.h"
 #include "config.h"
 #include "dirserv.h"
 #include "microdesc.h"
@@ -924,11 +925,15 @@ node_awaiting_ipv6(const or_options_t* options, const node_t *node)
     return 0;
   }
 
-  /* We are waiting if we_use_microdescriptors_for_circuits() and we have no
-   * md. Bridges have a ri based on their config. They would never use the
+  /* Bridges have a ri based on their config. They would never use the
    * address from their md, so there's no need to wait for it. */
-  return (!node->md && we_use_microdescriptors_for_circuits(options) &&
-          !node->ri);
+  if (node_is_a_configured_bridge(node)) {
+    return 0;
+  }
+
+  /* We are waiting if we_use_microdescriptors_for_circuits() and we have no
+   * md. */
+  return (!node->md && we_use_microdescriptors_for_circuits(options));
 }
 
 /** Like fascist_firewall_choose_address_base(), but takes <b>rs</b>.
