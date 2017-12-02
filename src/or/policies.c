@@ -551,55 +551,12 @@ fascist_firewall_allows_address_ipv4h(uint32_t ipv4h_or_addr,
  * ipv4_dirport/ReachableDirAddresses based on IPv4/IPv6 and
  * <b>fw_connection</b>.
  * pref_only and pref_ipv6 work as in fascist_firewall_allows_address_addr().
- */
-static int
-fascist_firewall_allows_base(uint32_t ipv4h_addr, uint16_t ipv4_orport,
-                             uint16_t ipv4_dirport,
-                             const tor_addr_t *ipv6_addr, uint16_t ipv6_orport,
-                             firewall_connection_t fw_connection,
-                             int pref_only, int pref_ipv6)
-{
-  if (fascist_firewall_allows_address_ipv4h(ipv4h_addr,
-                                      (fw_connection == FIREWALL_OR_CONNECTION
-                                       ? ipv4_orport
-                                       : ipv4_dirport),
-                                      fw_connection,
-                                      pref_only, pref_ipv6)) {
-    return 1;
-  }
-
-  if (fw_connection == FIREWALL_OR_CONNECTION &&
-      fascist_firewall_allows_address_addr(ipv6_addr,
-                                           ipv6_orport,
-                                           fw_connection,
-                                           pref_only, pref_ipv6)) {
-    return 1;
-  }
-
-  return 0;
-}
-
-/** Like fascist_firewall_allows_rs, but takes pref_ipv6. */
-static int
-fascist_firewall_allows_rs_impl(const routerstatus_t *rs,
-                                firewall_connection_t fw_connection,
-                                int pref_only, int pref_ipv6)
-{
-  if (!rs) {
-    return 0;
-  }
-
-  return fascist_firewall_allows_base(rs->addr, rs->or_port, rs->dir_port,
-                                      &rs->ipv6_addr, rs->ipv6_orport,
-                                      fw_connection, pref_only, pref_ipv6);
-}
-
-/** Like fascist_firewall_allows_base(), but takes rs.
+ *
  * When rs is a fake_status from a dir_server_t, it can have a reachable
  * address, even when the corresponding node does not.
  * nodes can be missing addresses when there's no consensus (IPv4 and IPv6),
- * or when there is a microdescriptor consensus, but no microdescriptors
- * (microdescriptors have IPv6, the microdesc consensus does not). */
+ * or when there is a microdescriptor consensus, but no microdescriptor for,
+ * the node, and the microdesc consensus method has no IPv6 ORPorts. */
 int
 fascist_firewall_allows_rs(const routerstatus_t *rs,
                            firewall_connection_t fw_connection, int pref_only)
@@ -614,11 +571,27 @@ fascist_firewall_allows_rs(const routerstatus_t *rs,
   int pref_ipv6 = (fw_connection == FIREWALL_OR_CONNECTION
                    && fascist_firewall_prefer_ipv6_orport(options));
 
-  return fascist_firewall_allows_rs_impl(rs, fw_connection, pref_only,
-                                         pref_ipv6);
+  if (fascist_firewall_allows_address_ipv4h(rs->addr,
+                                            (fw_connection == FIREWALL_OR_CONNECTION
+                                             ? rs->or_port
+                                             : rs->dir_port),
+                                            fw_connection,
+                                            pref_only, pref_ipv6)) {
+    return 1;
+  }
+
+  if (fw_connection == FIREWALL_OR_CONNECTION &&
+      fascist_firewall_allows_address_addr(&rs->ipv6_addr,
+                                           rs->ipv6_orport,
+                                           fw_connection,
+                                           pref_only, pref_ipv6)) {
+    return 1;
+  }
+
+  return 0;
 }
 
-/** Like fascist_firewall_allows_base(), but takes node, and looks up pref_ipv6
+/** Like fascist_firewall_allows_rs(), but takes node, and looks up pref_ipv6
  * from node_ipv6_or_preferred(). */
 int
 fascist_firewall_allows_node(const node_t *node,
