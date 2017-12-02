@@ -1461,6 +1461,14 @@ node_get_pref_orport(const node_t *node, tor_addr_port_t *ap_out)
   }
 }
 
+#define SET_IPV6_AP(r, ap_out) \
+  STMT_BEGIN \
+    if ((r) && tor_addr_port_is_valid(&(r)->ipv6_addr, (r)->ipv6_orport, 0)) { \
+      tor_addr_copy(&(ap_out)->addr, &(r)->ipv6_addr); \
+      (ap_out)->port = (r)->ipv6_orport; \
+    } \
+  STMT_END
+
 /** Copy the preferred IPv6 OR port (IP address and TCP port) for
  * <b>node</b> into *<b>ap_out</b>.
  * This function must not be used to find the IPv6 addresss for reachability
@@ -1482,11 +1490,7 @@ node_get_pref_ipv6_orport(const node_t *node, tor_addr_port_t *ap_out)
    * configured addresses. The configured address can be different for
    * multi-homed bridges and pluggable transports. */
   if (options->UseBridges && node_is_a_configured_bridge(node)) {
-    if (node->ri && tor_addr_port_is_valid(&node->ri->ipv6_addr,
-                                           node->ri->ipv6_orport, 0)) {
-      tor_addr_copy(&ap_out->addr, &node->ri->ipv6_addr);
-      ap_out->port = node->ri->ipv6_orport;
-    }
+    SET_IPV6_AP(node->ri, ap_out);
     /* We can't use consensus or microdesc info for configured bridges,
      * they might have the wrong address or port. */
     return;
@@ -1494,11 +1498,7 @@ node_get_pref_ipv6_orport(const node_t *node, tor_addr_port_t *ap_out)
 
   /* If the consensus has IPv6 ORPorts, we use the consensus. */
   if (networkstatus_consensus_has_ipv6(options)) {
-    if (node->rs && tor_addr_port_is_valid(&node->rs->ipv6_addr,
-                                           node->rs->ipv6_orport, 0)) {
-      tor_addr_copy(&ap_out->addr, &node->rs->ipv6_addr);
-      ap_out->port = node->rs->ipv6_orport;
-    }
+    SET_IPV6_AP(node->rs, ap_out);
     /* We can't use microdesc or descriptor info if the consensus has IPv6
      * ORPorts, because descriptors might have unreachable ORPorts. */
     return;
@@ -1507,19 +1507,13 @@ node_get_pref_ipv6_orport(const node_t *node, tor_addr_port_t *ap_out)
   /* If the only IPv6 ORPorts are in descriptors, we use the appropriate
    * flavour. */
   if (we_use_microdescriptors_for_circuits(options)) {
-    if (node->md && tor_addr_port_is_valid(&node->md->ipv6_addr,
-                                           node->md->ipv6_orport, 0)) {
-      tor_addr_copy(&ap_out->addr, &node->md->ipv6_addr);
-      ap_out->port = node->md->ipv6_orport;
-    }
+    SET_IPV6_AP(node->md, ap_out);
   } else {
-    if (node->ri && tor_addr_port_is_valid(&node->ri->ipv6_addr,
-                                           node->ri->ipv6_orport, 0)) {
-      tor_addr_copy(&ap_out->addr, &node->ri->ipv6_addr);
-      ap_out->port = node->ri->ipv6_orport;
-    }
+    SET_IPV6_AP(node->ri, ap_out);
   }
 }
+
+#undef SET_IPV6_AP
 
 /** Return 1 if we prefer the IPv6 address and Dir TCP port of
  * <b>node</b>, else 0.
