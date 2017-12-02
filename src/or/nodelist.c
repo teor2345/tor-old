@@ -1586,19 +1586,51 @@ node_ipv6_dir_preferred(const node_t *node)
 
 /** Copy the primary (IPv4) Dir port (IP address and TCP port) for
  * <b>node</b> into *<b>ap_out</b>. Return 0 if a valid address and
- * port was copied, else return non-zero.*/
+ * port was copied, else return non-zero.
+ * Bridges don't have DirPorts, so this function never returns a valid
+ * DirPort for configured bridges.
+ * If we use microdescriptors for circuits, this function only returns a
+ * valid DirPort for nodes in reasonably live consensues.
+ * If we use descriptors, this function may also return DirPorts from nodes
+ * with cached descriptors. */
 int
 node_get_prim_dirport(const node_t *node, tor_addr_port_t *ap_out)
 {
   node_assert_ok(node);
   tor_assert(ap_out);
 
-  /* Check ri first, because rewrite_node_address_for_bridge() updates
-   * node->ri with the configured bridge address. */
+  const or_options_t *options = get_options();
 
-  RETURN_IPV4_AP(node->ri, dir_port, ap_out);
-  RETURN_IPV4_AP(node->rs, dir_port, ap_out);
-  /* Microdescriptors only have an IPv6 address */
+  /* Clear the address, as a safety precaution if calling functions ignore the
+   * return value */
+  tor_addr_make_null(&ap_out->addr, AF_INET);
+  ap_out->port = 0;
+
+  /* If the node is a configured bridge, we never return a DirPort, because
+   * bridges do not have DirPorts. */
+  if (options->UseBridges && node_is_a_configured_bridge(node)) {
+    return -1;
+  }
+
+  networkstatus_t *cons = networkstatus_get_reasonably_live_consensus(
+                                                  approx_time(),
+                                                  usable_consensus_flavor());
+
+  /* If we have a reasonably live consensus, we use the consensus.
+   * (The consensus always has IPv4 DirPorts.) */
+  if (cons) {
+    RETURN_IPV4_AP(node->rs, dir_port, ap_out);
+    /* We can't use descriptor info if the consensus is reasonably live,
+     * because cached descriptors might be non-Running relays. */
+    return -1;
+  }
+
+  /* If there is no reasonably live consensus, we use cached descriptors,
+   * but only if we are using descriptors for circuits.
+   * Microdescriptors only have an IPv6 ORPort, so they are no good to us. */
+  if (!we_use_microdescriptors_for_circuits(options)) {
+    RETURN_IPV4_AP(node->ri, dir_port, ap_out);
+  }
 
   return -1;
 }
