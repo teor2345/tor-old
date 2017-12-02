@@ -37,7 +37,6 @@ int firewall_is_fascist_or(void);
 int firewall_is_fascist_dir(void);
 int fascist_firewall_use_ipv6(const or_options_t *options);
 int fascist_firewall_prefer_ipv6_orport(const or_options_t *options);
-int fascist_firewall_prefer_ipv6_dirport(const or_options_t *options);
 
 int fascist_firewall_allows_address_addr(const tor_addr_t *addr,
                                          uint16_t port,

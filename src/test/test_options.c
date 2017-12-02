@@ -1701,8 +1701,7 @@ test_options_validate__reachable_addresses(void *ignored)
   tdata = get_options_test_data(TEST_OPTIONS_DEFAULT_VALUES
                                 "ClientUseIPv4 1\n"
                                 "ClientUseIPv6 0\n"
-                                "UseBridges 0\n"
-                                "ClientPreferIPv6DirPort 1\n");
+                                "UseBridges 0\n");
 
   ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
   tt_int_op(ret, OP_EQ, 0);
@@ -1714,8 +1713,7 @@ test_options_validate__reachable_addresses(void *ignored)
   tdata = get_options_test_data(TEST_OPTIONS_DEFAULT_VALUES
                                 "ClientUseIPv4 1\n"
                                 "ClientUseIPv6 1\n"
-                                "ClientPreferIPv6ORPort 1\n"
-                                "ClientPreferIPv6DirPort 1\n");
+                                "ClientPreferIPv6ORPort 1\n");
 
   ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
   tt_int_op(ret, OP_EQ, 0);
@@ -1726,8 +1724,7 @@ test_options_validate__reachable_addresses(void *ignored)
   free_options_test_data(tdata);
   tdata = get_options_test_data(TEST_OPTIONS_DEFAULT_VALUES
                                 "ClientUseIPv6 1\n"
-                                "ClientPreferIPv6ORPort 1\n"
-                                "ClientPreferIPv6DirPort 1\n");
+                                "ClientPreferIPv6ORPort 1\n");
 
   ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
   tt_int_op(ret, OP_EQ, 0);
@@ -1738,8 +1735,7 @@ test_options_validate__reachable_addresses(void *ignored)
   free_options_test_data(tdata);
   tdata = get_options_test_data(TEST_OPTIONS_DEFAULT_VALUES
                                 "ClientUseIPv4 0\n"
-                                "ClientPreferIPv6ORPort 1\n"
-                                "ClientPreferIPv6DirPort 1\n");
+                                "ClientPreferIPv6ORPort 1\n");
 
   ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
   tt_int_op(ret, OP_EQ, 0);
@@ -1751,8 +1747,7 @@ test_options_validate__reachable_addresses(void *ignored)
   tdata = get_options_test_data(TEST_OPTIONS_DEFAULT_VALUES
                                 "UseBridges 1\n"
                                 "Bridge 127.0.0.1:12345\n"
-                                "ClientPreferIPv6ORPort 1\n"
-                                "ClientPreferIPv6DirPort 1\n");
+                                "ClientPreferIPv6ORPort 1\n");
 
   ret = options_validate(tdata->old_opt, tdata->opt, tdata->def_opt, 0, &msg);
   tt_int_op(ret, OP_EQ, 0);

@@ -1852,8 +1852,7 @@ connection_connect_log_client_use_ip_version(const connection_t *conn)
   const int must_ipv4 = !fascist_firewall_use_ipv6(options);
   const int must_ipv6 = (options->ClientUseIPv4 == 0);
   const int pref_ipv6 = (conn->type == CONN_TYPE_OR
-                         ? fascist_firewall_prefer_ipv6_orport(options)
-                         : fascist_firewall_prefer_ipv6_dirport(options));
+                         && fascist_firewall_prefer_ipv6_orport(options));
   tor_addr_t real_addr;
   tor_addr_make_null(&real_addr, AF_UNSPEC);
 
@@ -1890,14 +1889,13 @@ connection_connect_log_client_use_ip_version(const connection_t *conn)
   /* Check if we couldn't satisfy an address family preference */
   if ((!pref_ipv6 && tor_addr_family(&real_addr) == AF_INET6)
       || (pref_ipv6 && tor_addr_family(&real_addr) == AF_INET)) {
-    log_info(LD_NET, "Outgoing connection to %s doesn't satisfy "
-             "ClientPreferIPv6%sPort %d, with ClientUseIPv4 %d, and "
+    log_info(LD_NET, "Outgoing %s connection to %s doesn't satisfy "
+             "ClientPreferIPv6ORPort %d, ClientUseIPv4 %d, and "
              "fascist_firewall_use_ipv6 %d (ClientUseIPv6 %d and UseBridges "
              "%d).",
-             fmt_addr(&real_addr),
              conn->type == CONN_TYPE_OR ? "OR" : "Dir",
-             conn->type == CONN_TYPE_OR ? options->ClientPreferIPv6ORPort
-                                        : options->ClientPreferIPv6DirPort,
+             fmt_addr(&real_addr),
+             options->ClientPreferIPv6ORPort,
              options->ClientUseIPv4, fascist_firewall_use_ipv6(options),
              options->ClientUseIPv6, options->UseBridges);
   }

@@ -1350,26 +1350,6 @@ node_get_declared_family(const node_t *node)
     return NULL;
 }
 
-/* Does this node have a valid IPv6 address?
- * Prefer node_has_ipv6_orport() or node_has_ipv6_dirport() for
- * checking specific ports. */
-int
-node_has_ipv6_addr(const node_t *node)
-{
-  /* Don't check the ORPort or DirPort, as this function isn't port-specific,
-   * and the node might have a valid IPv6 address, yet have a zero
-   * ORPort or DirPort.
-   */
-  if (node->ri && tor_addr_is_valid(&node->ri->ipv6_addr, 0))
-    return 1;
-  if (node->rs && tor_addr_is_valid(&node->rs->ipv6_addr, 0))
-    return 1;
-  if (node->md && tor_addr_is_valid(&node->md->ipv6_addr, 0))
-    return 1;
-
-  return 0;
-}
-
 /* Does this node have a valid IPv6 ORPort? */
 int
 node_has_ipv6_orport(const node_t *node)
@@ -1377,15 +1357,6 @@ node_has_ipv6_orport(const node_t *node)
   tor_addr_port_t ipv6_orport;
   node_get_pref_ipv6_orport(node, &ipv6_orport);
   return tor_addr_port_is_valid_ap(&ipv6_orport, 0);
-}
-
-/* Does this node have a valid IPv6 DirPort? */
-int
-node_has_ipv6_dirport(const node_t *node)
-{
-  tor_addr_port_t ipv6_dirport;
-  node_get_pref_ipv6_dirport(node, &ipv6_dirport);
-  return tor_addr_port_is_valid_ap(&ipv6_dirport, 0);
 }
 
 /** Return 1 if we prefer the IPv6 address and OR TCP port of
@@ -1553,37 +1524,6 @@ node_get_pref_ipv6_orport(const node_t *node, tor_addr_port_t *ap_out)
 
 #undef SET_IPV6_AP
 
-/** Return 1 if we prefer the IPv6 address and Dir TCP port of
- * <b>node</b>, else 0.
- *
- *  We prefer the IPv6 address if the router has an IPv6 address,
- *  and we can use IPv6 addresses, and:
- *  i) the router has no IPv4 Dir address.
- *  or
- *  ii) our preference is for IPv6 Dir addresses.
- *
- * If there is no node, use fascist_firewall_prefer_ipv6_dirport().
- */
-int
-node_ipv6_dir_preferred(const node_t *node)
-{
-  const or_options_t *options = get_options();
-  tor_addr_port_t ipv4_addr;
-  node_assert_ok(node);
-
-  /* node->ipv6_preferred is set from fascist_firewall_prefer_ipv6_orport(),
-   * so we can't use it to determine DirPort IPv6 preference.
-   * This means that bridge clients will use IPv4 DirPorts by default.
-   */
-  if (!fascist_firewall_use_ipv6(options)) {
-    return 0;
-  } else if (node_get_prim_dirport(node, &ipv4_addr)
-      || fascist_firewall_prefer_ipv6_dirport(get_options())) {
-    return node_has_ipv6_dirport(node);
-  }
-  return 0;
-}
-
 /** Copy the primary (IPv4) Dir port (IP address and TCP port) for
  * <b>node</b> into *<b>ap_out</b>. Return 0 if a valid address and
  * port was copied, else return non-zero.
@@ -1636,50 +1576,6 @@ node_get_prim_dirport(const node_t *node, tor_addr_port_t *ap_out)
 }
 
 #undef RETURN_IPV4_AP
-
-/** Copy the preferred Dir port (IP address and TCP port) for
- * <b>node</b> into *<b>ap_out</b>.  */
-void
-node_get_pref_dirport(const node_t *node, tor_addr_port_t *ap_out)
-{
-  tor_assert(ap_out);
-
-  if (node_ipv6_dir_preferred(node)) {
-    node_get_pref_ipv6_dirport(node, ap_out);
-  } else {
-    /* the primary DirPort is always on IPv4 */
-    node_get_prim_dirport(node, ap_out);
-  }
-}
-
-/** Copy the preferred IPv6 Dir port (IP address and TCP port) for
- * <b>node</b> into *<b>ap_out</b>. */
-void
-node_get_pref_ipv6_dirport(const node_t *node, tor_addr_port_t *ap_out)
-{
-  node_assert_ok(node);
-  tor_assert(ap_out);
-
-  /* Check ri first, because rewrite_node_address_for_bridge() updates
-   * node->ri with the configured bridge address.
-   * Prefer rs over md for consistency with the fascist_firewall_* functions.
-   * Check if the address or port are valid, and try another alternative
-   * if they are not. */
-
-  /* Assume IPv4 and IPv6 dirports are the same */
-  if (node->ri && tor_addr_port_is_valid(&node->ri->ipv6_addr,
-                                         node->ri->dir_port, 0)) {
-    tor_addr_copy(&ap_out->addr, &node->ri->ipv6_addr);
-    ap_out->port = node->ri->dir_port;
-  } else if (node->rs && tor_addr_port_is_valid(&node->rs->ipv6_addr,
-                                                node->rs->dir_port, 0)) {
-    tor_addr_copy(&ap_out->addr, &node->rs->ipv6_addr);
-    ap_out->port = node->rs->dir_port;
-  } else {
-    tor_addr_make_null(&ap_out->addr, AF_INET6);
-    ap_out->port = 0;
-  }
-}
 
 /** Return true iff <b>md</b> has a curve25519 onion key.
  * Use node_has_curve25519_onion_key() instead of calling this directly. */
