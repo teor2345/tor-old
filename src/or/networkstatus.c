@@ -1507,7 +1507,7 @@ int
 networkstatus_consensus_has_ipv6(const or_options_t* options)
 {
   networkstatus_t *cons = networkstatus_get_reasonably_live_consensus(
-                                                    time(NULL),
+                                                    approx_time(),
                                                     usable_consensus_flavor());
 
   /* If we have no consensus, we have no IPv6 in it */
