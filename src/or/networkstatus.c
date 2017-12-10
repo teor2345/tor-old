@@ -1506,7 +1506,7 @@ networkstatus_consensus_is_already_downloading(const char *resource)
 int
 networkstatus_consensus_has_ipv6(const or_options_t* options)
 {
-  networkstatus_t *cons = networkstatus_get_reasonably_live_consensus(
+  const networkstatus_t *cons = networkstatus_get_reasonably_live_consensus(
                                                     approx_time(),
                                                     usable_consensus_flavor());
 
