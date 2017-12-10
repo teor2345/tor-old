@@ -925,8 +925,8 @@ node_awaiting_ipv6(const or_options_t* options, const node_t *node)
     return 0;
   }
 
-  /* Bridges have a ri based on their config. They would never use the
-   * address from their md, so there's no need to wait for it. */
+  /* Bridge clients never use the address from a bridge's md, so there's no
+   * need to wait for it. */
   if (node_is_a_configured_bridge(node)) {
     return 0;
   }
