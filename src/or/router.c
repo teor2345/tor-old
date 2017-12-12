@@ -1480,16 +1480,80 @@ consider_testing_reachability(int test_or, int test_dir)
   }
 }
 
-/** Annotate that we found our ORPort reachable. */
+/* Do or_addr and or_port match either the IPv4 ORPort or IPv6 ORPort in ri?
+ */
+static int
+routerinfo_contains_orport(const routerinfo_t *ri,
+                           const tor_addr_t *or_addr,
+                           uint16_t or_port)
+{
+  if (BUG(!ri) || BUG(!or_addr) || BUG(!or_port)) {
+    return 0;
+  }
+
+  /* There is always one advertised IPv4 ORPort. There may also be one
+   * advertised IPv6 ORPort. */
+  if (or_addr->family == AF_INET &&
+      tor_addr_eq_ipv4h(or_addr, ri->addr) &&
+      or_port == ri->or_port) {
+    return 1;
+  } else if (or_addr->family == AF_INET6 &&
+             tor_addr_eq(or_addr, &ri->ipv6_addr) &&
+             or_port == ri->ipv6_orport) {
+    /* If ipv6_addr is unspecified or ipv6_orport is 0, these won't match. */
+    return 1;
+  }
+
+  return 0;
+}
+
+/** Return true iff <b>origin_circ</b> is the client side of a circuit we
+ * launched to ourself in order to determine the reachability of our
+ * advertised IPv4 or_port or ipv6_orport.
+ * See also directory_conn_is_self_reachability_test(). */
+int
+router_origin_circ_is_self_reachability_test(origin_circuit_t *origin_circ)
+{
+  if (!origin_circ || !origin_circ->build_state) {
+    return 0;
+  }
+
+  const routerinfo_t *me = router_get_my_routerinfo();
+  const extend_info_t *chosen_exit = origin_circ->build_state->chosen_exit;
+
+  if (me && chosen_exit &&
+      router_digest_is_me(chosen_exit->identity_digest)) {
+    return routerinfo_contains_orport(me,
+                                      &chosen_exit->addr, chosen_exit->port);
+  }
+
+  return 0;
+}
+
+/** Annotate that we found one of our ORPorts reachable at or_addr and
+ * or_port. */
 void
-router_orport_found_reachable(void)
+router_orport_found_reachable(const tor_addr_t *or_addr, uint16_t or_port)
 {
   const routerinfo_t *me = router_get_my_routerinfo();
   const or_options_t *options = get_options();
-  if (!can_reach_or_port && me) {
-    char *address = tor_dup_ip(me->addr);
-    log_notice(LD_OR,"Self-testing indicates your ORPort is reachable from "
-               "the outside. Excellent.%s",
+
+  /* the caller should have checked this using
+   * router_origin_circ_is_self_reachability_test() */
+  if (BUG(!routerinfo_contains_orport(me, or_addr, or_port))) {
+    return;
+  }
+
+  const int new_ipv4 = !can_reach_or_port && or_addr->family == AF_INET;
+
+  if (new_ipv4 && me) {
+    /* Using an undecorated address is safe as long as or_addr is IPv4 */
+    tor_assert_nonfatal(or_addr->family == AF_INET);
+    char address[TOR_ADDR_BUF_LEN];
+    tor_addr_to_str(address, or_addr, sizeof(address), 0);
+    log_notice(LD_OR, "Self-testing indicates your IPv4 ORPort %s:%d is "
+               "reachable from the outside. Excellent.%s",
+               address, or_port,
                options->PublishServerDescriptor_ != NO_DIRINFO
                && check_whether_dirport_reachable(options) ?
                  " Publishing server descriptor." : "");
@@ -1502,8 +1566,7 @@ router_orport_found_reachable(void)
     }
     control_event_server_status(LOG_NOTICE,
                                 "REACHABILITY_SUCCEEDED ORADDRESS=%s:%d",
-                                address, me->or_port);
-    tor_free(address);
+                                address, or_port);
   }
 }
 

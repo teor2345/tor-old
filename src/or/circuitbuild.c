@@ -1495,6 +1495,21 @@ circuit_finish_handshake(origin_circuit_t *circ,
   circuit_log_path(LOG_INFO,LD_CIRC,circ);
   control_event_circuit_status(circ, CIRC_EVENT_EXTENDED, 0);
 
+  if (router_origin_circ_is_self_reachability_test(circ)) {
+    /* The reachability test check should catch these */
+    if (BUG(!circ) || BUG(!circ->build_state) ||
+        BUG(!circ->build_state->chosen_exit)) {
+      return -END_CIRC_REASON_INTERNAL;
+    }
+    const extend_info_t *chosen_exit = circ->build_state->chosen_exit;
+    router_orport_found_reachable(&chosen_exit->addr, chosen_exit->port);
+    /* This circuit could potentially be used to attach streams, let's
+     * stop that from happening. */
+    circuit_mark_for_close(TO_CIRCUIT(circ), END_CIRC_REASON_FINISHED);
+    /* There is no automatic retry on circuit failure, because retries only
+     * happen when there is a stream waiting for the circuit's destination. */
+  }
+
   return 0;
 }
 
@@ -1596,19 +1611,6 @@ onionskin_answer(or_circuit_t *circ,
                                circ->p_chan, &cell, CELL_DIRECTION_IN, 0);
   log_debug(LD_CIRC,"Finished sending '%s' cell.",
             used_create_fast ? "created_fast" : "created");
-
-  /* Ignore the local bit when ExtendAllowPrivateAddresses is set:
-   * it violates the assumption that private addresses are local.
-   * Also, many test networks run on local addresses, and
-   * TestingTorNetwork sets ExtendAllowPrivateAddresses. */
-  if ((!channel_is_local(circ->p_chan)
-       || get_options()->ExtendAllowPrivateAddresses)
-      && !channel_is_outgoing(circ->p_chan)) {
-    /* record that we could process create cells from a non-local conn
-     * that we didn't initiate; presumably this means that create cells
-     * can reach us too. */
-    router_orport_found_reachable();
-  }
 
   return 0;
 }

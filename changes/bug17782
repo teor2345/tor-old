@@ -1,0 +1,5 @@
+  o Minor bugfixes (relays, reachability):
+    - Check IPv4 ORPort addresses and ports during relay reachability tests.
+      Previously, Tor would confirm relay reachability as soon as any create
+      cell arrived at any ORPort. This could lead to relays publishing
+      incorrect addresses. Fixes bug 17782; bugfix on 0.1.0.1-rc.
