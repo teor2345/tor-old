@@ -1,0 +1,5 @@
+  o Minor bugfixes (relays, reachability, ipv6):
+    - Check IPv6 ORPort addresses and ports during relay reachability tests.
+      This change allows relays to receive IPv6 reachability checks.
+      Relays don't initiate IPv6 reachability checks yet, see 6939.
+      Fixes bug 13112; bugfix on 0.1.0.1-rc.

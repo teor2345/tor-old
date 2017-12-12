@@ -1164,16 +1164,22 @@ init_keys(void)
  * and what type of server we are.
  */
 
-/** Whether we can reach our ORPort from the outside. */
-static int can_reach_or_port = 0;
-/** Whether we can reach our DirPort from the outside. */
-static int can_reach_dir_port = 0;
+/** Whether we can reach our ORPorts from the outside.
+ * There must be one advertised IPv4 ORPort, and there may also be one
+ * advertised IPv6 ORPort. */
+static int can_reach_or_port_ipv4 = 0;
+static int can_reach_or_port_ipv6 = 0;
+/** Whether we can reach our DirPort from the outside.
+ * There is only one advertised DirPort, and it is on IPv4. */
+static int can_reach_dir_port_ipv4 = 0;
 
 /** Forget what we have learned about our reachability status. */
 void
 router_reset_reachability(void)
 {
-  can_reach_or_port = can_reach_dir_port = 0;
+  can_reach_or_port_ipv4 = 0;
+  can_reach_or_port_ipv6 = 0;
+  can_reach_dir_port_ipv4 = 0;
 }
 
 /** Return 1 if we won't do reachability checks, because:
@@ -1200,8 +1206,9 @@ int
 check_whether_orport_reachable(const or_options_t *options)
 {
   int reach_checks_disabled = router_reachability_checks_disabled(options);
+  /* We ignore IPv6 ORPort reachability for the moment */
   return reach_checks_disabled ||
-         can_reach_or_port;
+         can_reach_or_port_ipv4;
 }
 
 /** Return 0 if we need to do a DirPort reachability check, because:
@@ -1218,8 +1225,9 @@ check_whether_dirport_reachable(const or_options_t *options)
 {
   int reach_checks_disabled = router_reachability_checks_disabled(options) ||
                               !options->DirPort_set;
+  /* There is only one advertised DirPort, and it is on IPv4. */
   return reach_checks_disabled ||
-         can_reach_dir_port;
+         can_reach_dir_port_ipv4;
 }
 
 /** The lower threshold of remaining bandwidth required to advertise (or
@@ -1544,20 +1552,25 @@ router_orport_found_reachable(const tor_addr_t *or_addr, uint16_t or_port)
     return;
   }
 
-  const int new_ipv4 = !can_reach_or_port && or_addr->family == AF_INET;
+  const int new_ipv4 = !can_reach_or_port_ipv4 && or_addr->family == AF_INET;
+  const int new_ipv6 = !can_reach_or_port_ipv6 && or_addr->family == AF_INET6;
 
-  if (new_ipv4 && me) {
-    /* Using an undecorated address is safe as long as or_addr is IPv4 */
-    tor_assert_nonfatal(or_addr->family == AF_INET);
+  if ((new_ipv4 || new_ipv6) && me) {
+    /* Decorate IPv6 addresses, so that the port is unambiguous. */
     char address[TOR_ADDR_BUF_LEN];
-    tor_addr_to_str(address, or_addr, sizeof(address), 0);
-    log_notice(LD_OR, "Self-testing indicates your IPv4 ORPort %s:%d is "
+    tor_addr_to_str(address, or_addr, sizeof(address), 1);
+    log_notice(LD_OR, "Self-testing indicates your %s ORPort %s:%d is "
                "reachable from the outside. Excellent.%s",
+               or_addr->family == AF_INET ? "IPv4" : "IPv6",
                address, or_port,
                options->PublishServerDescriptor_ != NO_DIRINFO
                && check_whether_dirport_reachable(options) ?
                  " Publishing server descriptor." : "");
-    can_reach_or_port = 1;
+    if (new_ipv4) {
+      can_reach_or_port_ipv4 = 1;
+    } else if (new_ipv6) {
+      can_reach_or_port_ipv6 = 1;
+    }
     mark_my_descriptor_dirty("ORPort found reachable");
     /* This is a significant enough change to upload immediately,
      * at least in a test network */
@@ -1584,7 +1597,7 @@ router_dirport_found_reachable(const tor_addr_t *dir_addr, uint16_t dir_port)
     return;
   }
 
-  if (!can_reach_dir_port && me) {
+  if (!can_reach_dir_port_ipv4 && me) {
     /* Using an undecorated address is safe as long as dir_addr is IPv4 */
     tor_assert_nonfatal(dir_addr->family == AF_INET);
     char *address = tor_addr_to_str_dup(dir_addr);
@@ -1594,7 +1607,7 @@ router_dirport_found_reachable(const tor_addr_t *dir_addr, uint16_t dir_port)
                options->PublishServerDescriptor_ != NO_DIRINFO
                && check_whether_orport_reachable(options) ?
                " Publishing server descriptor." : "");
-    can_reach_dir_port = 1;
+    can_reach_dir_port_ipv4 = 1;
     if (decide_to_advertise_dirport(options, me->dir_port)) {
       mark_my_descriptor_dirty("DirPort found reachable");
       /* This is a significant enough change to upload immediately,
