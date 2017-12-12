@@ -2089,6 +2089,10 @@ circuit_get_open_circ_or_launch(entry_connection_t *conn,
                "received a consensus with exits",
                options->UseBridges ? "bridges" : "entrynodes");
       } else {
+        /* Getting directory documents doesn't help much if we have a limited
+         * number of guards */
+        tor_assert_nonfatal(!options->UseBridges);
+        tor_assert_nonfatal(!options->EntryNodes);
         /* Retry our directory fetches, so we have a fresh set of guard info */
         log_fn(severity, LD_APP|LD_DIR,
                "Application request when we haven't %s. "
