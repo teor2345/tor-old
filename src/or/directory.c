@@ -2862,8 +2862,13 @@ handle_response_fetch_desc(dir_connection_t *conn,
     SMARTLIST_FOREACH(which, char *, cp, tor_free(cp));
     smartlist_free(which);
   }
-  if (directory_conn_is_self_reachability_test(conn))
-    router_dirport_found_reachable();
+
+  if (directory_conn_is_self_reachability_test(conn)) {
+    router_dirport_found_reachable(&TO_CONN(conn)->addr, TO_CONN(conn)->port);
+    /* This is a single-use connection: it will close automatically.
+     * We usually automatic retry on directory request failures - we block
+     * the retries in connection_dir_request_failed(). */
+  }
 
   return 0;
 }

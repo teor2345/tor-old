@@ -52,7 +52,8 @@ int router_origin_circ_is_self_reachability_test(
                                   origin_circuit_t *origin_circ);
 void router_orport_found_reachable(const tor_addr_t *or_addr,
                                    uint16_t or_port);
-void router_dirport_found_reachable(void);
+void router_dirport_found_reachable(const tor_addr_t *dir_addr,
+                                    uint16_t dir_port);
 void router_perform_bandwidth_test(int num_circs, time_t now);
 
 int net_is_disabled(void);

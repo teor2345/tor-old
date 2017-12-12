@@ -3,3 +3,6 @@
       Previously, Tor would confirm relay reachability as soon as any create
       cell arrived at any ORPort. This could lead to relays publishing
       incorrect addresses. Fixes bug 17782; bugfix on 0.1.0.1-rc.
+    - Log IPv4 DirPort addresses and ports during relay reachability tests.
+      This makes DirPort checks consistent with ORPort checks.
+      Follow-up to 17782.

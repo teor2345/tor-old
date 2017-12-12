@@ -1570,16 +1570,27 @@ router_orport_found_reachable(const tor_addr_t *or_addr, uint16_t or_port)
   }
 }
 
-/** Annotate that we found our DirPort reachable. */
+/** Annotate that we found our DirPort reachable at dir_addr and dir_port. */
 void
-router_dirport_found_reachable(void)
+router_dirport_found_reachable(const tor_addr_t *dir_addr, uint16_t dir_port)
 {
   const routerinfo_t *me = router_get_my_routerinfo();
   const or_options_t *options = get_options();
+
+  /* the caller should have checked this using
+   * directory_conn_is_self_reachability_test() */
+  if (BUG(!dir_addr) || BUG(!tor_addr_eq_ipv4h(dir_addr, me->addr)) ||
+      BUG(dir_port != me->dir_port)) {
+    return;
+  }
+
   if (!can_reach_dir_port && me) {
-    char *address = tor_dup_ip(me->addr);
-    log_notice(LD_DIRSERV,"Self-testing indicates your DirPort is reachable "
-               "from the outside. Excellent.%s",
+    /* Using an undecorated address is safe as long as dir_addr is IPv4 */
+    tor_assert_nonfatal(dir_addr->family == AF_INET);
+    char *address = tor_addr_to_str_dup(dir_addr);
+    log_notice(LD_DIRSERV, "Self-testing indicates your IPv4 DirPort %s:%d is "
+               "reachable from the outside. Excellent.%s",
+               address, dir_port,
                options->PublishServerDescriptor_ != NO_DIRINFO
                && check_whether_orport_reachable(options) ?
                " Publishing server descriptor." : "");
