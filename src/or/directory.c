@@ -832,19 +832,28 @@ directory_choose_address_routerstatus(const routerstatus_t *status,
 
 /** Return true iff <b>conn</b> is the client side of a directory connection
  * we launched to ourself in order to determine the reachability of our
- * dir_port. */
+ * advertised IPv4 dir_port.
+ * See also router_origin_circ_is_self_reachability_test(). */
 static int
 directory_conn_is_self_reachability_test(dir_connection_t *conn)
 {
+  if (!conn) {
+    return 0;
+  }
+
   if (conn->requested_resource &&
       !strcmpstart(conn->requested_resource,"authority")) {
     const routerinfo_t *me = router_get_my_routerinfo();
+    /* There is only ever one advertised DirPort, and it is on the relay's
+     * advertised IPv4 address */
     if (me &&
         router_digest_is_me(conn->identity_digest) &&
-        tor_addr_eq_ipv4h(&conn->base_.addr, me->addr) && /*XXXX prop 118*/
-        me->dir_port == conn->base_.port)
+        tor_addr_eq_ipv4h(&TO_CONN(conn)->addr, me->addr) &&
+        TO_CONN(conn)->port == me->dir_port) {
       return 1;
+    }
   }
+
   return 0;
 }
 
