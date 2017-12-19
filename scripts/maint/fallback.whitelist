@@ -819,3 +819,6 @@
 # https://trac.torproject.org/projects/tor/ticket/22321#comment:3
 81.7.11.38:80 orport=443 id=F9246DEF2B653807236DA134F2AEAB103D58ABFE
 81.7.14.254:9001 orport=443 id=1AE039EE0B11DB79E4B4B29CBA9F752864A0259E
+
+# https://trac.torproject.org/projects/tor/ticket/22527#comment:1
+199.184.246.250:80 orport=443 id=1F6ABD086F40B890A33C93CC4606EE68B31C9556 ipv6=[2620:124:1009:1::171]:443
