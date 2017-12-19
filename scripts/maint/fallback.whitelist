@@ -208,9 +208,6 @@
 46.101.143.173:80 orport=443 id=F960DF50F0FD4075AC9B505C1D4FFC8384C490FB
 
 # Email sent directly to teor, verified using relay contact info
-217.79.190.25:9030 orport=9090 id=361D33C96D0F161275EE67E2C91EE10B276E778B
-
-# Email sent directly to teor, verified using relay contact info
 193.171.202.146:9030 orport=9001 id=01A9258A46E97FF8B2CAC7910577862C14F2C524
 
 # Email sent directly to teor, verified using relay contact info
