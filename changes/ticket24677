@@ -1,0 +1,3 @@
+  o Minor features (network test):
+    - Tor test now checks if "ping -6 ::1" works when the user runs "make
+      test-network-all". Closes ticket 24677.
