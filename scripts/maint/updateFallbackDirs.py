@@ -47,7 +47,7 @@ import copy
 import re
 
 from stem.descriptor import DocumentHandler
-from stem.descriptor.remote import get_consensus
+from stem.descriptor.remote import get_consensus, get_server_descriptors
 
 import logging
 logging.root.name = ''
@@ -564,6 +564,7 @@ class Candidate(object):
     if not self.has_ipv6():
       logging.debug("Failed to get an ipv6 address for %s."%(self._fpr,))
     self._compute_version()
+    self._extra_info_cache = None
 
   def _stable_sort_or_addresses(self):
     # replace self._data['or_addresses'] with a stable ordering,
@@ -1331,6 +1332,7 @@ class Candidate(object):
     # "address:dirport orport=port id=fingerprint"
     # "[ipv6=addr:orport]"
     # /* nickname=name */
+    # [/* extrainfo={0,1} */]
     # ,
     #
     # Do we want a C string, or a commented-out string?
@@ -1361,6 +1363,14 @@ class Candidate(object):
     if not comment_string:
       s += ' */'
     s += '\n'
+    # if we know whether the fallback is an extrainfo cache, flag it
+    if self._extra_info_cache is not None:
+      if not comment_string:
+        s += '/* '
+      s += 'extrainfo=%d'%(1 if self._extra_info_cache else 0)
+      if not comment_string:
+        s += ' */'
+      s += '\n'
     s += ','
     if comment_string:
       s += '\n'
@@ -1746,6 +1756,15 @@ class CandidateList(dict):
     self.fallbacks = family_limit_fallbacks
     return original_count - len(self.fallbacks)
 
+  # find the fallbacks that cache extra-info documents
+  # Onionoo doesn't know this, so we have to use stem
+  def mark_extra_info_caches(self):
+    fingerprint_list = [ f._fpr for f in self.fallbacks ]
+    logging.info("Downloading fallback descriptors to find extra-info caches")
+    desc_list = get_server_descriptors(fingerprints=fingerprint_list).run()
+    for d in desc_list:
+      self[d.fingerprint]._extra_info_cache = d.extra_info_cache
+
   # try a download check on each fallback candidate in order
   # stop after max_count successful downloads
   # but don't remove any candidates from the array
@@ -1993,6 +2012,18 @@ class CandidateList(dict):
                     CandidateList.describe_percentage(dir_count,
                                                       fallback_count)))
 
+  # return a list of fallbacks which cache extra-info documents
+  def fallbacks_with_extra_info_cache(self):
+    return filter(lambda x: x._extra_info_cache, self.fallbacks)
+
+  # log a message about the proportion of fallbacks that cache extra-info docs
+  def describe_fallback_extra_info_caches(self):
+    extra_info_falback_count = len(self.fallbacks_with_extra_info_cache())
+    fallback_count = len(self.fallbacks)
+    logging.warning('%s of fallbacks cache extra-info documents'%(
+                    CandidateList.describe_percentage(extra_info_falback_count,
+                                                      fallback_count)))
+
   # return a list of fallbacks which have the Exit flag
   def fallbacks_with_exit(self):
     return filter(lambda x: x.is_exit(), self.fallbacks)
@@ -2192,6 +2223,9 @@ def list_fallbacks(whitelist, blacklist):
                     'This may take some time.')
   failed_count = candidates.perform_download_consensus_checks(max_count)
 
+  # work out which fallbacks cache extra-infos
+  candidates.mark_extra_info_caches()
+
   # analyse and log interesting diversity metrics
   # like netblock, ports, exit, IPv4-only
   # (we can't easily analyse AS, and it's hard to accurately analyse country)
@@ -2200,6 +2234,7 @@ def list_fallbacks(whitelist, blacklist):
   if HAVE_IPADDRESS:
     candidates.describe_fallback_netblocks()
   candidates.describe_fallback_ports()
+  candidates.describe_fallback_extra_info_caches()
   candidates.describe_fallback_exit_flag()
 
   # output C comments summarising the fallback selection process
