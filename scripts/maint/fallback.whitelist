@@ -914,3 +914,6 @@
 
 # https://lists.torproject.org/pipermail/tor-relays/2017-December/013917.html
 104.200.20.46:80 orport=9001 id=78E2BE744A53631B4AAB781468E94C52AB73968B # bynumlawtor
+
+# email sent directly to teor
+72.52.75.27:9030 orport=9001 id=8567AD0A6369ED08527A8A8533A5162AC00F7678 # piecoopdotnet
