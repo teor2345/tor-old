@@ -30,7 +30,7 @@
 # https://lists.torproject.org/pipermail/tor-relays/2015-December/008362.html
 # https://trac.torproject.org/projects/tor/ticket/22321#comment:22
 78.47.18.110:443 orport=80 id=F8D27B163B9247B232A2EEE68DD8B698695C28DE ipv6=[2a01:4f8:120:4023::110]:80 # fluxe3
-131.188.40.188:443 orport=80 id=EBE718E1A49EE229071702964F8DB1F318075FF8 ipv6=[2001:638:a000:4140::ffff:188]:80
+131.188.40.188:1443 orport=80 id=EBE718E1A49EE229071702964F8DB1F318075FF8 ipv6=[2001:638:a000:4140::ffff:188]:80 # fluxe4
 
 # https://lists.torproject.org/pipermail/tor-relays/2015-December/008366.html
 5.39.88.19:9030 orport=9001 id=7CB8C31432A796731EA7B6BF4025548DFEB25E0C ipv6=[2001:41d0:8:9a13::1]:9050
@@ -65,6 +65,9 @@
 81.7.14.253:9001 orport=443 id=1AE039EE0B11DB79E4B4B29CBA9F752864A0259E # Ichotolot60
 81.7.11.186:1080 orport=443 id=B86137AE9681701901C6720E55C16805B46BD8E3 # BeastieJoy60
 85.25.213.211:465 orport=80 id=CE47F0356D86CF0A1A2008D97623216D560FB0A8 # BeastieJoy61
+85.25.159.65:995 orport=80 id=52BFADA8BEAA01BA46C8F767F83C18E2FE50C1B9 # BeastieJoy63
+81.7.3.67:993 orport=443 id=A2E6BB5C391CD46B38C55B4329C35304540771F1 # BeastieJoy62
+81.7.14.31:9001 orport=443 id=7600680249A22080ECC6173FBBF64D6FCF330A61 # Ichotolot62
 
 # https://lists.torproject.org/pipermail/tor-relays/2015-December/008382.html
 51.255.33.237:9091 orport=9001 id=A360C21FA87FFA2046D92C17086A6B47E5C68109
@@ -300,8 +303,9 @@
 # Email sent directly to teor, verified using relay contact info
 212.129.38.254:9030 orport=9001 id=FDF845FC159C0020E2BDDA120C30C5C5038F74B4
 
-# Email sent directly to teor, verified using relay contact info
-37.157.195.87:8030 orport=443 id=12FD624EE73CEF37137C90D38B2406A66F68FAA2
+# Email sent directly to teor
+37.157.195.87:8030 orport=443 id=12FD624EE73CEF37137C90D38B2406A66F68FAA2 # thanatosCZ
+5.189.169.190:8030 orport=8080 id=8D79F73DCD91FC4F5017422FAC70074D6DB8DD81 # thanatosDE
 
 # Email sent directly to teor, verified using relay contact info
 37.187.7.74:80 orport=443 id=AEA43CB1E47BE5F8051711B2BF01683DB1568E05 ipv6=[2001:41d0:a:74a::1]:443
@@ -392,8 +396,8 @@
 # Email sent directly to teor, verified using relay contact info
 5.199.142.236:9030 orport=9001 id=F4C0EDAA0BF0F7EC138746F8FEF1CE26C7860265
 
-# Email sent directly to teor, verified using relay contact info
-188.166.133.133:9030 orport=9001 id=774555642FDC1E1D4FDF2E0C31B7CA9501C5C9C7 ipv6=[2a03:b0c0:2:d0::5:f001]:9001
+# Email sent directly to teor
+188.166.133.133:9030 orport=9001 id=774555642FDC1E1D4FDF2E0C31B7CA9501C5C9C7 ipv6=[2a03:b0c0:2:d0::26c0:1]:9001 # dropsy
 
 # Email sent directly to teor, verified using relay contact info
 46.8.249.10:80 orport=443 id=31670150090A7C3513CB7914B9610E786391A95D
@@ -485,8 +489,8 @@
 # Email sent directly to teor, verified using relay contact info
 185.97.32.18:9030 orport=9001 id=04250C3835019B26AA6764E85D836088BE441088
 
-# Email sent directly to teor, verified using relay contact info
-149.56.45.200:9030 orport=9001 id=FE296180018833AF03A8EACD5894A614623D3F76
+# Email sent directly to teor
+149.56.45.200:9030 orport=9001 id=FE296180018833AF03A8EACD5894A614623D3F76 ipv6=[2607:5300:201:3000::17d3]:9002 # PiotrTorpotkinOne
 
 # Email sent directly to teor, verified using relay contact info
 81.2.209.10:443 orport=80 id=B6904ADD4C0D10CDA7179E051962350A69A63243 ipv6=[2001:15e8:201:1::d10a]:80
@@ -696,9 +700,6 @@
 # Email sent directly to teor, verified using relay contact info
 64.113.32.29:9030 orport=9001 id=30C19B81981F450C402306E2E7CFB6C3F79CB6B2
 
-# Email sent directly to teor, verified using relay contact info
-212.51.156.193:995 orport=110 id=32E7AAF1F602814D699BEF6761AD03E387758D49 ipv6=[2a02:168:4a01::49]:110
-
 # Emails sent directly to teor, verified using relay contact info
 51.254.101.242:9002 orport=9001 id=4CC9CC9195EC38645B699A33307058624F660CCF
 
@@ -764,8 +765,8 @@
 # Email sent directly to teor, verified using relay contact info
 185.34.60.114:80 orport=443 id=7F7A695DF6F2B8640A70B6ADD01105BC2EBC5135
 
-# Email sent directly to teor, verified using relay contact info
-94.142.242.84:80 orport=443 id=AA0D167E03E298F9A8CD50F448B81FBD7FA80D56 ipv6=[2a02:898:24:84::1]:443
+# https://lists.torproject.org/pipermail/tor-relays/2017-December/013939.html
+94.142.242.84:80 orport=443 id=AA0D167E03E298F9A8CD50F448B81FBD7FA80D56 ipv6=[2a02:898:24:84::1]:443 # rejozenger
 
 # Email sent directly to teor, verified using relay contact info
 185.129.62.62:9030 orport=9001 id=ACDD9E85A05B127BA010466C13C8C47212E8A38F ipv6=[2a06:d380:0:3700::62]:9001
@@ -815,10 +816,6 @@
 
 # Email sent directly to teor, verified using relay contact info
 5.9.147.226:9030 orport=9001 id=B0553175AADB0501E5A61FC61CEA3970BE130FF2
-
-# https://trac.torproject.org/projects/tor/ticket/22321#comment:3
-81.7.11.38:80 orport=443 id=F9246DEF2B653807236DA134F2AEAB103D58ABFE
-81.7.14.254:9001 orport=443 id=1AE039EE0B11DB79E4B4B29CBA9F752864A0259E
 
 # https://trac.torproject.org/projects/tor/ticket/22527#comment:1
 199.184.246.250:80 orport=443 id=1F6ABD086F40B890A33C93CC4606EE68B31C9556 ipv6=[2620:124:1009:1::171]:443
@@ -914,3 +911,15 @@
 
 # https://lists.torproject.org/pipermail/tor-relays/2017-December/013917.html
 104.200.20.46:80 orport=9001 id=78E2BE744A53631B4AAB781468E94C52AB73968B # bynumlawtor
+
+# https://lists.torproject.org/pipermail/tor-relays/2017-December/013929.html
+139.99.130.178:80 orport=443 id=867B95CACD64653FEEC4D2CEFC5C49B4620307A7 # coffswifi2
+
+# https://lists.torproject.org/pipermail/tor-relays/2017-December/013946.html
+172.98.193.43:80 orport=443 id=5E56738E7F97AA81DEEF59AF28494293DFBFCCDF # Backplane
+
+# Email sent directly to teor
+62.210.254.132:80 orport=443 id=8456DFA94161CDD99E480C2A2992C366C6564410 # turingmachine
+
+# Email sent directly to teor
+80.127.117.180:80 orport=443 id=328E54981C6DDD7D89B89E418724A4A7881E3192 ipv6=[2001:985:e77:10::4]:443 # sjc01
