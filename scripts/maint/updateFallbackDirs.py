@@ -1386,12 +1386,13 @@ class Candidate(object):
       s += ' */'
     s += '\n'
     # (insert additional comment fields here)
-    # This terminator must be the last line in each fallback entry
+    # The terminator and comma must be the last line in each fallback entry
     if not comment_string:
       s += '/* '
     s += '====='
     if not comment_string:
       s += ' */'
+    s += '\n'
     s += ','
     if comment_string:
       s += '\n'
