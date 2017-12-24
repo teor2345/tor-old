@@ -1338,9 +1338,13 @@ class Candidate(object):
   # comment-out the returned string
   def fallbackdir_info(self, dl_speed_ok):
     # "address:dirport orport=port id=fingerprint"
+    # (insert additional madatory fields here)
     # "[ipv6=addr:orport]"
+    # (insert additional optional fields here)
     # /* nickname=name */
     # /* extrainfo={0,1} */
+    # (insert additional comment fields here)
+    # /* ===== */
     # ,
     #
     # Do we want a C string, or a commented-out string?
@@ -1362,9 +1366,11 @@ class Candidate(object):
             self.orport,
             cleanse_c_string(self._fpr))
     s += '\n'
+    # (insert additional madatory fields here)
     if self.has_ipv6():
       s += '" ipv6=%s:%d"'%(cleanse_c_string(self.ipv6addr), self.ipv6orport)
       s += '\n'
+    # (insert additional optional fields here)
     if not comment_string:
       s += '/* '
     s += 'nickname=%s'%(cleanse_c_string(self._data['nickname']))
@@ -1379,6 +1385,13 @@ class Candidate(object):
     if not comment_string:
       s += ' */'
     s += '\n'
+    # (insert additional comment fields here)
+    # This terminator must be the last line in each fallback entry
+    if not comment_string:
+      s += '/* '
+    s += '====='
+    if not comment_string:
+      s += ' */'
     s += ','
     if comment_string:
       s += '\n'
