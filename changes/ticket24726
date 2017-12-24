@@ -1,0 +1,4 @@
+  o Minor features (fallback directory mirrors):
+    - Remove commas from external string inputs to the fallback list.
+      This makes sure that list parsers only see one comma per fallback entry.
+      Implements ticket 24726.
