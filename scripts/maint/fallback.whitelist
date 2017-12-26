@@ -528,8 +528,8 @@
 # Email sent directly to teor, verified using relay contact info
 212.238.208.48:9030 orport=9001 id=F406219CDD339026D160E53FCA0EF6857C70F109 ipv6=[2001:984:a8fb:1:ba27:ebff:feac:c109]:9001
 
-# Email sent directly to teor, verified using relay contact info
-176.158.132.12:9030 orport=9001 id=DC163DDEF4B6F0C6BC226F9F6656A5A30C5C5686
+# Email sent directly to teor
+176.158.236.102:9030 orport=9001 id=DC163DDEF4B6F0C6BC226F9F6656A5A30C5C5686 # Underworld
 
 # Email sent directly to teor, verified using relay contact info
 91.229.20.27:9030 orport=9001 id=9A0D54D3A6D2E0767596BF1515E6162A75B3293F
@@ -846,9 +846,6 @@
 163.172.221.44:59030 orport=59001 id=164604F5C86FC8CC9C0288BD9C02311958427597 # altego
 
 # Email sent directly to teor
-163.172.101.137:80 orport=443 id=4198BD138E5E11B15B05C826B427148CED7D99FE # ParEpistemenTaksis
-
-# Email sent directly to teor
 46.38.237.221:9030 orport=9001 id=D30E9D4D639068611D6D96861C95C2099140B805 # mine
 
 # https://lists.torproject.org/pipermail/tor-relays/2017-December/013911.html
@@ -928,3 +925,6 @@
 # https://lists.torproject.org/pipermail/tor-relays/2017-December/013960.html
 51.15.205.214:9030 orport=9001 id=8B6556601612F1E2AFCE2A12FFFAF8482A76DD1F ipv6=[2001:bc8:4400:2500::5:b07]:9001 # titania1
 51.15.205.214:9031 orport=9002 id=5E363D72488276160D062DDD2DFA25CFEBAF5EA9 ipv6=[2001:bc8:4400:2500::5:b07]:9002 # titania2
+
+# Email sent directly to teor
+185.129.249.124:9030 orport=9001 id=1FA8F638298645BE58AC905276680889CB795A94 # treadstone
