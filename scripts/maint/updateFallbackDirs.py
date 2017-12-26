@@ -76,6 +76,8 @@ except ImportError:
 # * patch changes include changing header comments or other unstructured
 #   content
 FALLBACK_FORMAT_VERSION = '2.0.0'
+SECTION_SEPARATOR_BASE = '====='
+SECTION_SEPARATOR_COMMENT = '/* ' + SECTION_SEPARATOR_BASE + ' */'
 
 # Output all candidate fallbacks, or only output selected fallbacks?
 OUTPUT_CANDIDATES = False
@@ -1389,7 +1391,7 @@ class Candidate(object):
     # The terminator and comma must be the last line in each fallback entry
     if not comment_string:
       s += '/* '
-    s += '====='
+    s += SECTION_SEPARATOR_BASE
     if not comment_string:
       s += ' */'
     s += '\n'
@@ -2184,6 +2186,9 @@ def list_fallbacks(whitelist, blacklist):
   print "/* type=fallback */"
   print ("/* version={} */"
          .format(cleanse_c_multiline_comment(FALLBACK_FORMAT_VERSION)))
+  # end the header with a separator, to make it easier for parsers
+  print SECTION_SEPARATOR_COMMENT
+
   logging.warning('Downloading and parsing Onionoo data. ' +
                   'This may take some time.')
   # find relays that could be fallbacks
@@ -2274,6 +2279,9 @@ def list_fallbacks(whitelist, blacklist):
   # output C comments specifying the OnionOO data used to create the list
   for s in fetch_source_list():
     print describe_fetch_source(s)
+
+  # start the list with a separator, to make it easy for parsers
+  print SECTION_SEPARATOR_COMMENT
 
   # sort the list differently depending on why we've created it:
   # if we're outputting the final fallback list, sort by fingerprint
