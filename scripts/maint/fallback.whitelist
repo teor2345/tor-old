@@ -846,9 +846,6 @@
 163.172.221.44:59030 orport=59001 id=164604F5C86FC8CC9C0288BD9C02311958427597 # altego
 
 # Email sent directly to teor
-163.172.101.137:80 orport=443 id=4198BD138E5E11B15B05C826B427148CED7D99FE # ParEpistemenTaksis
-
-# Email sent directly to teor
 46.38.237.221:9030 orport=9001 id=D30E9D4D639068611D6D96861C95C2099140B805 # mine
 
 # https://lists.torproject.org/pipermail/tor-relays/2017-December/013911.html
