@@ -47,7 +47,7 @@ import copy
 import re
 
 from stem.descriptor import DocumentHandler
-from stem.descriptor.remote import get_consensus, get_server_descriptors
+from stem.descriptor.remote import get_consensus, get_server_descriptors, MAX_FINGERPRINTS
 
 import logging
 logging.root.name = ''
@@ -1780,12 +1780,46 @@ class CandidateList(dict):
     self.fallbacks = family_limit_fallbacks
     return original_count - len(self.fallbacks)
 
+  # try once to get the descriptors for fingerprint_list using stem
+  # returns an empty list on exception
+  @staticmethod
+  def get_fallback_descriptors_once(fingerprint_list):
+    desc_list = get_server_descriptors(fingerprints=fingerprint_list).run(suppress=True)
+    return desc_list
+
+  # try up to max_retries times to get the descriptors for fingerprint_list
+  # using stem. Stops retrying when all descriptors have been retrieved.
+  # returns a list containing the descriptors that were retrieved
+  @staticmethod
+  def get_fallback_descriptors(fingerprint_list, max_retries=5):
+    # we can't use stem's retries=, because we want to support more than 96
+    # descriptors
+    #
+    # add an attempt for every MAX_FINGERPRINTS (or part thereof) in the list
+    max_retries += (len(fingerprint_list) + MAX_FINGERPRINTS - 1) / MAX_FINGERPRINTS
+    remaining_list = fingerprint_list
+    desc_list = []
+    for _ in xrange(max_retries):
+      if len(remaining_list) == 0:
+        break
+      new_desc_list = CandidateList.get_fallback_descriptors_once(remaining_list[0:MAX_FINGERPRINTS])
+      for d in new_desc_list:
+        try:
+          remaining_list.remove(d.fingerprint)
+        except ValueError:
+          # warn and ignore if a directory mirror returned a bad descriptor
+          logging.warning("Directory mirror returned unwanted descriptor %s, ignoring",
+                          d.fingerprint)
+          continue
+        desc_list.append(d)
+    return desc_list
+
   # find the fallbacks that cache extra-info documents
   # Onionoo doesn't know this, so we have to use stem
   def mark_extra_info_caches(self):
     fingerprint_list = [ f._fpr for f in self.fallbacks ]
     logging.info("Downloading fallback descriptors to find extra-info caches")
-    desc_list = get_server_descriptors(fingerprints=fingerprint_list).run()
+    desc_list = CandidateList.get_fallback_descriptors(fingerprint_list)
     for d in desc_list:
       self[d.fingerprint]._extra_info_cache = d.extra_info_cache
     missing_descriptor_list = [ f._fpr for f in self.fallbacks
