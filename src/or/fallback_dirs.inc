@@ -1,5 +1,6 @@
 /* type=fallback */
 /* version=2.0.0 */
+/* ===== */
 /* Whitelist & blacklist excluded 1326 of 1513 candidates. */
 /* To comment-out entries in this file, use C comments, and add * to the start of each line. (stem finds fallback entries using " at the start of a line.) */
 /* Checked IPv4 DirPorts served a consensus within 15.0s. */
@@ -16,6 +17,7 @@ URL: https:onionoo.torproject.orgdetails?fields=fingerprint%2Cnickname%2Ccontact
 Onionoo Source: uptime Date: 2017-05-16 07:00:00 Version: 4.0
 URL: https:onionoo.torproject.orguptime?first_seen_days=30-&flag=V2Dir&type=relay&last_seen_days=-0
 */
+/* ===== */
 "176.10.104.240:80 orport=443 id=0111BA9B604669E636FFD5B503F382A4B7AD6E80"
 /* nickname= */
 /* extrainfo=0 */
