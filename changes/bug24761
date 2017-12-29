@@ -1,0 +1,4 @@
+  o Minor bugfixes (rust, protover):
+    - Allow protover.rs to build with older rustc versions, by declaring a
+      dependency on the retain_hash_collection feature.  Fixes bug 24761;
+      bugfix on 0.3.2.1-alpha.

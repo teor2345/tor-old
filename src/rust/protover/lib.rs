@@ -22,6 +22,9 @@
 //! protocols to develop independently, without having to claim compatibility
 //! with specific versions of Tor.
 
+// Allow this module to be built with rust stable < 1.18.0
+#![feature(retain_hash_collection)]
+
 extern crate libc;
 extern crate smartlist;
 extern crate external;
