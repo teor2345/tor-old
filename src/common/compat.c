@@ -1662,6 +1662,7 @@ get_max_sockets(void)
 /** Number of extra file descriptors to keep in reserve beyond those that we
  * tell Tor it's allowed to use. */
 #define ULIMIT_BUFFER 32 /* keep 32 extra fd's beyond ConnLimit_ */
+#define ULIMIT 8192 /* to check the file descriptor limit */
 
 /** Learn the maximum allowed number of file descriptors, and tell the
  * system we want to use up to that number. (Some systems have a low soft
@@ -1779,6 +1780,15 @@ set_max_file_descriptors(rlim_t limit, int *max_out)
     limit = INT_MAX;
   tor_assert(max_out);
   *max_out = max_sockets = (int)limit - ULIMIT_BUFFER;
+  /* Check done to warn users who run Tor from tarball */
+  if (public_server_mode(get_options())) {
+    if (limit < ULIMIT) {
+      log_warn(LD_CONFIG,
+               "Public Relay having too-low file descriptor limit. Raise "
+               "the file-descriptor limit or run Tor using a package "
+               "manager");
+    }
+  }
   return 0;
 }
 
