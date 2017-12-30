@@ -928,3 +928,6 @@
 
 # Email sent directly to teor
 185.129.249.124:9030 orport=9001 id=1FA8F638298645BE58AC905276680889CB795A94 # treadstone
+
+# https://lists.torproject.org/pipermail/tor-relays/2017-December/014000.html
+24.117.231.229:34175 orport=45117 id=CE24412AD69444954B4015E293AE53DDDAFEA3D6 # Anosognosia
