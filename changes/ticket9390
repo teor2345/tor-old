@@ -1,0 +1,4 @@
+  o Minor enhancements (connection limits):
+    - When a relay doesn't have enough file descriptors available, warn the
+      operator, and let them know how to fix the issue.
+      Implements ticket 9390. Patch by "aruna1234".
