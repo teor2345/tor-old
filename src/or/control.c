@@ -6268,6 +6268,10 @@ privcount_circuit_failure_reason(const or_circuit_t *orcirc)
 static uint64_t
 privcount_circuit_exit_stream_count(const or_circuit_t *orcirc)
 {
+  log_warn(LD_CONTROL, "get exit_stream_count or_circ: %p, "
+           "privcount_n_exit_streams: %" PRIu64,
+           orcirc, orcirc ? orcirc->privcount_n_exit_streams : 0);
+
   if (!orcirc) {
     return 0;
   }
@@ -6446,6 +6450,10 @@ privcount_data_is_exit(const edge_connection_t* exitconn,
 {
   const or_circuit_t* oc = privcount_get_exit_const_or_circ(exitconn, orcirc);
 
+  log_warn(LD_CONTROL, "is_exit or_circ: %p, "
+           "privcount_n_exit_streams: %" PRIu64,
+           orcirc, orcirc ? orcirc->privcount_n_exit_streams : 0);
+
   return privcount_circuit_exit_stream_count(oc) > 0;
 }
 
@@ -6460,6 +6468,17 @@ static int
 privcount_is_used_for_legacy_events(const connection_t* conn,
                                     const circuit_t *circ)
 {
+  log_warn(LD_CONTROL, "conn: %p circ: %p"
+           " EnablePrivCount: %d, no data: %d, sample reject: %d origin: %d"
+           " is dir: %d",
+           conn,
+           circ,
+           get_options()->EnablePrivCount,
+           !conn && !circ,
+           circ && circ->privcount_event_sample_reject,
+           circ && privcount_circuit_is_origin(circ),
+           privcount_data_is_dir(conn, circ));
+
   /* Ignore events and counters when PrivCount is disabled */
   if (!get_options()->EnablePrivCount) {
     return 0;
@@ -6497,6 +6516,14 @@ privcount_is_used_for_legacy_stream_events(const edge_connection_t* exitconn,
                                            const or_circuit_t *orcirc)
 {
   const or_circuit_t* oc = privcount_get_exit_const_or_circ(exitconn, orcirc);
+
+  log_warn(LD_CONTROL, "exitconn: %p orcirc: %p"
+           " used for legacy events: %d is exit: %d",
+           exitconn,
+           orcirc,
+           privcount_is_used_for_legacy_events(PRIVCOUNT_TO_CONN(exitconn),
+                                               PRIVCOUNT_TO_CIRC(oc)),
+           privcount_data_is_exit(exitconn, oc));
 
   if (!privcount_is_used_for_legacy_events(PRIVCOUNT_TO_CONN(exitconn),
                                            PRIVCOUNT_TO_CIRC(oc))) {
@@ -6972,6 +6999,11 @@ static uint64_t
 privcount_edge_connection_circuit_exit_stream_number(
                                             const edge_connection_t *exitconn)
 {
+  log_warn(LD_CONTROL, "get stream_number exitconn: %p"
+           ", privcount_circuit_exit_stream_number: %" PRIu64,
+           exitconn,
+           exitconn ? exitconn->privcount_circuit_exit_stream_number : 0);
+
   if (exitconn) {
     return exitconn->privcount_circuit_exit_stream_number;
   } else {
@@ -7473,6 +7505,8 @@ void
 control_event_privcount_stream_ended(const edge_connection_t *exitconn)
 {
   if (!EVENT_IS_INTERESTING(EVENT_PRIVCOUNT_STREAM_ENDED)) {
+    log_warn(LD_CONTROL, "event is not interesting exitconn: %p ",
+             exitconn);
     return;
   }
 
@@ -7485,6 +7519,9 @@ control_event_privcount_stream_ended(const edge_connection_t *exitconn)
 
   /* Ignore failed resolves, and other missing circuits */
   if (!orcirc) {
+            log_warn(LD_CONTROL, "not orcirc exitconn: %p orcirc: %p",
+             exitconn,
+             orcirc);
     return;
   }
 
@@ -7493,6 +7530,11 @@ control_event_privcount_stream_ended(const edge_connection_t *exitconn)
    * This means we won't get hidden-service requests, directory requests, or
    * any non-exit connections, and we ignore failed resolves, as well. */
   if (!privcount_is_used_for_legacy_stream_events(exitconn, orcirc)) {
+        log_warn(LD_CONTROL, "exitconn: %p orcirc: %p"
+                 " used for legacy stream: %d",
+                 exitconn,
+                 orcirc,
+                 privcount_is_used_for_legacy_stream_events(exitconn, orcirc));
     return;
   }
 
@@ -7502,10 +7544,50 @@ control_event_privcount_stream_ended(const edge_connection_t *exitconn)
   if (exitconn && !privcount_was_enabled_before(
                                       &exitconn->base_.timestamp_created_tv,
                                       options)) {
+        log_warn(LD_CONTROL, "exitconn not before exitconn: %p orcirc: %p"
+             " now: %s before: %d exit created: %s"
+             " before: %d circuit created: %s",
+             exitconn,
+             orcirc,
+             privcount_timeval_to_epoch_str_dup(
+                                        &options->enable_privcount_timestamp,
+                                        NULL),
+             exitconn ? privcount_was_enabled_before(
+                                        &exitconn->base_.timestamp_created_tv,
+                                        options) : 0,
+             exitconn ? privcount_timeval_to_epoch_str_dup(
+                                        &exitconn->base_.timestamp_created_tv,
+                                        NULL) : "",
+             orcirc ? privcount_was_enabled_before(
+                                            &orcirc->base_.timestamp_created,
+                                          options) : 0,
+             orcirc ? privcount_timeval_to_epoch_str_dup(
+                                            &orcirc->base_.timestamp_created,
+                                            NULL) : "");
     return;
   }
   if (orcirc && !privcount_was_enabled_before(&orcirc->base_.timestamp_created,
                                               options)) {
+    log_warn(LD_CONTROL, "orcirc not before exitconn: %p orcirc: %p"
+             " now: %s before: %d exit created: %s"
+             " before: %d circuit created: %s",
+             exitconn,
+             orcirc,
+             privcount_timeval_to_epoch_str_dup(
+                                        &options->enable_privcount_timestamp,
+                                        NULL),
+             exitconn ? privcount_was_enabled_before(
+                                        &exitconn->base_.timestamp_created_tv,
+                                        options) : 0,
+             exitconn ? privcount_timeval_to_epoch_str_dup(
+                                        &exitconn->base_.timestamp_created_tv,
+                                        NULL) : "",
+             orcirc ? privcount_was_enabled_before(
+                                            &orcirc->base_.timestamp_created,
+                                          options) : 0,
+             orcirc ? privcount_timeval_to_epoch_str_dup(
+                                            &orcirc->base_.timestamp_created,
+                                            NULL) : "");
     return;
   }
 
@@ -7536,6 +7618,24 @@ control_event_privcount_stream_ended(const edge_connection_t *exitconn)
                      addr_str,
                      privcount_edge_connection_circuit_exit_stream_number(
                                                                     exitconn));
+
+  log_warn(LD_CONTROL, "exitconn: %p orcirc: %p"
+           " 650 PRIVCOUNT_STREAM_ENDED %" PRIu64 " %" PRIu32
+           " %" PRIu16 " %" PRIu16 " %" PRIu64 " %" PRIu64
+           " %s %s %s %s %" PRIu64,
+           exitconn,
+           orcirc,
+           privcount_or_circuit_p_chan_global_identifier(orcirc),
+           privcount_or_circuit_p_circ_id(orcirc),
+           privcount_edge_connection_stream_id(exitconn),
+           privcount_edge_connection_port(exitconn),
+           privcount_edge_connection_n_exit_bytes_inbound(exitconn),
+           privcount_edge_connection_n_exit_bytes_outbound(exitconn),
+           created_str,
+           now_str,
+           host_str,
+           addr_str,
+           privcount_edge_connection_circuit_exit_stream_number(exitconn));
 
   tor_free(now_str);
   tor_free(created_str);

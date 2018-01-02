@@ -3144,6 +3144,9 @@ connection_exit_begin_conn(cell_t *cell, circuit_t *circ)
     port = bcell.port;
 
     if (or_circ) {
+      log_warn(LD_CONTROL, "set exit_stream_count or_circ: %p"
+               ", previous privcount_n_exit_streams: %" PRIu64,
+               or_circ, or_circ ? or_circ->privcount_n_exit_streams : 0);
       or_circ->privcount_n_exit_streams++;
     }
 
@@ -3213,6 +3216,15 @@ connection_exit_begin_conn(cell_t *cell, circuit_t *circ)
    * connection_exit_connect(). */
   n_stream = edge_connection_new(CONN_TYPE_EXIT, AF_INET);
   if (or_circ && !bcell.is_begindir) {
+
+    log_warn(LD_CONTROL, "set stream_number or_circ: %p"
+             ", privcount_n_exit_streams: %" PRIu64
+             ", n_stream: %p"
+             ", previous privcount_circuit_exit_stream_number: %" PRIu64,
+             or_circ, or_circ ? or_circ->privcount_n_exit_streams : 0,
+             n_stream,
+             n_stream ? n_stream->privcount_circuit_exit_stream_number : 0);
+
     n_stream->privcount_circuit_exit_stream_number =
         or_circ->privcount_n_exit_streams;
   }
