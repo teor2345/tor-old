@@ -669,7 +669,8 @@
 213.239.217.18:1338 orport=1337 id=C37BC191AC389179674578C3E6944E925FE186C2 ipv6=[2a01:4f8:a0:746a:101:1:1:1]:1337
 
 # Email sent directly to teor, verified using relay contact info
-188.40.128.246:9030 orport=9001 id=AD19490C7DBB26D3A68EFC824F67E69B0A96E601
+# Assume details update is permanent
+188.40.128.246:9030 orport=9001 id=AD19490C7DBB26D3A68EFC824F67E69B0A96E601 ipv6=[2a01:4f8:221:1ac1:dead:beef:7005:9001]:9001 # sputnik
 
 # Email sent directly to teor, verified using relay contact info
 88.198.253.13:9030 orport=9001 id=DF924196D69AAE3C00C115A9CCDF7BB62A175310 ipv6=[2a01:4f8:11a:b1f::2]:9001
@@ -688,7 +689,8 @@
 107.170.101.39:9030 orport=443 id=30973217E70AF00EBE51797FF6D9AA720A902EAA
 
 # Email sent directly to teor, verified using relay contact info
-192.99.212.139:80 orport=443 id=F10BDE279AE71515DDCCCC61DC19AC8765F8A3CC
+# Assume details update is permanent
+193.70.112.165:80 orport=443 id=F10BDE279AE71515DDCCCC61DC19AC8765F8A3CC # ParkBenchInd001
 
 # Email sent directly to teor, verified using relay contact info
 163.172.35.249:80 orport=443 id=C08DE49658E5B3CFC6F2A952B453C4B608C9A16A
@@ -812,7 +814,8 @@
 5.9.159.14:9030 orport=9001 id=0F100F60C7A63BED90216052324D29B08CFCF797
 
 # Email sent directly to teor, verified using relay contact info
-5.9.147.226:9030 orport=9001 id=B0553175AADB0501E5A61FC61CEA3970BE130FF2
+# Assume details update is permanent
+5.9.147.226:9030 orport=9001 id=B0553175AADB0501E5A61FC61CEA3970BE130FF2 ipv6=[2a01:4f8:190:30e1::2]:9001 # zwiubel
 
 # https://trac.torproject.org/projects/tor/ticket/22527#comment:1
 199.184.246.250:80 orport=443 id=1F6ABD086F40B890A33C93CC4606EE68B31C9556 ipv6=[2620:124:1009:1::171]:443
