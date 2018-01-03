@@ -468,9 +468,6 @@
 # Email sent directly to teor, verified using relay contact info
 95.130.11.147:9030 orport=443 id=6B697F3FF04C26123466A5C0E5D1F8D91925967A
 
-# Email sent directly to teor
-176.31.191.26:110 orport=995 id=7350AB9ED7568F22745198359373C04AC783C37C # Casper03
-
 # Email sent directly to teor, verified using relay contact info
 128.199.55.207:9030 orport=9001 id=BCEF908195805E03E92CCFE669C48738E556B9C5 ipv6=[2a03:b0c0:2:d0::158:3001]:9001
 
@@ -931,3 +928,11 @@
 
 # https://lists.torproject.org/pipermail/tor-relays/2017-December/014000.html
 24.117.231.229:34175 orport=45117 id=CE24412AD69444954B4015E293AE53DDDAFEA3D6 # Anosognosia
+
+# https://lists.torproject.org/pipermail/tor-relays/2018-January/014012.html
+128.31.0.13:80 orport=443 id=A53C46F5B157DD83366D45A8E99A244934A14C46 # csailmitexit
+
+# Email sent directly to teor
+82.247.103.117:110 orport=995 id=C9B3C1661A9577BA24C1C2C6123918921A495509 # Casper01
+109.238.2.79:110 orport=995 id=7520892E3DD133D0B0464D01A158B54B8E2A8B75 # Casper02
+51.15.179.153:110 orport=995 id=BB60F5BA113A0B8B44B7B37DE3567FE561E92F78 # Casper04
