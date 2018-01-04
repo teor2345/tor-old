@@ -117,7 +117,7 @@
 # This fallback opted-in in previous releases, then changed its details,
 # and so we blacklisted it. Now we want to whitelist changes.
 # Assume details update is permanent
-85.96.180.29:80 orport=443 id=F93D8F37E35C390BCAD9F9069E13085B745EC216 # TykRelay06
+185.96.180.29:80 orport=443 id=F93D8F37E35C390BCAD9F9069E13085B745EC216 # TykRelay06
 
 # Email sent directly to teor, verified using relay contact info
 185.11.180.67:80 orport=9001 id=794D8EA8343A4E820320265D05D4FA83AB6D1778
