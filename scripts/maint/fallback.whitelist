@@ -219,7 +219,8 @@
 193.171.202.146:9030 orport=9001 id=01A9258A46E97FF8B2CAC7910577862C14F2C524
 
 # Email sent directly to teor, verified using relay contact info
-197.231.221.211:9030 orport=9001 id=BC630CBBB518BE7E9F4E09712AB0269E9DC7D626
+# Assume details update is permanent
+197.231.221.211:9030 orport=443 id=BC630CBBB518BE7E9F4E09712AB0269E9DC7D626 # IPredator
 
 # Email sent directly to teor, verified using relay contact info
 185.61.138.18:8080 orport=4443 id=2541759BEC04D37811C2209A88E863320271EC9C
