@@ -689,8 +689,7 @@
 107.170.101.39:9030 orport=443 id=30973217E70AF00EBE51797FF6D9AA720A902EAA
 
 # Email sent directly to teor, verified using relay contact info
-# Assume details update is permanent
-193.70.112.165:80 orport=443 id=F10BDE279AE71515DDCCCC61DC19AC8765F8A3CC # ParkBenchInd001
+192.99.212.139:80 orport=443 id=F10BDE279AE71515DDCCCC61DC19AC8765F8A3CC
 
 # Email sent directly to teor, verified using relay contact info
 163.172.35.249:80 orport=443 id=C08DE49658E5B3CFC6F2A952B453C4B608C9A16A
