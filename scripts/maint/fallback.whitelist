@@ -207,8 +207,9 @@
 # Email sent directly to teor, verified using relay contact info
 89.187.142.208:80 orport=443 id=64186650FFE4469EBBE52B644AE543864D32F43C
 
-# Email sent directly to teor, verified using relay contact info
-212.51.134.123:9030 orport=9001 id=50586E25BE067FD1F739998550EDDCB1A14CA5B2 ipv6=[2a02:168:6e00:0:3a60:77ff:fe9c:8bd1]:9001
+# Email sent directly to teor
+# Assuming details change is permanent
+212.51.134.123:9030 orport=9001 id=50586E25BE067FD1F739998550EDDCB1A14CA5B2 # Jans
 
 # Email sent directly to teor, verified using relay contact info
 46.101.143.173:80 orport=443 id=F960DF50F0FD4075AC9B505C1D4FFC8384C490FB
@@ -569,7 +570,8 @@
 167.114.113.48:9030 orport=403 id=2EC0C66EA700C44670444280AABAB1EC78B722A0
 
 # Email sent directly to teor, verified using relay contact info
-79.120.16.42:9030 orport=9001 id=BD552C165E2ED2887D3F1CCE9CFF155DDA2D86E6
+# Assuming details change is permanent
+213.141.138.174:9030 orport=9001 id=BD552C165E2ED2887D3F1CCE9CFF155DDA2D86E6 # Schakalium
 
 # Email sent directly to teor, verified using relay contact info
 95.128.43.164:80 orport=443 id=616081EC829593AF4232550DE6FFAA1D75B37A90 ipv6=[2a02:ec0:209:10::4]:443
