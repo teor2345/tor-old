@@ -132,7 +132,7 @@ cache_store_v3_as_dir(hs_cache_dir_descriptor_t *desc)
 
   if (options->EnablePrivCount) {
     /* Find the size of the descriptor */
-    tor_assert(desc->plaintext_data->encrypted_blob_size <= SSIZE_MAX);
+    tor_assert(desc->plaintext_data->superencrypted_blob_size <= SSIZE_MAX);
     encoded_size = strlen(desc->encoded_desc);
     tor_assert(encoded_size <= SSIZE_MAX);
   }
@@ -171,19 +171,19 @@ cache_store_v3_as_dir(hs_cache_dir_descriptor_t *desc)
          * The list of introduction points is encrypted in v3, so we can't
          * count them. */
         control_event_privcount_hsdir_cache_store(
-                                    HS_VERSION_THREE,
-                                    /* cache info */
-                                    has_existing_cache_entry,
-                                    0, /* not added to cache */
-                                    "obsolete",
-                                    /* descriptor info */
-                                    NULL, /* haven't implemented desc id */
-                                    NULL, /* not v2 */
-                                    NULL, /* not v2 */
-                                    desc,
-                                    encoded_size,
-                                    desc->plaintext_data->encrypted_blob_size
-                                    );
+                                HS_VERSION_THREE,
+                                /* cache info */
+                                has_existing_cache_entry,
+                                0, /* not added to cache */
+                                "obsolete",
+                                /* descriptor info */
+                                NULL, /* haven't implemented desc id */
+                                NULL, /* not v2 */
+                                NULL, /* not v2 */
+                                desc,
+                                encoded_size,
+                                desc->plaintext_data->superencrypted_blob_size
+                                );
       }
 
       goto err;
@@ -208,21 +208,21 @@ cache_store_v3_as_dir(hs_cache_dir_descriptor_t *desc)
 
   if (options->EnablePrivCount) {
     control_event_privcount_hsdir_cache_store(
-                                    HS_VERSION_THREE,
-                                    /* cache info */
-                                    has_existing_cache_entry,
-                                    1, /* added to cache */
-                                    (has_existing_cache_entry
-                                     ? "updated"
-                                     : "new"),
-                                    /* descriptor info */
-                                    NULL, /* haven't implemented desc id */
-                                    NULL, /* not v2 */
-                                    NULL, /* not v2 */
-                                    desc,
-                                    encoded_size,
-                                    desc->plaintext_data->encrypted_blob_size
-                                    );
+                                HS_VERSION_THREE,
+                                /* cache info */
+                                has_existing_cache_entry,
+                                1, /* added to cache */
+                                (has_existing_cache_entry
+                                 ? "updated"
+                                 : "new"),
+                                /* descriptor info */
+                                NULL, /* haven't implemented desc id */
+                                NULL, /* not v2 */
+                                NULL, /* not v2 */
+                                desc,
+                                encoded_size,
+                                desc->plaintext_data->superencrypted_blob_size
+                                );
   }
 
   return 0;
