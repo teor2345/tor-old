@@ -4838,7 +4838,7 @@ handle_get_hs_descriptor_v2(dir_connection_t *conn,
           break;
       }
     } else { /* not well-formed */
-      write_http_status_line(conn, 400, "Bad request");
+      write_short_http_response(conn, 400, "Bad request");
 
       size_t query_size = 0;
       if (get_options()->EnablePrivCount) {
@@ -4864,12 +4864,11 @@ handle_get_hs_descriptor_v2(dir_connection_t *conn,
                                     -1,   /* don't know desc */
                                     -1    /* don't know desc */
                                     );
-
     }
     goto done;
   } else {
     /* Not encrypted! */
-    write_http_status_line(conn, 404, "Not found");
+    write_short_http_response(conn, 404, "Not found");
 
     size_t query_size = 0;
     if (get_options()->EnablePrivCount) {
@@ -4897,7 +4896,6 @@ handle_get_hs_descriptor_v2(dir_connection_t *conn,
                                     -1,   /* don't know desc */
                                     -1    /* don't know desc */
                                     );
-
   }
  done:
   return 0;
@@ -4916,7 +4914,7 @@ handle_get_hs_descriptor_v3(dir_connection_t *conn,
 
   /* Reject unencrypted dir connections */
   if (!connection_dir_is_encrypted(conn)) {
-    write_http_status_line(conn, 404, "Not found");
+    write_short_http_response(conn, 404, "Not found");
 
     size_t pubkey_str_size = 0;
 
@@ -4924,9 +4922,9 @@ handle_get_hs_descriptor_v3(dir_connection_t *conn,
     if (get_options()->EnablePrivCount) {
       tor_assert(url);
 
-      /* After the path prefix follows the base64 encoded blinded pubkey which we
-       * use to get the descriptor from the cache. Skip the prefix and get the
-       * pubkey. */
+      /* After the path prefix follows the base64 encoded blinded pubkey which
+       * we use to get the descriptor from the cache. Skip the prefix and get
+       * the pubkey. */
       tor_assert(!strcmpstart(url, "/tor/hs/3/"));
       pubkey_str = url + strlen("/tor/hs/3/");
       pubkey_str_size = strlen(pubkey_str);

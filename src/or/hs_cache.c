@@ -288,28 +288,28 @@ cache_lookup_v3_as_dir(const char *query, const char **desc_out)
     /* Find the size of the descriptor */
     size_t encoded_size = 0;
     if (get_options()->EnablePrivCount) {
-      tor_assert(entry->plaintext_data->encrypted_blob_size <= SSIZE_MAX);
+      tor_assert(entry->plaintext_data->superencrypted_blob_size <= SSIZE_MAX);
       encoded_size = strlen(entry->encoded_desc);
       tor_assert(encoded_size <= SSIZE_MAX);
     }
 
     control_event_privcount_hsdir_cache_fetch(
-                                HS_VERSION_THREE,
-                                /* cache info */
-                                1, /* has_cache_entry */
-                                query_size,
-                                "cached",
-                                /* descriptor info */
-                                NULL,  /* haven't implemented desc id */
-                                NULL,  /* not v2 */
-                                NULL,  /* not v2 */
-                                -1,    /* not v2 */
-                                query, /* blinded service key */
-                                entry, /* cached descriptor */
-                                entry->created_ts,
-                                encoded_size,
-                                entry->plaintext_data->encrypted_blob_size
-                                );
+                              HS_VERSION_THREE,
+                              /* cache info */
+                              1, /* has_cache_entry */
+                              query_size,
+                              "cached",
+                              /* descriptor info */
+                              NULL,  /* haven't implemented desc id */
+                              NULL,  /* not v2 */
+                              NULL,  /* not v2 */
+                              -1,    /* not v2 */
+                              query, /* blinded service key */
+                              entry, /* cached descriptor */
+                              entry->created_ts,
+                              encoded_size,
+                              entry->plaintext_data->superencrypted_blob_size
+                              );
   } else {
     control_event_privcount_hsdir_cache_fetch(
                                     HS_VERSION_THREE,

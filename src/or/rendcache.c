@@ -610,22 +610,22 @@ rend_cache_lookup_v2_desc_as_dir(const char *desc_id, const char **desc)
 
     /* This is probably unreachable, because the caller checks for bad chars */
     control_event_privcount_hsdir_cache_fetch(
-                                              HS_VERSION_TWO,
-                                              /* cache info */
-                                              -1, /* has_cache_entry */
-                                              query_size,
-                                              "unparseable", /* cache reason */
-                                              /* descriptor info */
-                                              NULL, /* don't risk untrusted data */
-                                              NULL, /* don't know desc */
-                                              NULL, /* don't know desc */
-                                              -1,   /* don't know desc */
-                                              NULL, /* not v3 */
-                                              NULL, /* not v3 */
-                                              -1,   /* not v3 */
-                                              -1,   /* don't know desc */
-                                              -1    /* don't know desc */
-                                              );
+                                          HS_VERSION_TWO,
+                                          /* cache info */
+                                          -1, /* has_cache_entry */
+                                          query_size,
+                                          "unparseable", /* cache reason */
+                                          /* descriptor info */
+                                          NULL, /* don't risk untrusted data */
+                                          NULL, /* don't know desc */
+                                          NULL, /* don't know desc */
+                                          -1,   /* don't know desc */
+                                          NULL, /* not v3 */
+                                          NULL, /* not v3 */
+                                          -1,   /* not v3 */
+                                          -1,   /* don't know desc */
+                                          -1    /* don't know desc */
+                                          );
 
     return -1;
   }
