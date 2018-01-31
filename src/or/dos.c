@@ -303,9 +303,10 @@ cc_stats_refill_bucket(cc_client_stats_t *stats, const tor_addr_t *addr)
   /* This function is not allowed to make the bucket count smaller */
   tor_assert_nonfatal(new_circuit_bucket_count >= stats->circuit_bucket);
   log_debug(LD_DOS, "DoS address %s has its circuit bucket value: %" PRIu32
-                    ". Filling it to %" PRIu32 ". Circuit rate is %" PRIu32,
+                    ". Filling it to %" PRIu32 ". Circuit rate is %" PRIu32
+                    ". Elapsed time is %" PRIi64,
             fmt_addr(addr), stats->circuit_bucket, new_circuit_bucket_count,
-            circuit_rate);
+            circuit_rate, (int64_t)elapsed_time_last_refill);
 
   stats->circuit_bucket = new_circuit_bucket_count;
   stats->last_circ_bucket_refill_ts = now;
