@@ -245,10 +245,18 @@ cc_stats_refill_bucket(cc_client_stats_t *stats, const tor_addr_t *addr)
   now = approx_time();
   last_refill_ts = (int64_t)stats->last_circ_bucket_refill_ts;
 
+  /* If less than a second has elapsed, don't add any tokens.
+   * Note: If a relay's clock is ever 0, any new clients won't get a refill
+   * until the next second. But a relay that thinks it is 1970 will never
+   * validate the public consensus. */
+  if ((int64_t)now == last_refill_ts) {
+    return;
+  }
+
   /* We've never filled the bucket so fill it with the maximum being the burst
    * and we are done.
-   * Note: If a relay's clock is stuck at 0, all clients get a maximum refill.
-   * But a relay like that would never validate the consensus. */
+   * Note: If a relay's clock is ever 0, all clients that were last refilled
+   * in that zero second will get a full refill here. */
   if (last_refill_ts == 0) {
     num_token = dos_cc_circuit_burst;
     goto end;
