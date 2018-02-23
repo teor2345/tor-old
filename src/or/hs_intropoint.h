@@ -47,8 +47,11 @@ int hs_intro_received_introduce1(or_circuit_t *circ, const uint8_t *request,
 
 MOCK_DECL(int, hs_intro_send_intro_established_cell,(or_circuit_t *circ));
 
-/* also used by rendservice.c */
+/* also used by rendmid.c */
 int hs_intro_circuit_is_suitable_for_establish_intro(const or_circuit_t *circ);
+int hs_intro_circuits_are_suitable_for_introduce1(
+                                            const or_circuit_t *client_circ,
+                                            const or_circuit_t *service_circ);
 
 hs_intropoint_t *hs_intro_new(void);
 void hs_intropoint_clear(hs_intropoint_t *ip);

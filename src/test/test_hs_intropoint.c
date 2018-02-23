@@ -17,6 +17,7 @@
 #include "log_test_helpers.h"
 
 #include "or.h"
+#include "channel.h"
 #include "circuitlist.h"
 #include "circuituse.h"
 #include "ht.h"
@@ -110,6 +111,12 @@ helper_create_intro_circuit(void)
   or_circuit_t *circ = or_circuit_new(0, NULL);
   tt_assert(circ);
   circuit_change_purpose(TO_CIRCUIT(circ), CIRCUIT_PURPOSE_OR);
+  /* Make a channel
+   * there is no channel_new()
+   * channels are anonymous by default */
+  channel_t *p_chan = tor_malloc_zero(sizeof(channel_t));
+  /* And connect up the channel */
+  circ->p_chan = p_chan;
  done:
   return circ;
 }

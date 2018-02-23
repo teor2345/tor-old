@@ -177,6 +177,17 @@ rend_mid_introduce_legacy(or_circuit_t *circ, const uint8_t *request,
     goto err;
   }
 
+  /* We found both circuits, time to validate them.
+   * If we don't allow this introduction, we close the client circuit.
+   * (Closing the service circuit would stop other clients introducing
+   * themselves.) */
+  if (!hs_intro_circuits_are_suitable_for_introduce1(circ, intro_circ)) {
+    /* We do know the service, but we refuse to relay cells */
+    log_warn(LD_PROTOCOL, "Refused to relay legacy single-hop client "
+             "INTRODUCE1 to single-hop service.");
+    goto err;
+  }
+
   log_info(LD_REND,
            "Sending introduction request for service %s "
            "from circ %u to circ %u",

@@ -10,6 +10,7 @@
 
 #include "or.h"
 #include "config.h"
+#include "channel.h"
 #include "circuitlist.h"
 #include "circuituse.h"
 #include "config.h"
@@ -422,6 +423,30 @@ validate_introduce1_parsed_cell(const trn_cell_introduce1_t *cell)
   return -1;
 }
 
+/* Are we allowed to relay INTRODUCE1 cells between <b>client_circ</b> and
+ * <b>service_circ</b>?
+ * We refuse to relay cells from single-hop clients to single-hop services.
+ * And we refuse to relay cells when either circuit's channel is missing. */
+int
+hs_intro_circuits_are_suitable_for_introduce1(const or_circuit_t *client_circ,
+                                              const or_circuit_t *service_circ)
+{
+  /* We can't relay cells if either p_chan is missing. */
+  if (!client_circ->p_chan || !service_circ->p_chan) {
+    return 0;
+  }
+
+  /* We don't allow single hop on both ends that is a single hop client and a
+   * single onion service connecting to each other.
+   * It's safe to do these checks now we're sure we have p_chans. */
+  if (channel_is_client(client_circ->p_chan) &&
+      channel_is_client(service_circ->p_chan)) {
+    return 0;
+  }
+
+  return 1;
+}
+
 /* We just received a non legacy INTRODUCE1 cell on <b>client_circ</b> with
  * the payload in <b>request</b> of size <b>request_len</b>. Return 0 if
  * everything went well, or -1 if an error occurred. This function is in charge
@@ -476,6 +501,19 @@ handle_introduce1(or_circuit_t *client_circ, const uint8_t *request,
       status = HS_INTRO_ACK_STATUS_UNKNOWN_ID;
       goto send_ack;
     }
+  }
+
+  /* We found both circuits, time to validate them.
+   * If we don't allow this introduction, we close the client circuit.
+   * (Closing the service circuit would stop other clients introducing
+   * themselves.) */
+  if (!hs_intro_circuits_are_suitable_for_introduce1(client_circ,
+                                                     service_circ)) {
+    /* We do know the service, but we refuse to relay cells */
+    log_warn(LD_PROTOCOL, "Refused to relay HSv3 single-hop client INTRODUCE1 "
+             "to single-hop service.");
+    status = HS_INTRO_ACK_STATUS_CANT_RELAY;
+    goto send_ack;
   }
 
   /* Relay the cell to the service on its intro circuit with an INTRODUCE2
