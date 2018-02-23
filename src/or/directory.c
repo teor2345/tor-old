@@ -10,6 +10,7 @@
 #include "bridges.h"
 #include "buffers.h"
 #include "circuitbuild.h"
+#include "channel.h"
 #include "config.h"
 #include "connection.h"
 #include "connection_edge.h"
@@ -1581,6 +1582,55 @@ connection_dir_is_encrypted(const dir_connection_t *conn)
    * connection getting closed.
    */
   return TO_CONN(conn)->linked;
+}
+
+/** Return true iff <b>conn</b> is encrypted, and connected to an
+ * authenticated relay. Return false iff <b>conn</b> is connected directly to
+ * an unauthenticated client/service (or a bridge), or if <b>conn</b> uses an
+ * unencrypted connection, or is in an invalid state. */
+int
+connection_dir_is_anonymous(const dir_connection_t *conn)
+{
+  /* Is it encrypted? */
+  if (!connection_dir_is_encrypted(conn)) {
+    log_info(LD_DIR, "Rejected HSDir request: not encrypted");
+    return 0;
+  }
+
+  /* Walk the connection tree back to the channel, so we can ask it if it is
+   * a client.
+   */
+
+  /* The dir_conn's connected to the edge_conn */
+  const connection_t *linked_conn = TO_CONN(conn)->linked_conn;
+  if (!linked_conn || linked_conn->magic != EDGE_CONNECTION_MAGIC) {
+    /* If it's not, then the link has probably closed, just return false */
+    log_info(LD_DIR, "Rejected HSDir request: not linked to edge");
+    return 0;
+  }
+  /* There's no CONST_TO_EDGE_CONN, so discard and re-apply consts */
+  const edge_connection_t *edge_conn =
+    TO_EDGE_CONN((connection_t *)linked_conn);
+
+  /* The edge_conn's connected to the circ */
+  const circuit_t *circ = edge_conn->on_circuit;
+  if (!circ || CIRCUIT_IS_ORIGIN(circ)) {
+    /* If it's not, then the circuit has probably closed, just return false */
+    log_info(LD_DIR, "Rejected HSDir request: not on OR circuit");
+    return 0;
+  }
+  /* The circ is actually an or_circ */
+  const or_circuit_t *or_circ = CONST_TO_OR_CIRCUIT(circ);
+  if (!or_circ || !or_circ->p_chan) {
+    /* If it's not, then maybe we're at the wrong end of the circuit,
+     * just return false */
+    log_info(LD_DIR, "Rejected HSDir request: no p_chan");
+    return 0;
+  }
+
+  /* The or_circ's connected to the p_chan, and
+   * the p_chan's connected to the previous hop. */
+  return !channel_is_client(or_circ->p_chan);
 }
 
 /** Helper for sorting
@@ -4823,6 +4873,8 @@ handle_get_hs_descriptor_v2(dir_connection_t *conn,
                             const get_handler_args_t *args)
 {
   const char *url = args->url;
+  /* Allow encrypted but non-anonymous v2 descriptor fetches, because Tor2web
+   * uses them. See #20104. */
   if (connection_dir_is_encrypted(conn)) {
     /* Handle v2 rendezvous descriptor fetch request. */
     const char *descp;
@@ -4865,8 +4917,8 @@ handle_get_hs_descriptor_v3(dir_connection_t *conn,
   const char *pubkey_str = NULL;
   const char *url = args->url;
 
-  /* Reject unencrypted dir connections */
-  if (!connection_dir_is_encrypted(conn)) {
+  /* HS v3 descriptor get requests must be encrypted and anonymous. */
+  if (!connection_dir_is_anonymous(conn)) {
     write_short_http_response(conn, 404, "Not found");
     goto done;
   }
@@ -5059,8 +5111,9 @@ directory_handle_command_post,(dir_connection_t *conn, const char *headers,
   }
   log_debug(LD_DIRSERV,"rewritten url as '%s'.", escaped(url));
 
-  /* Handle v2 rendezvous service publish request. */
-  if (connection_dir_is_encrypted(conn) &&
+  /* Handle v2 rendezvous service publish request.
+   * Descriptor publish requests must be encrypted and anonymous. */
+  if (connection_dir_is_anonymous(conn) &&
       !strcmpstart(url,"/tor/rendezvous2/publish")) {
     if (rend_cache_store_v2_desc_as_dir(body) < 0) {
       log_warn(LD_REND, "Rejected v2 rend descriptor (body size %d) from %s.",
@@ -5074,10 +5127,9 @@ directory_handle_command_post,(dir_connection_t *conn, const char *headers,
     goto done;
   }
 
-  /* Handle HS descriptor publish request. */
-  /* XXX: This should be disabled with a consensus param until we want to
-   * the prop224 be deployed and thus use. */
-  if (connection_dir_is_encrypted(conn) && !strcmpstart(url, "/tor/hs/")) {
+  /* Handle HS descriptor publish request.
+   * Descriptor publish requests must be encrypted and anonymous. */
+  if (connection_dir_is_anonymous(conn) && !strcmpstart(url, "/tor/hs/")) {
     const char *msg = "HS descriptor stored successfully.";
 
     /* We most probably have a publish request for an HS descriptor. */

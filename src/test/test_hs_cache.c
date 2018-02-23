@@ -6,6 +6,7 @@
  * \brief Test hidden service caches.
  */
 
+#define CIRCUITLIST_PRIVATE
 #define CONNECTION_PRIVATE
 #define DIRECTORY_PRIVATE
 #define HS_CACHE_PRIVATE
@@ -17,6 +18,9 @@
 #include "networkstatus.h"
 #include "connection.h"
 #include "proto_http.h"
+#include "channel.h"
+#include "circuitlist.h"
+#include "circuituse.h"
 
 #include "hs_test_helpers.h"
 #include "test_helpers.h"
@@ -226,6 +230,9 @@ helper_fetch_desc_from_hsdir(const ed25519_public_key_t *blinded_key)
 
   /* The dir conn we are going to simulate */
   dir_connection_t *conn = NULL;
+  edge_connection_t *edge_conn = NULL;
+  channel_t *p_chan = NULL;
+  or_circuit_t *or_circ = NULL;
 
   /* First extract the blinded public key that we are going to use in our
      query, and then build the actual query string. */
@@ -242,6 +249,23 @@ helper_fetch_desc_from_hsdir(const ed25519_public_key_t *blinded_key)
   conn = dir_connection_new(AF_INET);
   tor_addr_from_ipv4h(&conn->base_.addr, 0x7f000001);
   TO_CONN(conn)->linked = 1;/* Pretend the conn is encrypted :) */
+  /* Pretend the conn is anonymous :)):
+   * Make an edge_conn */
+  edge_conn = edge_connection_new(CONN_TYPE_EXIT, AF_INET);
+  /* Make a channel
+   * there is no channel_new()
+   * channels are anonymous by default */
+  p_chan = tor_malloc_zero(sizeof(channel_t));
+  /* Make an or_circuit
+   * Only do the first few steps in or_circuit_new() */
+  or_circ = or_circuit_new(0, NULL);
+  circuit_change_purpose(TO_CIRCUIT(or_circ), CIRCUIT_PURPOSE_OR);
+  /* And connect up the channel, circuit, edge, and dir connections */
+  or_circ->p_chan = p_chan;
+  edge_conn->on_circuit = TO_CIRCUIT(or_circ);
+  TO_CONN(conn)->linked_conn = TO_CONN(edge_conn);
+
+  /* Finally, ask for the descriptor */
   retval = directory_handle_command_get(conn, hsdir_query_str,
                                         NULL, 0);
   tt_int_op(retval, OP_EQ, 0);
@@ -258,8 +282,10 @@ helper_fetch_desc_from_hsdir(const ed25519_public_key_t *blinded_key)
 
  done:
   tor_free(hsdir_query_str);
-  if (conn)
-    connection_free_minimal(TO_CONN(conn));
+  connection_free_minimal(TO_CONN(conn));
+  connection_free_minimal(TO_CONN(edge_conn));
+  tor_free(p_chan);
+  tor_free(or_circ);
 
   return received_desc;
 }
