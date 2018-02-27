@@ -1177,9 +1177,10 @@ or_connect_failure_ht_eq(const or_connect_failure_entry_t *a,
 static unsigned int
 or_connect_failure_ht_hash(const or_connect_failure_entry_t *entry)
 {
-  unsigned int hash = tor_addr_hash(&entry->addr);
-  hash += siphash24g(entry->identity_digest, sizeof(entry->identity_digest));
-  hash += entry->port;
+  unsigned int hash = (unsigned int) tor_addr_hash(&entry->addr);
+  hash += (unsigned int) siphash24g(entry->identity_digest,
+                                    sizeof(entry->identity_digest));
+  hash += (unsigned int) siphash24g(&entry->port, sizeof(entry->port));
   return hash;
 }
 
