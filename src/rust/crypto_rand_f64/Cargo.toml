@@ -1,0 +1,15 @@
+[package]
+authors = ["The Tor Project"]
+version = "0.0.1"
+name = "crypto_rand_f64"
+
+[dependencies]
+libc = "0.2.22"
+# TODO: use Tor's crypto_rand functions wrapped in Rng
+rand = "0.4"
+
+[lib]
+name = "crypto_rand_f64"
+path = "lib.rs"
+crate_type = ["rlib", "staticlib"]
+
