@@ -1,5 +1,5 @@
-// Copyright (c) 2018, The Tor Project, IAnc. */AA
-// See LICENSE for licensing information */
+// Copyright (c) 2018, The Tor Project, Inc.
+// See LICENSE for licensing information
 
 //! Random distribution tests
 //!
@@ -56,7 +56,8 @@ fn test_f64_integer_max_increment_inexact() {
     assert!(F64_INTEGER_MAX + 1.0 == F64_INTEGER_MAX_AS_U64 as f64);
 }
 
-/// Do both outputs of `get_rand_f64_sign()` occur at all?
+/// Do both outputs of `get_rand_f64_sign()` occur after
+/// `RANDOM_TEST_ITERATIONS` trials?
 #[test]
 fn test_rand_f64_sign_both_values_occur() {
     // Similar to C's test_crypto_rng_range()
@@ -91,10 +92,10 @@ fn test_rand_f64_sign_even_distribution() {
                                                 2.0,
                                                 RANDOM_TEST_ITERATIONS);
     
-    // A ten-sigma test fails with probability 1/10^23, which is similar
-    // to the RAM bit error probability 5 * 10^-7. We use a lower value
-    // than the crypto_rand unit tests, because we want to catch skewed
-    // distributions.
+    // A ten-sigma test fails with probability 1/10^23, which is much smaller
+    // than the RAM bit error probability 5 * 10^-7. We use a lower failure
+    // probability than the crypto_rand unit tests, because we want to catch
+    // skewed distributions.
     //
     // Sources:
     // https://en.wikipedia.org/wiki/Standard_deviation#Rules_for_normally_distributed_data

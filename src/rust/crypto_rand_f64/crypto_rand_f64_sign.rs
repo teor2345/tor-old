@@ -1,5 +1,5 @@
-// Copyright (c) 2018, The Tor Project, Inc. */
-// See LICENSE for licensing information */
+// Copyright (c) 2018, The Tor Project, Inc.
+// See LICENSE for licensing information
 
 //! Generates signed f64 values at random
 //!
@@ -23,7 +23,10 @@ use self::rand::random;
 // discretization / limited precision
 // catastrophic cancellation
 // double rounding
-// transcendental functions vs exactly specified operations
+// exactly specified operations
+// transcendental functions
+// - table-makers dilemma
+// - cyclic functions and modulus(?) errors
 
 /// Get a random floating-point positive or negative value of magnitude 1.0.
 ///
