@@ -16,8 +16,10 @@ extern crate rand;
 //use std::bool;
 use std::f64;
 
+// TODO: ThreadRng's default ISAAC implementation may not meet modern CSPRNG
+//       standards: https://github.com/dhardy/rand/issues/53
 // TODO: use crypto_rand from Tor, once it's wrapped in Rng
-use self::rand::random;
+use self::rand::*;
 
 // TODO: describe typical floating point issues:
 // discretization / limited precision
