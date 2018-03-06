@@ -1,0 +1,76 @@
+// Copyright (c) 2018, The Tor Project, Inc.
+// See LICENSE for licensing information
+
+//! Random distribution tests
+//!
+//! These tests check if the crypto_rand functions produce the expected
+//! random distributions. They check the outcome of a limited number of
+//! samples, so they have a small probability of failing by chance.
+//!
+//! These tests may be slower than other tests, because they loop many times.
+
+extern crate crypto_rand_f64;
+
+use crypto_rand_f64::*;
+// TODO: Why does this constant needs to be imported separately?
+use crypto_rand_f64::F64_INTEGER_MAX_AS_U64;
+
+/// Aim for a similar failure probability to test_crypto.c
+/// We use an odd power of two because it produces exact binomial results in
+/// `test_rand_f64_sign_even_distribution()`
+const RANDOM_TEST_ITERATIONS: u64 = 512;
+
+/// Do both outputs of `get_rand_f64_sign()` occur after
+/// `RANDOM_TEST_ITERATIONS` trials?
+#[test]
+fn test_rand_f64_sign_both_values_occur() {
+    // Similar to C's test_crypto_rng_range()
+    let mut got_positive = false;
+    let mut got_negative = false;
+    for _ in 0..RANDOM_TEST_ITERATIONS {
+        if get_rand_f64_sign() > 0.0 {
+            got_positive = true;
+        } else {
+            got_negative = true;
+        }
+    }
+    // These fail with probability 1/2^RANDOM_TEST_ITERATIONS
+    assert!(got_positive);
+    assert!(got_negative);
+}
+
+/// Do both outputs of `get_rand_f64_sign()` occur with the expected
+/// distribution after `RANDOM_TEST_ITERATIONS` trials?
+#[test]
+fn test_rand_f64_sign_even_distribution() {
+    let mut accumulator = 0.0;
+    for _ in 0..RANDOM_TEST_ITERATIONS {
+        // Check RANDOM_TEST_ITERATIONS is not too large
+        assert!(RANDOM_TEST_ITERATIONS <= F64_INTEGER_MAX_AS_U64);
+        // This floating-point addition is exact, and does not suffer from
+        // catastropic cancellation, as long as RANDOM_TEST_ITERATIONS is not
+        // too large
+        accumulator += get_rand_f64_sign();
+    }
+    let stdev =
+        get_binomial_standard_deviation(0.5, 2.0, RANDOM_TEST_ITERATIONS);
+
+    // A ten-sigma test fails with probability 1/10^23, which is much smaller
+    // than the RAM bit error probability 5 * 10^-7. We use a lower failure
+    // probability than the crypto_rand unit tests, because we want to catch
+    // skewed distributions.
+    //
+    // Sources:
+    // https://en.wikipedia.org/wiki/Standard_deviation#Rules_for_normally_distributed_data
+    // http://www.aleph.se/andart/archives/2009/09/ten_sigma_numerics_and_finance.html
+    // http://www.zdnet.com/article/dram-error-rates-nightmare-on-dimm-street/
+    let ten_sigma = 10.0 * stdev;
+
+    // check that the f64 cast below is safe
+    assert!(RANDOM_TEST_ITERATIONS <= F64_INTEGER_MAX_AS_U64);
+    // check that we haven't set ten_sigma too high
+    // (otherwise, this test will never fail)
+    assert!(ten_sigma < (RANDOM_TEST_ITERATIONS as f64));
+    // check if the probability distribution is skewed
+    assert!(accumulator.abs() < ten_sigma);
+}

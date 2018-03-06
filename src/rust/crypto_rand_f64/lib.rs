@@ -18,6 +18,9 @@ pub use crypto_rand_f64_sign::*;
 // And if I make these module private, I get dead code warnings.
 //
 // TODO: is there a better way?
+pub mod crypto_rand_distribution;
+pub use crypto_rand_distribution::*;
+
 pub mod tolerance_f64;
 pub use tolerance_f64::*;
 
