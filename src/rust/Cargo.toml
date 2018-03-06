@@ -1,5 +1,6 @@
 [workspace]
-members = ["external",
+members = ["crypto_rand_f64",
+           "external",
            "protover",
            "smartlist",
            "tor_allocate",
